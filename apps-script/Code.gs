@@ -79,13 +79,16 @@ function doGet(e) {
     var action = params.action || 'service';
     // Read-only ops served via GET so JSONP works.
     switch (action) {
-      case 'service':       return _serviceInfo();
-      case 'list_jobs':     return apiListJobs(e);
-      case 'get_job':       return apiGetJob(e);
-      case 'whoami':        return apiWhoami(e);
-      case 'auth_verify':   return apiAuthVerify(e);       // JSONP-friendly: session returned in body
-      case 'smart_fill':    return apiSmartFill(e);
-      default:              return _json({ ok:false, error:'Unknown action: ' + action }, 404);
+      case 'service':            return _serviceInfo();
+      case 'list_jobs':          return apiListJobs(e);
+      case 'get_job':            return apiGetJob(e);
+      case 'whoami':             return apiWhoami(e);
+      case 'auth_verify':        return apiAuthVerify(e);   // JSONP-friendly
+      case 'smart_fill':         return apiSmartFill(e);
+      case 'list_interpreters':  return apiListInterpreters(e);
+      case 'list_requestors':    return apiListRequestors(e);
+      case 'list_settings':      return apiListSettings(e);
+      default:                   return _json({ ok:false, error:'Unknown action: ' + action }, 404);
     }
   } catch (err) {
     return _json({ ok:false, error:String(err) }, 500);
@@ -98,19 +101,23 @@ function doPost(e) {
   try {
     var params = (e && e.parameter) || {};
     _setCallback(_safeCb(params.callback));
-    // Inbound marketing forms (legacy path — kept for the live marketing site)
     if (params.form_id) return handleInboundForm(e);
 
     var action = params.action || '';
     switch (action) {
-      case 'auth_request':  return apiAuthRequest(e);
-      case 'auth_verify':   return apiAuthVerify(e);
-      case 'create_job':    return apiCreateJob(e);
-      case 'claim_job':     return apiClaimJob(e);
-      case 'cancel_job':    return apiCancelJob(e);
-      case 'smart_fill':    return apiSmartFill(e);
-      case 'bootstrap':     return apiBootstrap(e);
-      default:              return _json({ ok:false, error:'Unknown action: ' + action }, 404);
+      case 'auth_request':       return apiAuthRequest(e);
+      case 'auth_verify':        return apiAuthVerify(e);
+      case 'create_job':         return apiCreateJob(e);
+      case 'claim_job':          return apiClaimJob(e);
+      case 'cancel_job':         return apiCancelJob(e);
+      case 'smart_fill':         return apiSmartFill(e);
+      case 'bootstrap':          return apiBootstrap(e);
+      case 'create_interpreter': return apiCreateInterpreter(e);
+      case 'update_interpreter': return apiUpdateInterpreter(e);
+      case 'create_requestor':   return apiCreateRequestor(e);
+      case 'update_agency':      return apiUpdateAgency(e);
+      case 'update_setting':     return apiUpdateSetting(e);
+      default:                   return _json({ ok:false, error:'Unknown action: ' + action }, 404);
     }
   } catch (err) {
     _logAudit('system_error', '', '', String(err));
@@ -832,6 +839,263 @@ function _scoreInterpreter(interp, job) {
     modalities: interp.modalities,
     score: { total: total, breakdown: s, max: 100 }
   };
+}
+
+// ============================================================================
+// INTERPRETERS — roster CRUD
+// ============================================================================
+
+function apiListInterpreters(e) {
+  var s = _requireSession(e);
+  if (!s.ok) return _json({ ok:false, error:s.error }, 401);
+  var ss = SpreadsheetApp.openById(SHEET_ID);
+  _ensureTab(ss, T.Interpreters, _tenantSchema().Interpreters);
+  var sh = ss.getSheetByName(T.Interpreters);
+  var data = sh.getDataRange().getValues();
+  if (data.length < 2) return _json({ ok:true, interpreters:[] });
+  var hdr = data[0];
+  var out = [];
+  for (var i = 1; i < data.length; i++) {
+    var o = _rowToObj(hdr, data[i]);
+    if (o.tenant_id !== s.payload.tid) continue;
+    out.push(o);
+  }
+  out.sort(function (a, b) {
+    return String(a.legal_last || '').localeCompare(String(b.legal_last || ''));
+  });
+  return _json({ ok:true, interpreters: out });
+}
+
+function apiCreateInterpreter(e) {
+  var s = _requireSession(e);
+  if (!s.ok) return _json({ ok:false, error:s.error }, 401);
+  var p = e.parameter || {};
+  if (!p.legal_first || !p.legal_last) return _json({ ok:false, error:'legal_first and legal_last required' });
+
+  var ss = SpreadsheetApp.openById(SHEET_ID);
+  _ensureTab(ss, T.Interpreters, _tenantSchema().Interpreters);
+
+  var interpreterId = _ulid('i');
+  var now = new Date().toISOString();
+  var row = {
+    interpreter_id: interpreterId,
+    tenant_id: s.payload.tid,
+    user_id: '',
+    classification: p.classification || '1099',
+    legal_first: p.legal_first,
+    legal_last: p.legal_last,
+    pronouns: p.pronouns || '',
+    home_city: p.home_city || '',
+    home_state: p.home_state || '',
+    home_zip: p.home_zip || '',
+    service_radius_mi: Number(p.service_radius_mi || 60),
+    has_vehicle: p.has_vehicle === 'true',
+    modalities: p.modalities || '["on-site","VRI","OPI"]',
+    languages: p.languages || '[]',  // expected JSON
+    certifications: p.certifications || '[]',
+    skills: p.skills || '[]',
+    rate_card_id: '',
+    min_call_hours: Number(p.min_call_hours || 2),
+    availability_prefs: '{}',
+    availability_doc_id: '',
+    payment_method: p.payment_method || 'ach',
+    payment_details_encrypted: '',
+    w9_doc_id: '',
+    coi_doc_id: '',
+    background_check_at: '',
+    deaf: p.deaf === 'true',
+    notes_internal: p.notes_internal || '',
+    status: 'active',
+    _created_at: now,
+    _updated_at: now,
+    _rev: 1
+  };
+  var hdr = _tenantSchema().Interpreters;
+  var rowArr = hdr.map(function (col) { return row[col] !== undefined ? row[col] : ''; });
+  ss.getSheetByName(T.Interpreters).appendRow(rowArr);
+  _logAudit('interpreter.create', s.payload.tid, s.payload.uid, interpreterId);
+  return _json({ ok:true, interpreter: row });
+}
+
+function apiUpdateInterpreter(e) {
+  var s = _requireSession(e);
+  if (!s.ok) return _json({ ok:false, error:s.error }, 401);
+  var p = e.parameter || {};
+  var id = p.interpreter_id;
+  if (!id) return _json({ ok:false, error:'interpreter_id required' });
+
+  var ss = SpreadsheetApp.openById(SHEET_ID);
+  var sh = ss.getSheetByName(T.Interpreters);
+  if (!sh) return _json({ ok:false, error:'No interpreters tab yet' }, 404);
+  var data = sh.getDataRange().getValues();
+  var hdr = data[0];
+  var iId = hdr.indexOf('interpreter_id');
+  var iTenant = hdr.indexOf('tenant_id');
+  var iUpdated = hdr.indexOf('_updated_at');
+  var iRev = hdr.indexOf('_rev');
+  for (var r = 1; r < data.length; r++) {
+    if (String(data[r][iId]) === id && String(data[r][iTenant]) === s.payload.tid) {
+      // Apply allowed updates
+      var allowed = ['classification','legal_first','legal_last','pronouns','home_city','home_state','home_zip','service_radius_mi','has_vehicle','modalities','languages','certifications','skills','min_call_hours','payment_method','deaf','notes_internal','status'];
+      allowed.forEach(function (field) {
+        if (p[field] === undefined || p[field] === null) return;
+        var col = hdr.indexOf(field);
+        if (col < 0) return;
+        var v = p[field];
+        if (field === 'has_vehicle' || field === 'deaf') v = (v === 'true');
+        if (field === 'service_radius_mi' || field === 'min_call_hours') v = Number(v);
+        sh.getRange(r + 1, col + 1).setValue(v);
+      });
+      sh.getRange(r + 1, iUpdated + 1).setValue(new Date().toISOString());
+      sh.getRange(r + 1, iRev + 1).setValue(Number(data[r][iRev] || 0) + 1);
+      _logAudit('interpreter.update', s.payload.tid, s.payload.uid, id);
+      return _json({ ok:true, interpreter_id:id });
+    }
+  }
+  return _json({ ok:false, error:'Interpreter not found' }, 404);
+}
+
+// ============================================================================
+// REQUESTORS — booking parties CRUD
+// ============================================================================
+
+function apiListRequestors(e) {
+  var s = _requireSession(e);
+  if (!s.ok) return _json({ ok:false, error:s.error }, 401);
+  var ss = SpreadsheetApp.openById(SHEET_ID);
+  _ensureTab(ss, T.Requestors, _tenantSchema().Requestors);
+  var sh = ss.getSheetByName(T.Requestors);
+  var data = sh.getDataRange().getValues();
+  if (data.length < 2) return _json({ ok:true, requestors:[] });
+  var hdr = data[0];
+  var out = [];
+  for (var i = 1; i < data.length; i++) {
+    var o = _rowToObj(hdr, data[i]);
+    if (o.tenant_id !== s.payload.tid) continue;
+    out.push(o);
+  }
+  out.sort(function (a, b) { return String(a.display_name || '').localeCompare(String(b.display_name || '')); });
+  return _json({ ok:true, requestors: out });
+}
+
+function apiCreateRequestor(e) {
+  var s = _requireSession(e);
+  if (!s.ok) return _json({ ok:false, error:s.error }, 401);
+  var p = e.parameter || {};
+  if (!p.display_name) return _json({ ok:false, error:'display_name required' });
+
+  var ss = SpreadsheetApp.openById(SHEET_ID);
+  _ensureTab(ss, T.Requestors, _tenantSchema().Requestors);
+
+  var requestorId = _ulid('r');
+  var now = new Date().toISOString();
+  var row = {
+    requestor_id: requestorId,
+    tenant_id: s.payload.tid,
+    display_name: p.display_name,
+    type: p.type || 'medical',
+    parent_org_id: '',
+    billing_payer_id: '',
+    default_location_id: '',
+    contract_doc_id: '',
+    po_required: p.po_required === 'true',
+    notes: p.notes || '',
+    status: 'active',
+    _created_at: now,
+    _updated_at: now,
+    _rev: 1
+  };
+  var hdr = _tenantSchema().Requestors;
+  var rowArr = hdr.map(function (col) { return row[col] !== undefined ? row[col] : ''; });
+  ss.getSheetByName(T.Requestors).appendRow(rowArr);
+  _logAudit('requestor.create', s.payload.tid, s.payload.uid, requestorId);
+  return _json({ ok:true, requestor: row });
+}
+
+// ============================================================================
+// AGENCY + SETTINGS — owner can update agency + rate cards
+// ============================================================================
+
+function apiUpdateAgency(e) {
+  var s = _requireSession(e);
+  if (!s.ok) return _json({ ok:false, error:s.error }, 401);
+  if (s.payload.role !== 'role_owner' && s.payload.role !== 'role_admin') {
+    return _json({ ok:false, error:'Owner or admin role required' }, 403);
+  }
+  var p = e.parameter || {};
+  var ss = SpreadsheetApp.openById(SHEET_ID);
+  var sh = ss.getSheetByName(T.Agencies);
+  if (!sh) return _json({ ok:false, error:'No agencies tab' }, 404);
+  var data = sh.getDataRange().getValues();
+  var hdr = data[0];
+  var iId = hdr.indexOf('tenant_id');
+  var iUpdated = hdr.indexOf('_updated_at');
+  for (var r = 1; r < data.length; r++) {
+    if (String(data[r][iId]) === s.payload.tid) {
+      var allowed = ['legal_name','tax_id_last4','phi_mode','timezone','brand_color','billing_email'];
+      allowed.forEach(function (field) {
+        if (p[field] === undefined || p[field] === null) return;
+        var col = hdr.indexOf(field);
+        if (col < 0) return;
+        sh.getRange(r + 1, col + 1).setValue(p[field]);
+      });
+      sh.getRange(r + 1, iUpdated + 1).setValue(new Date().toISOString());
+      _logAudit('agency.update', s.payload.tid, s.payload.uid, '');
+      return _json({ ok:true });
+    }
+  }
+  return _json({ ok:false, error:'Agency not found' }, 404);
+}
+
+function apiListSettings(e) {
+  var s = _requireSession(e);
+  if (!s.ok) return _json({ ok:false, error:s.error }, 401);
+  var ss = SpreadsheetApp.openById(SHEET_ID);
+  _ensureTab(ss, T.Settings, _tenantSchema().Settings);
+  var sh = ss.getSheetByName(T.Settings);
+  var data = sh.getDataRange().getValues();
+  if (data.length < 2) return _json({ ok:true, settings:{} });
+  var hdr = data[0];
+  var settings = {};
+  for (var i = 1; i < data.length; i++) {
+    var o = _rowToObj(hdr, data[i]);
+    settings[o.key] = { value: o.value, category: o.category };
+  }
+  return _json({ ok:true, settings:settings });
+}
+
+function apiUpdateSetting(e) {
+  var s = _requireSession(e);
+  if (!s.ok) return _json({ ok:false, error:s.error }, 401);
+  if (s.payload.role !== 'role_owner' && s.payload.role !== 'role_admin') {
+    return _json({ ok:false, error:'Owner or admin role required' }, 403);
+  }
+  var p = e.parameter || {};
+  if (!p.key) return _json({ ok:false, error:'key required' });
+  var ss = SpreadsheetApp.openById(SHEET_ID);
+  _ensureTab(ss, T.Settings, _tenantSchema().Settings);
+  var sh = ss.getSheetByName(T.Settings);
+  var data = sh.getDataRange().getValues();
+  var hdr = data[0];
+  var iKey = hdr.indexOf('key');
+  var iValue = hdr.indexOf('value');
+  var iCategory = hdr.indexOf('category');
+  var iUpdated = hdr.indexOf('updated_at');
+  var iUpdatedBy = hdr.indexOf('updated_by_user_id');
+  for (var r = 1; r < data.length; r++) {
+    if (String(data[r][iKey]) === p.key) {
+      sh.getRange(r + 1, iValue + 1).setValue(p.value || '');
+      if (iUpdated >= 0) sh.getRange(r + 1, iUpdated + 1).setValue(new Date().toISOString());
+      if (iUpdatedBy >= 0) sh.getRange(r + 1, iUpdatedBy + 1).setValue(s.payload.uid);
+      _logAudit('setting.update', s.payload.tid, s.payload.uid, p.key);
+      return _json({ ok:true });
+    }
+  }
+  // Not found — append new
+  var now = new Date().toISOString();
+  sh.appendRow([p.key, p.value || '', p.category || 'misc', s.payload.uid, now, now, now]);
+  _logAudit('setting.create', s.payload.tid, s.payload.uid, p.key);
+  return _json({ ok:true });
 }
 
 // ============================================================================

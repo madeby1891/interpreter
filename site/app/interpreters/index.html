@@ -1,0 +1,269 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Interpreters — 1891 Interpreter</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#C8553D">
+<link rel="icon" type="image/svg+xml" href="/interpreter/assets/img/favicon.svg">
+<link rel="stylesheet" href="/interpreter/assets/css/site.css">
+<link rel="stylesheet" href="/interpreter/assets/css/app.css">
+</head>
+<body>
+<a href="#main" class="skip">Skip to main content</a>
+
+<div class="app-shell">
+  <header class="app-header">
+    <div class="wrap">
+      <a href="/interpreter/app/" class="brand" aria-label="1891 Interpreter dashboard">
+        <img src="/interpreter/assets/img/brand-mark.svg" alt="" width="32" height="32">
+        <span>1891 <span class="brand-sub">Scheduler</span></span>
+      </a>
+      <div class="who"><span>Signed in as </span><strong id="who-name">…</strong><button id="signout" type="button">Sign out</button></div>
+    </div>
+  </header>
+
+  <nav class="app-nav" aria-label="App sections">
+    <div class="wrap">
+      <a href="/interpreter/app/">Day-of board</a>
+      <a href="/interpreter/app/interpreters/" aria-current="page">Interpreters</a>
+      <a href="/interpreter/app/requestors/">Requestors</a>
+      <a href="/interpreter/app/claim/">Interpreter view</a>
+      <a href="/interpreter/app/onboard/">Setup</a>
+    </div>
+  </nav>
+
+  <main id="main" class="app-main">
+    <div class="wrap">
+      <div class="toolbar">
+        <h1 style="margin:0;font-size:28px">Roster</h1>
+        <div class="spacer"></div>
+        <button class="btn btn-ghost btn-sm" type="button" id="refresh">Refresh</button>
+        <button class="btn btn-primary" type="button" id="new-int">+ Add interpreter</button>
+      </div>
+
+      <div id="loading" class="empty-state"><span class="spinner"></span> Loading roster&hellip;</div>
+      <div id="list" class="board" style="display:none"></div>
+      <div id="empty" class="empty-state" style="display:none">
+        <h2>Your roster is empty.</h2>
+        <p>Add your first interpreter to make smart-fill useful. You can also bulk-import later from the Sheet directly.</p>
+        <button class="btn btn-primary" type="button" id="empty-add">+ Add your first interpreter</button>
+      </div>
+    </div>
+  </main>
+</div>
+
+<div class="modal-backdrop" id="m-new" role="dialog" aria-modal="true" aria-labelledby="m-new-title">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 id="m-new-title">Add interpreter</h2>
+      <button class="close" type="button" data-close>&times;</button>
+    </div>
+    <form id="new-int-form" class="modal-body">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--1891int-s-4)">
+        <div class="field">
+          <label for="i-first">First name <span aria-hidden="true">*</span></label>
+          <input id="i-first" name="legal_first" required type="text" autocomplete="given-name">
+        </div>
+        <div class="field">
+          <label for="i-last">Last name <span aria-hidden="true">*</span></label>
+          <input id="i-last" name="legal_last" required type="text" autocomplete="family-name">
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--1891int-s-4)">
+        <div class="field">
+          <label for="i-pronouns">Pronouns</label>
+          <input id="i-pronouns" name="pronouns" type="text" placeholder="she/her">
+        </div>
+        <div class="field">
+          <label for="i-class">Classification</label>
+          <select id="i-class" name="classification">
+            <option value="1099">1099</option>
+            <option value="W2">W-2</option>
+          </select>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:var(--1891int-s-4)">
+        <div class="field">
+          <label for="i-city">Home city</label>
+          <input id="i-city" name="home_city" type="text" placeholder="Frederick">
+        </div>
+        <div class="field">
+          <label for="i-state">State</label>
+          <input id="i-state" name="home_state" type="text" maxlength="2" placeholder="MD" style="text-transform:uppercase">
+        </div>
+        <div class="field">
+          <label for="i-zip">ZIP</label>
+          <input id="i-zip" name="home_zip" type="text" maxlength="10">
+        </div>
+      </div>
+      <div class="field">
+        <label for="i-langs">Languages (one per line: code + direction)</label>
+        <textarea id="i-langs" name="_langs_text" rows="3" placeholder="ASL bi&#10;en-US voice&#10;es-419 voice"></textarea>
+        <span class="hint">Codes: ASL, en-US, es-419, cmn-CN, ar-MSA, etc. Direction: bi, voice-only, sign-only.</span>
+      </div>
+      <div class="field">
+        <label for="i-certs">Certifications (one per line: cert · number · expiry)</label>
+        <textarea id="i-certs" name="_certs_text" rows="2" placeholder="NIC · 12345 · 2028-04&#10;CDI · 7890 · 2027-09"></textarea>
+        <span class="hint">Cert codes from the Certifications tab: NIC, CDI, BEI-Master, SC:L, EIPA-4.0, NBCMI, etc.</span>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--1891int-s-4)">
+        <div class="field">
+          <label for="i-radius">Service radius (mi)</label>
+          <input id="i-radius" name="service_radius_mi" type="number" value="60" min="0" max="500">
+        </div>
+        <div class="field">
+          <label for="i-mch">Min call (hours)</label>
+          <input id="i-mch" name="min_call_hours" type="number" value="2" min="0" step="0.5">
+        </div>
+      </div>
+      <div class="field">
+        <label for="i-modalities">Modalities</label>
+        <div style="display:flex;gap:14px;flex-wrap:wrap">
+          <label style="font-weight:500;font-size:14.5px"><input type="checkbox" name="_mod" value="on-site" checked> On-site</label>
+          <label style="font-weight:500;font-size:14.5px"><input type="checkbox" name="_mod" value="VRI" checked> VRI</label>
+          <label style="font-weight:500;font-size:14.5px"><input type="checkbox" name="_mod" value="OPI"> OPI</label>
+          <label style="font-weight:500;font-size:14.5px"><input type="checkbox" name="_mod" value="CART"> CART</label>
+        </div>
+      </div>
+      <div class="field">
+        <label class="check"><input type="checkbox" id="i-deaf" name="deaf" value="true"> <span>Deaf interpreter (CDI eligible)</span></label>
+      </div>
+      <div class="field">
+        <label for="i-notes">Internal notes</label>
+        <textarea id="i-notes" name="notes_internal" rows="2" placeholder="Won't drive past Howard County. Prefers AM jobs."></textarea>
+      </div>
+    </form>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" type="button" data-close>Cancel</button>
+      <button class="btn btn-primary" type="button" id="save-int">Add interpreter</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+<script src="/interpreter/assets/js/api.js" defer></script>
+<script>
+(function () {
+  'use strict';
+  document.addEventListener('DOMContentLoaded', init);
+  function $(id) { return document.getElementById(id); }
+  function escHtml(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]; }); }
+  function toast(msg, kind) {
+    var t = $('toast'); t.textContent = msg;
+    t.className = 'toast show' + (kind ? ' ' + kind : '');
+    setTimeout(function () { t.className = 'toast'; }, 3200);
+  }
+
+  function init() {
+    if (!IntApi.getSession()) { location.href = '/interpreter/sign-in.html'; return; }
+    IntApi.whoami().then(function (r) {
+      if (!r || !r.ok) { IntApi.clearSession(); location.href = '/interpreter/sign-in.html'; return; }
+      $('who-name').textContent = r.user.display_name || r.user.email;
+      load();
+    }).catch(function () { toast('Server unreachable.', 'error'); });
+
+    $('refresh').addEventListener('click', load);
+    $('new-int').addEventListener('click', openNew);
+    $('empty-add').addEventListener('click', openNew);
+    $('save-int').addEventListener('click', save);
+    $('signout').addEventListener('click', function () { IntApi.clearSession(); location.href = '/interpreter/'; });
+    document.querySelectorAll('[data-close]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        document.querySelectorAll('.modal-backdrop.open').forEach(function (m) { m.classList.remove('open'); });
+      });
+    });
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') document.querySelectorAll('.modal-backdrop.open').forEach(function (m) { m.classList.remove('open'); });
+    });
+  }
+
+  function load() {
+    $('loading').style.display = '';
+    $('list').style.display = 'none';
+    $('empty').style.display = 'none';
+    IntApi.listInterpreters().then(function (r) {
+      $('loading').style.display = 'none';
+      if (!r || !r.ok) { toast(r && r.error || 'Load failed', 'error'); return; }
+      var ints = r.interpreters || [];
+      if (!ints.length) { $('empty').style.display = ''; return; }
+      $('list').innerHTML = ints.map(card).join('');
+      $('list').style.display = '';
+    });
+  }
+
+  function card(i) {
+    var langs = '—';
+    try {
+      var parsed = JSON.parse(i.languages || '[]');
+      langs = parsed.map(function (x) { return (x.lang || '') + (x.dir ? ' · ' + x.dir : ''); }).join(', ');
+    } catch (_) { langs = i.languages || '—'; }
+    var certs = '—';
+    try {
+      var c = JSON.parse(i.certifications || '[]');
+      certs = c.map(function (x) { return x.cert || ''; }).filter(Boolean).join(', ');
+    } catch (_) { certs = i.certifications || '—'; }
+    return [
+      '<article class="job-card" data-status="OPEN">',
+      '  <span class="status-strip" aria-hidden="true"></span>',
+      '  <div class="job-status">' + escHtml(i.status || 'active').toUpperCase() + (i.deaf === true || i.deaf === 'true' ? ' · CDI' : '') + '</div>',
+      '  <h3>' + escHtml(i.legal_first + ' ' + i.legal_last) + (i.pronouns ? ' <span class="muted" style="font-size:13px;font-weight:400">(' + escHtml(i.pronouns) + ')</span>' : '') + '</h3>',
+      '  <dl class="meta">',
+      '    <dt>Languages</dt><dd>' + escHtml(langs) + '</dd>',
+      (certs && certs !== '—' ? '    <dt>Certs</dt><dd>' + escHtml(certs) + '</dd>' : ''),
+      '    <dt>Class</dt><dd>' + escHtml(i.classification || '') + '</dd>',
+      (i.home_city ? '    <dt>From</dt><dd>' + escHtml(i.home_city + (i.home_state ? ', ' + i.home_state : '')) + ' · ' + escHtml(String(i.service_radius_mi || 0)) + ' mi radius</dd>' : ''),
+      (i.modalities ? '    <dt>Modalities</dt><dd>' + escHtml(String(i.modalities).replace(/[\[\]"]/g, '')) + '</dd>' : ''),
+      (i.notes_internal ? '    <dt>Notes</dt><dd>' + escHtml(i.notes_internal) + '</dd>' : ''),
+      '  </dl>',
+      '</article>'
+    ].join('\n');
+  }
+
+  function openNew() { $('new-int-form').reset(); $('m-new').classList.add('open'); }
+
+  function parseLangs(text) {
+    var out = [];
+    String(text || '').split('\n').forEach(function (line) {
+      var p = line.trim().split(/\s+/);
+      if (!p[0]) return;
+      out.push({ lang: p[0], dir: p[1] || 'bi' });
+    });
+    return out;
+  }
+  function parseCerts(text) {
+    var out = [];
+    String(text || '').split('\n').forEach(function (line) {
+      var p = line.split('·').map(function (s) { return s.trim(); });
+      if (!p[0]) return;
+      out.push({ cert: p[0], number: p[1] || '', exp: p[2] || '' });
+    });
+    return out;
+  }
+
+  function save() {
+    var form = $('new-int-form');
+    if (!form.reportValidity()) return;
+    var fd = new FormData(form);
+    var modalities = fd.getAll('_mod');
+    var fields = {};
+    fd.forEach(function (v, k) {
+      if (k === '_mod' || k === '_langs_text' || k === '_certs_text') return;
+      fields[k] = v;
+    });
+    fields.modalities = JSON.stringify(modalities);
+    fields.languages = JSON.stringify(parseLangs(fd.get('_langs_text')));
+    fields.certifications = JSON.stringify(parseCerts(fd.get('_certs_text')));
+    if (!fields.deaf) fields.deaf = 'false';
+    IntApi.createInterpreter(fields).then(function () {
+      toast('Added.', 'ok');
+      $('m-new').classList.remove('open');
+      setTimeout(load, 1500);
+    }).catch(function () { toast('Create failed.', 'error'); });
+  }
+})();
+</script>
+</body>
+</html>

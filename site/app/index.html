@@ -27,7 +27,10 @@
   <nav class="app-nav" aria-label="App sections">
     <div class="wrap">
       <a href="/interpreter/app/" aria-current="page">Day-of board</a>
+      <a href="/interpreter/app/interpreters/">Interpreters</a>
+      <a href="/interpreter/app/requestors/">Requestors</a>
       <a href="/interpreter/app/claim/">Interpreter view</a>
+      <a href="/interpreter/app/onboard/">Setup</a>
     </div>
   </nav>
 
@@ -69,6 +72,13 @@
       <button class="close" type="button" data-close>&times;</button>
     </div>
     <form id="new-job-form" class="modal-body">
+      <div class="field">
+        <label for="j-requestor">Requestor</label>
+        <select id="j-requestor" name="requestor_id">
+          <option value="">— No requestor selected —</option>
+        </select>
+        <span class="hint">Add more on the <a href="/interpreter/app/requestors/">Requestors</a> page.</span>
+      </div>
       <div class="field">
         <label for="j-service">Setting type</label>
         <select id="j-service" name="service_type">
@@ -325,6 +335,19 @@
     var e = new Date(d.getTime() + 90 * 60000).toISOString().slice(0, 16);
     $('j-start').value = s;
     $('j-end').value = e;
+    // Populate requestor dropdown from API
+    var sel = $('j-requestor');
+    if (sel.options.length <= 1) {
+      IntApi.listRequestors().then(function (r) {
+        if (!r || !r.ok) return;
+        (r.requestors || []).forEach(function (req) {
+          var opt = document.createElement('option');
+          opt.value = req.requestor_id;
+          opt.textContent = req.display_name;
+          sel.appendChild(opt);
+        });
+      });
+    }
     $('m-new').classList.add('open');
   }
 

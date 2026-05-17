@@ -4,6 +4,35 @@ Dated history of changes. Newest entries at the top. Note user-visible changes o
 
 ---
 
+## 2026-05-17 — Roster, requestors, and a 5-step onboarding wizard
+
+Closing the loop on the scheduler MVP: smart-fill now has data to rank against, jobs can point at real requestors, and a first-time agency can self-serve through setup.
+
+**Apps Script v5 (deployed):**
+- `apiListInterpreters` / `apiCreateInterpreter` / `apiUpdateInterpreter` — full interpreter roster CRUD with tenant scoping, JSON-encoded `languages` / `certifications` / `modalities` fields, and an audit-log entry on every write.
+- `apiListRequestors` / `apiCreateRequestor` — booking-party CRUD with type categorization (medical/legal/education/etc.) and PO-required flag.
+- `apiUpdateAgency` — owner-role gated; updates the host Agency row's legal_name, timezone, PHI mode, brand color, billing email.
+- `apiListSettings` / `apiUpdateSetting` — admin-gated rate-card and policy key/value editing. Auto-creates new keys if missing; bumps `updated_at` and `updated_by_user_id` on existing ones.
+
+**New /app/ pages (live):**
+- `/app/interpreters/` — roster page with add-interpreter modal (full intake: name, pronouns, classification, languages, certifications, home location, service radius, modalities, CDI flag, internal notes).
+- `/app/requestors/` — requestors page with add-requestor modal (display name, type, PO requirement, notes).
+- `/app/onboard/` — 5-step wizard that walks a first-time agency through:
+  1. Agency confirmation (legal name, timezone, PHI mode, billing email, brand color)
+  2. First interpreter (name, language pair, classification, CDI flag)
+  3. First requestor (name, type)
+  4. Rate-card defaults (medical / legal / education hourly cents, translation per-word, minimum hours, late-cancel window)
+  5. Summary + links into the rest of the app
+- Each panel saves to the live API before advancing. Step indicators turn green when complete.
+
+**Dashboard upgrades:**
+- New-job modal now fetches real requestors from `apiListRequestors` and populates the dropdown on open.
+- App-shell nav extended: Day-of board · Interpreters · Requestors · Interpreter view · Setup. All five `/app/*` pages share the same chrome.
+
+**Smart-fill is now demonstrable.** Add an interpreter through the wizard or roster page, create a job, click Smart-fill — you'll see at least one ranked candidate with the 5-factor score breakdown instead of "no interpreters yet."
+
+---
+
 ## 2026-05-17 — Backend goes from vaporware to working scheduler MVP
 
 Turning the marketed product into something a design-partner agency can actually use.

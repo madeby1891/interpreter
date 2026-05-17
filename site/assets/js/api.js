@@ -125,6 +125,17 @@
     });
   }
 
+  function listInterpreters() { return jsonp({ action: 'list_interpreters' }); }
+  function listRequestors()   { return jsonp({ action: 'list_requestors' }); }
+  function listSettings()     { return jsonp({ action: 'list_settings' }); }
+  function createInterpreter(fields) { return _post('create_interpreter', fields); }
+  function updateInterpreter(fields) { return _post('update_interpreter', fields); }
+  function createRequestor(fields)   { return _post('create_requestor', fields); }
+  function updateAgency(fields)      { return _post('update_agency', fields); }
+  function updateSetting(key, value, category) {
+    return _post('update_setting', { key: key, value: value, category: category || '' });
+  }
+
   root.IntApi = {
     ENDPOINT: ENDPOINT,
     getSession: getSession,
@@ -138,6 +149,14 @@
     createJob: createJob,
     claimJob: claimJob,
     cancelJob: cancelJob,
-    smartFill: smartFill
+    smartFill: smartFill,
+    listInterpreters: listInterpreters,
+    listRequestors: listRequestors,
+    listSettings: listSettings,
+    createInterpreter: createInterpreter,
+    updateInterpreter: updateInterpreter,
+    createRequestor: createRequestor,
+    updateAgency: updateAgency,
+    updateSetting: updateSetting
   };
 })(window);

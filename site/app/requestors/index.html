@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Requestors — 1891 Interpreter</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#C8553D">
+<link rel="icon" type="image/svg+xml" href="/interpreter/assets/img/favicon.svg">
+<link rel="stylesheet" href="/interpreter/assets/css/site.css">
+<link rel="stylesheet" href="/interpreter/assets/css/app.css">
+</head>
+<body>
+<a href="#main" class="skip">Skip to main content</a>
+
+<div class="app-shell">
+  <header class="app-header">
+    <div class="wrap">
+      <a href="/interpreter/app/" class="brand"><img src="/interpreter/assets/img/brand-mark.svg" alt="" width="32" height="32"><span>1891 <span class="brand-sub">Scheduler</span></span></a>
+      <div class="who"><span>Signed in as </span><strong id="who-name">…</strong><button id="signout" type="button">Sign out</button></div>
+    </div>
+  </header>
+
+  <nav class="app-nav" aria-label="App sections">
+    <div class="wrap">
+      <a href="/interpreter/app/">Day-of board</a>
+      <a href="/interpreter/app/interpreters/">Interpreters</a>
+      <a href="/interpreter/app/requestors/" aria-current="page">Requestors</a>
+      <a href="/interpreter/app/claim/">Interpreter view</a>
+      <a href="/interpreter/app/onboard/">Setup</a>
+    </div>
+  </nav>
+
+  <main id="main" class="app-main">
+    <div class="wrap">
+      <div class="toolbar">
+        <h1 style="margin:0;font-size:28px">Requestors</h1>
+        <div class="spacer"></div>
+        <button class="btn btn-ghost btn-sm" type="button" id="refresh">Refresh</button>
+        <button class="btn btn-primary" type="button" id="new-req">+ Add requestor</button>
+      </div>
+      <div id="loading" class="empty-state"><span class="spinner"></span> Loading&hellip;</div>
+      <div id="list" class="board" style="display:none"></div>
+      <div id="empty" class="empty-state" style="display:none">
+        <h2>No requestors yet.</h2>
+        <p>Requestors are the organizations who book interpreters — hospitals, school districts, courts, employers. They're who an invoice goes to.</p>
+        <button class="btn btn-primary" type="button" id="empty-add">+ Add your first requestor</button>
+      </div>
+    </div>
+  </main>
+</div>
+
+<div class="modal-backdrop" id="m-new" role="dialog" aria-modal="true">
+  <div class="modal">
+    <div class="modal-header"><h2>Add requestor</h2><button class="close" type="button" data-close>&times;</button></div>
+    <form id="new-req-form" class="modal-body">
+      <div class="field">
+        <label for="r-name">Display name <span aria-hidden="true">*</span></label>
+        <input id="r-name" name="display_name" type="text" required placeholder="Frederick Health Medical Group">
+      </div>
+      <div class="field">
+        <label for="r-type">Type</label>
+        <select id="r-type" name="type">
+          <option value="medical">Medical</option>
+          <option value="mental-health">Mental health</option>
+          <option value="legal">Legal / Court</option>
+          <option value="education">Education / K-12</option>
+          <option value="gov">Government</option>
+          <option value="corporate">Corporate</option>
+          <option value="other">Other</option>
+        </select>
+      </div>
+      <div class="field">
+        <label class="check"><input type="checkbox" id="r-po" name="po_required" value="true"> <span>PO number required on invoices</span></label>
+      </div>
+      <div class="field">
+        <label for="r-notes">Notes</label>
+        <textarea id="r-notes" name="notes" rows="3" placeholder="Preferred booking method, billing quirks, primary contact."></textarea>
+      </div>
+    </form>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" type="button" data-close>Cancel</button>
+      <button class="btn btn-primary" type="button" id="save-req">Add requestor</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+<script src="/interpreter/assets/js/api.js" defer></script>
+<script>
+(function () {
+  'use strict';
+  document.addEventListener('DOMContentLoaded', init);
+  function $(id) { return document.getElementById(id); }
+  function escHtml(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]; }); }
+  function toast(msg, kind) { var t = $('toast'); t.textContent = msg; t.className = 'toast show' + (kind ? ' ' + kind : ''); setTimeout(function () { t.className = 'toast'; }, 3200); }
+
+  function init() {
+    if (!IntApi.getSession()) { location.href = '/interpreter/sign-in.html'; return; }
+    IntApi.whoami().then(function (r) {
+      if (!r || !r.ok) { IntApi.clearSession(); location.href = '/interpreter/sign-in.html'; return; }
+      $('who-name').textContent = r.user.display_name || r.user.email;
+      load();
+    });
+    $('refresh').addEventListener('click', load);
+    $('new-req').addEventListener('click', function () { $('new-req-form').reset(); $('m-new').classList.add('open'); });
+    $('empty-add').addEventListener('click', function () { $('new-req-form').reset(); $('m-new').classList.add('open'); });
+    $('save-req').addEventListener('click', save);
+    $('signout').addEventListener('click', function () { IntApi.clearSession(); location.href = '/interpreter/'; });
+    document.querySelectorAll('[data-close]').forEach(function (b) {
+      b.addEventListener('click', function () { document.querySelectorAll('.modal-backdrop.open').forEach(function (m) { m.classList.remove('open'); }); });
+    });
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape') document.querySelectorAll('.modal-backdrop.open').forEach(function (m) { m.classList.remove('open'); }); });
+  }
+
+  function load() {
+    $('loading').style.display = '';
+    $('list').style.display = 'none';
+    $('empty').style.display = 'none';
+    IntApi.listRequestors().then(function (r) {
+      $('loading').style.display = 'none';
+      if (!r || !r.ok) { toast(r && r.error || 'Load failed', 'error'); return; }
+      var reqs = r.requestors || [];
+      if (!reqs.length) { $('empty').style.display = ''; return; }
+      $('list').innerHTML = reqs.map(card).join('');
+      $('list').style.display = '';
+    });
+  }
+
+  function card(r) {
+    return [
+      '<article class="job-card" data-status="OPEN">',
+      '  <span class="status-strip" aria-hidden="true"></span>',
+      '  <div class="job-status">' + escHtml((r.type || 'other').replace(/-/g,' ')) + '</div>',
+      '  <h3>' + escHtml(r.display_name) + '</h3>',
+      '  <dl class="meta">',
+      '    <dt>Status</dt><dd>' + escHtml(r.status || 'active') + '</dd>',
+      (r.po_required === true || r.po_required === 'true' ? '    <dt>PO</dt><dd>Required on every invoice</dd>' : ''),
+      (r.notes ? '    <dt>Notes</dt><dd>' + escHtml(r.notes) + '</dd>' : ''),
+      '  </dl>',
+      '</article>'
+    ].join('\n');
+  }
+
+  function save() {
+    var form = $('new-req-form');
+    if (!form.reportValidity()) return;
+    var fd = new FormData(form);
+    var fields = {};
+    fd.forEach(function (v, k) { fields[k] = v; });
+    if (!fields.po_required) fields.po_required = 'false';
+    IntApi.createRequestor(fields).then(function () {
+      toast('Added.', 'ok');
+      $('m-new').classList.remove('open');
+      setTimeout(load, 1500);
+    }).catch(function () { toast('Create failed.', 'error'); });
+  }
+})();
+</script>
+</body>
+</html>

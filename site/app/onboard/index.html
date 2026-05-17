@@ -1,0 +1,390 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Setup — 1891 Interpreter</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#C8553D">
+<link rel="icon" type="image/svg+xml" href="/interpreter/assets/img/favicon.svg">
+<link rel="stylesheet" href="/interpreter/assets/css/site.css">
+<link rel="stylesheet" href="/interpreter/assets/css/app.css">
+<style>
+  .wizard {
+    max-width: 720px;
+    margin: 0 auto;
+  }
+  .wizard-steps {
+    display: flex;
+    gap: 0;
+    margin-bottom: var(--1891int-s-7);
+    border-bottom: 1px solid var(--1891int-line);
+  }
+  .wizard-steps .step-tab {
+    flex: 1;
+    padding: var(--1891int-s-3) var(--1891int-s-2);
+    text-align: center;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--1891int-fog);
+    border-bottom: 3px solid transparent;
+    position: relative;
+  }
+  .wizard-steps .step-tab .num {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px; height: 26px;
+    background: var(--1891int-paper-deep);
+    color: var(--1891int-ink-soft);
+    border-radius: 50%;
+    margin-right: 8px;
+    font-family: var(--1891int-display);
+    font-weight: 700;
+  }
+  .wizard-steps .step-tab.done {
+    color: var(--1891int-ok);
+  }
+  .wizard-steps .step-tab.done .num {
+    background: var(--1891int-ok);
+    color: #fff;
+  }
+  .wizard-steps .step-tab.active {
+    color: var(--1891int-bloom-deep);
+    border-bottom-color: var(--1891int-bloom);
+  }
+  .wizard-steps .step-tab.active .num {
+    background: var(--1891int-bloom);
+    color: #fff;
+  }
+  .wizard-panel {
+    background: var(--1891int-paper);
+    border: 1px solid var(--1891int-line);
+    border-radius: var(--1891int-radius-lg);
+    padding: var(--1891int-s-7);
+    box-shadow: var(--1891int-shadow-sm);
+  }
+  .wizard-panel h2 { margin-top: 0; }
+  .wizard-actions {
+    display: flex;
+    justify-content: space-between;
+    margin-top: var(--1891int-s-6);
+    gap: var(--1891int-s-3);
+  }
+  .summary-line {
+    display: flex;
+    gap: var(--1891int-s-3);
+    align-items: center;
+    padding: 10px 0;
+    border-top: 1px solid var(--1891int-line);
+    font-size: 14.5px;
+  }
+  .summary-line:first-child { border-top: 0; }
+  .summary-line .label { color: var(--1891int-fog); width: 140px; flex-shrink: 0; }
+</style>
+</head>
+<body>
+<a href="#main" class="skip">Skip to main content</a>
+
+<div class="app-shell">
+  <header class="app-header">
+    <div class="wrap">
+      <a href="/interpreter/app/" class="brand"><img src="/interpreter/assets/img/brand-mark.svg" alt="" width="32" height="32"><span>1891 <span class="brand-sub">Scheduler</span></span></a>
+      <div class="who"><span>Signed in as </span><strong id="who-name">…</strong><button id="signout" type="button">Sign out</button></div>
+    </div>
+  </header>
+
+  <nav class="app-nav" aria-label="App sections">
+    <div class="wrap">
+      <a href="/interpreter/app/">Day-of board</a>
+      <a href="/interpreter/app/interpreters/">Interpreters</a>
+      <a href="/interpreter/app/requestors/">Requestors</a>
+      <a href="/interpreter/app/claim/">Interpreter view</a>
+      <a href="/interpreter/app/onboard/" aria-current="page">Setup</a>
+    </div>
+  </nav>
+
+  <main id="main" class="app-main">
+    <div class="wrap">
+      <div class="wizard">
+        <div class="wizard-steps" id="steps">
+          <div class="step-tab active" data-step="1"><span class="num">1</span> Agency</div>
+          <div class="step-tab" data-step="2"><span class="num">2</span> Interpreter</div>
+          <div class="step-tab" data-step="3"><span class="num">3</span> Requestor</div>
+          <div class="step-tab" data-step="4"><span class="num">4</span> Rate card</div>
+          <div class="step-tab" data-step="5"><span class="num">5</span> First job</div>
+        </div>
+
+        <!-- Step 1: Agency -->
+        <div class="wizard-panel" id="panel-1">
+          <span class="eyebrow">Step 1</span>
+          <h2>Confirm your agency.</h2>
+          <p class="ink-soft">This is the legal name on invoices, BAAs, and 1099 forms. You can change it later, but it's worth setting straight today.</p>
+          <form id="agency-form" style="margin-top:var(--1891int-s-5)">
+            <div class="field">
+              <label for="a-legal">Agency legal name</label>
+              <input id="a-legal" name="legal_name" type="text" required>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--1891int-s-4)">
+              <div class="field">
+                <label for="a-tz">Timezone</label>
+                <select id="a-tz" name="timezone">
+                  <option value="America/New_York">America/New_York (Eastern)</option>
+                  <option value="America/Chicago">America/Chicago (Central)</option>
+                  <option value="America/Denver">America/Denver (Mountain)</option>
+                  <option value="America/Los_Angeles">America/Los_Angeles (Pacific)</option>
+                  <option value="America/Anchorage">America/Anchorage (Alaska)</option>
+                  <option value="Pacific/Honolulu">Pacific/Honolulu (Hawaii)</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="a-phi">PHI mode</label>
+                <select id="a-phi" name="phi_mode">
+                  <option value="initials-only">Initials only (default — free / non-BAA)</option>
+                  <option value="full">Full PHI (paid + BAA tier)</option>
+                  <option value="disabled">Disabled (CDI training tenants)</option>
+                </select>
+              </div>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--1891int-s-4)">
+              <div class="field">
+                <label for="a-email">Billing email</label>
+                <input id="a-email" name="billing_email" type="email" placeholder="billing@youragency.com">
+              </div>
+              <div class="field">
+                <label for="a-color">Brand color (hex)</label>
+                <input id="a-color" name="brand_color" type="text" value="#C8553D" placeholder="#C8553D">
+              </div>
+            </div>
+          </form>
+          <div class="wizard-actions">
+            <span></span>
+            <button class="btn btn-primary" type="button" data-next="2">Save and continue →</button>
+          </div>
+        </div>
+
+        <!-- Step 2: Interpreter -->
+        <div class="wizard-panel" id="panel-2" style="display:none">
+          <span class="eyebrow">Step 2</span>
+          <h2>Add an interpreter.</h2>
+          <p class="ink-soft">Add at least one so smart-fill has someone to rank. Bulk-add the rest from the <a href="/interpreter/app/interpreters/">Interpreters tab</a> after setup.</p>
+          <form id="int-form" style="margin-top:var(--1891int-s-5)">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--1891int-s-4)">
+              <div class="field"><label>First name *</label><input name="legal_first" type="text" required></div>
+              <div class="field"><label>Last name *</label><input name="legal_last" type="text" required></div>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--1891int-s-4)">
+              <div class="field">
+                <label>Primary language pair</label>
+                <select name="_lang_combo">
+                  <option value='[{"lang":"ASL","dir":"bi"},{"lang":"en-US","dir":"voice"}]'>ASL ↔ English</option>
+                  <option value='[{"lang":"es-419","dir":"bi"},{"lang":"en-US","dir":"voice"}]'>Spanish ↔ English</option>
+                  <option value='[{"lang":"cmn-CN","dir":"bi"},{"lang":"en-US","dir":"voice"}]'>Mandarin ↔ English</option>
+                  <option value='[{"lang":"ar-MSA","dir":"bi"},{"lang":"en-US","dir":"voice"}]'>Arabic ↔ English</option>
+                  <option value='[{"lang":"ht","dir":"bi"},{"lang":"en-US","dir":"voice"}]'>Haitian Creole ↔ English</option>
+                </select>
+              </div>
+              <div class="field">
+                <label>Classification</label>
+                <select name="classification"><option value="1099">1099</option><option value="W2">W-2</option></select>
+              </div>
+            </div>
+            <div class="field"><label class="check"><input type="checkbox" name="deaf" value="true"> <span>Deaf interpreter (CDI-eligible)</span></label></div>
+          </form>
+          <div class="wizard-actions">
+            <button class="btn btn-ghost" type="button" data-prev="1">← Back</button>
+            <button class="btn btn-primary" type="button" data-next="3">Add and continue →</button>
+          </div>
+        </div>
+
+        <!-- Step 3: Requestor -->
+        <div class="wizard-panel" id="panel-3" style="display:none">
+          <span class="eyebrow">Step 3</span>
+          <h2>Add your first requestor.</h2>
+          <p class="ink-soft">A requestor is the organization who books and pays — a hospital, school district, court, employer. You can have many; one is enough for now.</p>
+          <form id="req-form" style="margin-top:var(--1891int-s-5)">
+            <div class="field"><label>Display name *</label><input name="display_name" type="text" required placeholder="Frederick Health Medical Group"></div>
+            <div class="field">
+              <label>Type</label>
+              <select name="type">
+                <option value="medical">Medical</option>
+                <option value="mental-health">Mental health</option>
+                <option value="legal">Legal / Court</option>
+                <option value="education">Education / K-12</option>
+                <option value="gov">Government</option>
+                <option value="corporate">Corporate</option>
+              </select>
+            </div>
+          </form>
+          <div class="wizard-actions">
+            <button class="btn btn-ghost" type="button" data-prev="2">← Back</button>
+            <button class="btn btn-primary" type="button" data-next="4">Add and continue →</button>
+          </div>
+        </div>
+
+        <!-- Step 4: Rate card -->
+        <div class="wizard-panel" id="panel-4" style="display:none">
+          <span class="eyebrow">Step 4</span>
+          <h2>Rate card defaults.</h2>
+          <p class="ink-soft">Sensible defaults are seeded. Override here if you bill differently. You can add full setting-by-setting rate cards later in the Settings tab of the Sheet.</p>
+          <form id="rate-form" style="margin-top:var(--1891int-s-5)">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--1891int-s-4)">
+              <div class="field"><label>Medical · on-site · solo ($/hr)</label><input name="rate_card.medical.on-site.solo.hourly_cents" type="number" min="0" step="500" value="9500" data-divider="100"></div>
+              <div class="field"><label>Legal · on-site · solo ($/hr)</label><input name="rate_card.legal.on-site.solo.hourly_cents" type="number" min="0" step="500" value="12500" data-divider="100"></div>
+              <div class="field"><label>Education · on-site · solo ($/hr)</label><input name="rate_card.education.on-site.solo.hourly_cents" type="number" min="0" step="500" value="8500" data-divider="100"></div>
+              <div class="field"><label>Translation ($/word)</label><input name="rate_card.translation.per_word_cents" type="number" min="0" step="1" value="20" data-divider="100"></div>
+              <div class="field"><label>Minimum (medical · hours)</label><input name="rate_card.minimum.medical.hours" type="number" min="0" step="0.5" value="2.0"></div>
+              <div class="field"><label>Late-cancel window (hours)</label><input name="cancellation_policy.late_window_hours" type="number" min="0" value="24"></div>
+            </div>
+            <p class="muted" style="font-size:13.5px;margin-top:0">Values are stored as cents in the Settings tab. The form divides by 100 for display but writes the cent-integer.</p>
+          </form>
+          <div class="wizard-actions">
+            <button class="btn btn-ghost" type="button" data-prev="3">← Back</button>
+            <button class="btn btn-primary" type="button" data-next="5">Save and continue →</button>
+          </div>
+        </div>
+
+        <!-- Step 5: First job -->
+        <div class="wizard-panel" id="panel-5" style="display:none">
+          <span class="eyebrow">Step 5</span>
+          <h2>You're ready.</h2>
+          <p class="ink-soft">Your tenant is configured. Here's what's wired up:</p>
+          <div id="summary" style="margin-top:var(--1891int-s-5)"></div>
+          <div style="margin-top:var(--1891int-s-6)">
+            <h3>Next steps</h3>
+            <ol style="font-size:15px;color:var(--1891int-ink-soft);padding-left:1.2em">
+              <li>Create your first job on the <a href="/interpreter/app/">day-of board</a>.</li>
+              <li>Run smart-fill — the interpreter you added in step 2 will rank by certification, location, and language fit.</li>
+              <li>Add the rest of your roster on the <a href="/interpreter/app/interpreters/">Interpreters page</a>.</li>
+              <li>Browse the underlying data in your <a href="https://docs.google.com/spreadsheets/d/1RKY0n-dStOoyLtayppvQ0prGVFXMiR0aHg0C_u7eigE/edit" target="_blank" rel="noopener">"1891 Interpreter" Google Sheet</a> — every API call writes there.</li>
+            </ol>
+          </div>
+          <div class="wizard-actions">
+            <button class="btn btn-ghost" type="button" data-prev="4">← Back</button>
+            <a class="btn btn-primary" href="/interpreter/app/">Open day-of board</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+<script src="/interpreter/assets/js/api.js" defer></script>
+<script>
+(function () {
+  'use strict';
+  document.addEventListener('DOMContentLoaded', init);
+  function $(id) { return document.getElementById(id); }
+  function toast(msg, kind) { var t = $('toast'); t.textContent = msg; t.className = 'toast show' + (kind ? ' ' + kind : ''); setTimeout(function () { t.className = 'toast'; }, 3500); }
+
+  var state = { agency: null, interpreter: null, requestor: null, settingsSaved: 0 };
+
+  function init() {
+    if (!IntApi.getSession()) { location.href = '/interpreter/sign-in.html'; return; }
+    IntApi.whoami().then(function (r) {
+      if (!r || !r.ok) { IntApi.clearSession(); location.href = '/interpreter/sign-in.html'; return; }
+      $('who-name').textContent = r.user.display_name || r.user.email;
+      $('a-legal').value = r.user.display_name ? r.user.display_name + ' Agency' : '';
+    });
+    $('signout').addEventListener('click', function () { IntApi.clearSession(); location.href = '/interpreter/'; });
+
+    document.querySelectorAll('[data-next]').forEach(function (b) {
+      b.addEventListener('click', function () { next(Number(b.getAttribute('data-next'))); });
+    });
+    document.querySelectorAll('[data-prev]').forEach(function (b) {
+      b.addEventListener('click', function () { go(Number(b.getAttribute('data-prev'))); });
+    });
+  }
+
+  function go(n) {
+    document.querySelectorAll('.wizard-panel').forEach(function (p) { p.style.display = 'none'; });
+    $('panel-' + n).style.display = '';
+    document.querySelectorAll('.step-tab').forEach(function (t) {
+      var i = Number(t.getAttribute('data-step'));
+      t.classList.toggle('active', i === n);
+      t.classList.toggle('done', i < n);
+    });
+    if (n === 5) renderSummary();
+  }
+
+  function next(n) {
+    var prev = n - 1;
+    var save = ({
+      1: saveAgency,
+      2: saveInterpreter,
+      3: saveRequestor,
+      4: saveRates
+    })[prev];
+    if (!save) return go(n);
+    save().then(function () { go(n); }).catch(function (e) { toast(e && e.message || 'Save failed', 'error'); });
+  }
+
+  function saveAgency() {
+    var fd = new FormData($('agency-form'));
+    if (!fd.get('legal_name')) return Promise.reject(new Error('Agency name required'));
+    var fields = {};
+    fd.forEach(function (v, k) { fields[k] = v; });
+    state.agency = fields;
+    return IntApi.updateAgency(fields).then(function () { toast('Agency saved.', 'ok'); });
+  }
+
+  function saveInterpreter() {
+    var fd = new FormData($('int-form'));
+    if (!fd.get('legal_first') || !fd.get('legal_last')) return Promise.reject(new Error('Name required'));
+    var fields = {
+      legal_first: fd.get('legal_first'),
+      legal_last: fd.get('legal_last'),
+      classification: fd.get('classification') || '1099',
+      languages: fd.get('_lang_combo') || '[]',
+      deaf: fd.get('deaf') || 'false',
+      modalities: '["on-site","VRI"]'
+    };
+    state.interpreter = fields;
+    return IntApi.createInterpreter(fields).then(function (r) {
+      if (r && r.interpreter) state.interpreter = r.interpreter;
+      toast('Interpreter added.', 'ok');
+    });
+  }
+
+  function saveRequestor() {
+    var fd = new FormData($('req-form'));
+    if (!fd.get('display_name')) return Promise.reject(new Error('Requestor name required'));
+    var fields = { display_name: fd.get('display_name'), type: fd.get('type') || 'medical' };
+    state.requestor = fields;
+    return IntApi.createRequestor(fields).then(function (r) {
+      if (r && r.requestor) state.requestor = r.requestor;
+      toast('Requestor added.', 'ok');
+    });
+  }
+
+  function saveRates() {
+    var fd = new FormData($('rate-form'));
+    var promises = [];
+    fd.forEach(function (v, k) {
+      var category = k.startsWith('rate_card.') ? 'rate-card' : 'cancellation-policy';
+      promises.push(IntApi.updateSetting(k, String(v), category));
+      state.settingsSaved++;
+    });
+    return Promise.all(promises).then(function () { toast('Rates saved.', 'ok'); });
+  }
+
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]; }); }
+  function renderSummary() {
+    var lines = [];
+    if (state.agency) lines.push(['Agency', state.agency.legal_name + ' · ' + state.agency.timezone + ' · ' + state.agency.phi_mode]);
+    if (state.interpreter) {
+      var name = (state.interpreter.legal_first || '') + ' ' + (state.interpreter.legal_last || '');
+      lines.push(['Interpreter', name + ' · ' + (state.interpreter.classification || '1099') + (state.interpreter.deaf === 'true' || state.interpreter.deaf === true ? ' · CDI' : '')]);
+    }
+    if (state.requestor) lines.push(['Requestor', state.requestor.display_name + ' · ' + (state.requestor.type || 'medical')]);
+    if (state.settingsSaved) lines.push(['Settings', state.settingsSaved + ' rate-card / policy keys saved']);
+    $('summary').innerHTML = lines.map(function (l) {
+      return '<div class="summary-line"><span class="label">' + esc(l[0]) + '</span><span>' + esc(l[1]) + '</span></div>';
+    }).join('');
+  }
+})();
+</script>
+</body>
+</html>
