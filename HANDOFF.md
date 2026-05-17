@@ -8,9 +8,19 @@ future-you) can pick up cold in under five minutes.
 
 ## Current state
 
-**As of 2026-05-17:** Marketing site v1 built and ready to deploy to `https://madeby1891.com/interpreter/`. 41 HTML pages + sitemap + robots + `.htaccess` under `site/`. Builder under `_build/build.py`. Deploy + smoke scripts under `deployment/`. Anti-claim sweep, PII grep, broken-link audit all clean. Forms POST to placeholder `/api/lead` and `/api/auth/magic-link` (backend not yet built). See CHANGELOG.md for full inventory.
+**As of 2026-05-17 (afternoon):** Marketing site + working scheduler MVP **live and deployed** at `https://madeby1891.com/interpreter/`. Apps Script backend deployed (v4) with magic-link auth, jobs CRUD, and smart-fill. Host tenant Sheet provisioned with all 21 canonical PRD A3 tabs. Repo published at https://github.com/madeby1891/interpreter (public, per PRD F10 #10).
 
-**Before this:** Project scaffolded fresh. PRD complete in `docs/` — six sections (A architecture, B stakeholders, C lifecycle, D AI features, E billing, F marketing). No domain registered yet. No repo on GitHub yet. No Sheet template built yet.
+**What works end-to-end today:**
+- A new visitor can read every page on the marketing site.
+- Inbound forms (demo, contact, requestor sample, Deaf-owned application) write rows to the "1891 Interpreter" Google Sheet and email `hello@madeby1891.com`.
+- Anthony (or anyone with a Users row) can `/sign-in` → receive a real magic link → land on `/app/` and use the scheduler.
+- Scheduler creates jobs (writes Jobs row + Job_Events row + Audit_Log row), runs smart-fill (returns ranked interpreter candidates with transparent score breakdown), claims jobs, cancels jobs.
+- Interpreter mobile view at `/app/claim/` lists OPEN jobs with deterministic pay estimates.
+- All endpoints session-gated (HS256 JWT), all writes tenant-scoped, all PHI redacted on inbound.
+
+**Earlier:** Marketing site v1 built. 41 HTML pages + sitemap + robots + `.htaccess` under `site/`. Builder under `_build/build.py`. Deploy + smoke scripts under `deployment/`. Anti-claim sweep, PII grep, broken-link audit all clean.
+
+**Before that:** Project scaffolded fresh. PRD complete in `docs/` — six sections (A architecture, B stakeholders, C lifecycle, D AI features, E billing, F marketing).
 
 The PRD was written in parallel by six research agents working from a brief that included the 1891 stack contract (`~/Desktop/1891/CLAUDE.md` + `~/Desktop/1891/ARCHITECTURE.md`), the speech-processing contract (`~/Desktop/1891/shared/specs/SPEECH_PROCESSING.md`), and Anthony's specific asks: free for Deaf-owned agencies, support all modalities (signed + spoken + CART + document translation), W-2 and 1099 interpreters, AI-assisted NL intake, HIPAA-defensible. Fallon Brizendine (CDI, MA Interpretation Gallaudet, former dept chair of an ASL interpreting program) is the SME for the domain; her voice shows up especially in Sections B (personas), C (modalities and team dynamics), and F (Deaf-owned verification process).
 
@@ -20,9 +30,9 @@ The PRD was written in parallel by six research agents working from a brief that
 
 In priority order. Each is one session of work or less.
 
-1. **Deploy the marketing site.** `bash deployment/deploy.sh --dry-run` first, then `bash deployment/deploy.sh`. Smoke script confirms security headers, real 404, blocked paths. Site lands at `https://madeby1891.com/interpreter/`.
-2. **Anthony + Fallon decisions sweep.** Walk every "Open decisions" subsection (A9, B permissions edge-cases, C10, D7, E10, F10). Each item has a recommendation; lock them in. Output: a `docs/DECISIONS.md` with the actual choices and dates.
-3. **Magic-link sign-in.** The `/sign-in` form still posts to `/api/auth/magic-link` (placeholder). Per PRD architecture, real magic-link issuance belongs in a Cloudflare Worker, not Apps Script. Not blocking for marketing-site launch.
+1. **Email aliases.** Create `accessibility@madeby1891.com`, `security@madeby1891.com`, `privacy@madeby1891.com`, `legal@madeby1891.com` as aliases of `hello@madeby1891.com` in GoDaddy/Workspace. 5 minutes. The contact/legal pages reference these; right now they would bounce.
+2. **Verification board.** Identify and confirm 2 community advisors so Deaf-owned applications can actually be approved. Until then, applications collect but decisions are paused.
+3. **Onboard the first design partner.** The scheduler MVP works end-to-end on the host tenant. The next step is provisioning a second tenant Sheet for the first design-partner agency, adding their users + interpreters, and walking them through job creation on a Phase 0 white-glove call. Phase 0 onboarding script + first-day checklist need writing.
 
 ---
 
