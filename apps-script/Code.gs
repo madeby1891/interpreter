@@ -88,6 +88,11 @@ function doGet(e) {
       case 'list_interpreters':  return apiListInterpreters(e);
       case 'list_requestors':    return apiListRequestors(e);
       case 'list_settings':      return apiListSettings(e);
+      case 'list_assignments':   return apiListAssignments(e);
+      case 'list_job_events':    return apiListJobEvents(e);
+      case 'list_communications':return apiListCommunications(e);
+      case 'test_anthropic':     return apiTestAnthropic(e);
+      case 'ai_intake':          return apiAiIntake(e);       // also POST-able; GET path enables JSONP read
       default:                   return _json({ ok:false, error:'Unknown action: ' + action }, 404);
     }
   } catch (err) {
@@ -117,6 +122,11 @@ function doPost(e) {
       case 'create_requestor':   return apiCreateRequestor(e);
       case 'update_agency':      return apiUpdateAgency(e);
       case 'update_setting':     return apiUpdateSetting(e);
+      case 'offer_job':          return apiOfferJob(e);
+      case 'confirm_job':        return apiConfirmJob(e);
+      case 'start_job':          return apiStartJob(e);
+      case 'complete_job':       return apiCompleteJob(e);
+      case 'ai_intake':          return apiAiIntake(e);
       default:                   return _json({ ok:false, error:'Unknown action: ' + action }, 404);
     }
   } catch (err) {
@@ -1096,6 +1106,475 @@ function apiUpdateSetting(e) {
   sh.appendRow([p.key, p.value || '', p.category || 'misc', s.payload.uid, now, now, now]);
   _logAudit('setting.create', s.payload.tid, s.payload.uid, p.key);
   return _json({ ok:true });
+}
+
+// ============================================================================
+// JOB STATE MACHINE — offer / confirm / start / complete
+// ============================================================================
+
+function apiOfferJob(e) {
+  var s = _requireSession(e);
+  if (!s.ok) return _json({ ok:false, error:s.error }, 401);
+  var p = e.parameter || {};
+  if (!p.job_id || !p.interpreter_id) return _json({ ok:false, error:'job_id and interpreter_id required' });
+
+  var ss = SpreadsheetApp.openById(SHEET_ID);
+  var job = _findJob(ss, s.payload.tid, p.job_id);
+  if (!job) return _json({ ok:false, error:'Job not found' }, 404);
+  if (job.status !== 'OPEN' && job.status !== 'OFFERED') {
+    return _json({ ok:false, error:'Job not offerable (status=' + job.status + ')' });
+  }
+
+  // Look up the interpreter (we want the email for notification)
+  var interp = _findInterpreter(ss, s.payload.tid, p.interpreter_id);
+  if (!interp) return _json({ ok:false, error:'Interpreter not found' }, 404);
+
+  // Write the offered Job_Assignments row
+  var asch = _tenantSchema().Job_Assignments;
+  _ensureTab(ss, T.JobAssignments, asch);
+  var assignmentId = _ulid('a');
+  var now = new Date().toISOString();
+  var aRow = {
+    assignment_id: assignmentId,
+    job_id: p.job_id,
+    interpreter_id: p.interpreter_id,
+    role_on_job: p.role_on_job || 'primary',
+    offered_at: now,
+    responded_at: '',
+    response: 'offered',
+    pay_rate_snapshot: '{}',
+    billable_minutes: 0,
+    status: 'OFFERED',
+    _created_at: now,
+    _updated_at: now,
+    _rev: 1
+  };
+  var aArr = asch.map(function (c) { return aRow[c] !== undefined ? aRow[c] : ''; });
+  ss.getSheetByName(T.JobAssignments).appendRow(aArr);
+
+  // Flip job to OFFERED
+  _setJobField(ss, s.payload.tid, p.job_id, 'status', 'OFFERED');
+  _appendJobEvent(ss, p.job_id, s.payload.uid, 'assignment_offered', job.status, 'OFFERED',
+                  JSON.stringify({ interpreter_id: p.interpreter_id, assignment_id: assignmentId }));
+
+  // Email the interpreter (best-effort)
+  var subj = '1891 Interpreter — new job offer · ' + (job.service_type || 'medical') + ' · ' + (job.target_language_id || '');
+  var when = _formatLocalTime(job.scheduled_start, 'America/New_York');
+  var rate = _ratePerHour(ss, job.service_type || 'medical') / 100;
+  var body =
+    'Hi ' + (interp.legal_first || 'there') + ',\n\n' +
+    'You have a new job offer:\n\n' +
+    '  When:     ' + when + '\n' +
+    '  Setting:  ' + (job.service_type || 'medical').replace(/-/g, ' ') + '\n' +
+    '  Modality: ' + (job.modality || 'on-site') + '\n' +
+    '  Language: ' + (job.source_language_id || '') + ' → ' + (job.target_language_id || '') + '\n' +
+    '  Team:     ' + (job.team_config || 'solo') + '\n' +
+    '  Rate:     $' + rate.toFixed(2) + '/hr (2-hr minimum applies)\n\n' +
+    (job.notes_to_interpreter ? 'Notes: ' + job.notes_to_interpreter + '\n\n' : '') +
+    'Open the app to claim: ' + SITE_BASE + '/app/claim/\n\n' +
+    'The first qualified interpreter to claim locks the job. Reply (or claim in the app) in the next 15 minutes for best chance.\n\n' +
+    '— 1891 Interpreter';
+  var interpEmail = _resolveInterpreterEmail(ss, interp);
+  if (interpEmail) {
+    _logCommunication(ss, s.payload.tid, 'email', 'out', 'job_offer_v1', interp.user_id || '', interpEmail, 'sent', 'mailapp', p.job_id);
+    try { MailApp.sendEmail({ to: interpEmail, subject: subj, body: body }); }
+    catch (err) {
+      _logCommunication(ss, s.payload.tid, 'email', 'out', 'job_offer_v1', interp.user_id || '', interpEmail, 'failed', 'mailapp', p.job_id);
+    }
+  }
+
+  _logAudit('job.offer', s.payload.tid, s.payload.uid, p.job_id + ' → ' + p.interpreter_id);
+  return _json({ ok:true, assignment_id:assignmentId, emailed: !!interpEmail });
+}
+
+function apiConfirmJob(e) {
+  return _transitionJob(e, ['CLAIMED'], 'CONFIRMED', 'status_change');
+}
+function apiStartJob(e) {
+  // CONFIRMED → EN_ROUTE if no actual_start provided, IN_PROGRESS if start time given
+  var s = _requireSession(e);
+  if (!s.ok) return _json({ ok:false, error:s.error }, 401);
+  var jobId = e.parameter.job_id;
+  if (!jobId) return _json({ ok:false, error:'job_id required' });
+  var ss = SpreadsheetApp.openById(SHEET_ID);
+  var job = _findJob(ss, s.payload.tid, jobId);
+  if (!job) return _json({ ok:false, error:'Job not found' }, 404);
+  if (job.status !== 'CONFIRMED' && job.status !== 'EN_ROUTE') {
+    return _json({ ok:false, error:'Job not in CONFIRMED/EN_ROUTE (status=' + job.status + ')' });
+  }
+  var newStatus = (job.status === 'CONFIRMED') ? 'EN_ROUTE' : 'IN_PROGRESS';
+  var actualStart = e.parameter.actual_start || new Date().toISOString();
+  if (newStatus === 'IN_PROGRESS') _setJobField(ss, s.payload.tid, jobId, 'actual_start', actualStart);
+  _setJobField(ss, s.payload.tid, jobId, 'status', newStatus);
+  _appendJobEvent(ss, jobId, s.payload.uid, 'status_change', job.status, newStatus, '{}');
+  _logAudit('job.' + newStatus.toLowerCase(), s.payload.tid, s.payload.uid, jobId);
+  return _json({ ok:true, status:newStatus });
+}
+function apiCompleteJob(e) {
+  var s = _requireSession(e);
+  if (!s.ok) return _json({ ok:false, error:s.error }, 401);
+  var p = e.parameter || {};
+  if (!p.job_id) return _json({ ok:false, error:'job_id required' });
+  var ss = SpreadsheetApp.openById(SHEET_ID);
+  var job = _findJob(ss, s.payload.tid, p.job_id);
+  if (!job) return _json({ ok:false, error:'Job not found' }, 404);
+  if (job.status !== 'IN_PROGRESS' && job.status !== 'EN_ROUTE') {
+    return _json({ ok:false, error:'Job not in IN_PROGRESS/EN_ROUTE (status=' + job.status + ')' });
+  }
+  var actualEnd = p.actual_end || new Date().toISOString();
+  _setJobField(ss, s.payload.tid, p.job_id, 'actual_end', actualEnd);
+  // Compute billable_minutes if actual_start exists
+  var startStr = job.actual_start || job.scheduled_start;
+  if (startStr) {
+    var mins = Math.max(0, Math.round((new Date(actualEnd).getTime() - new Date(startStr).getTime()) / 60000));
+    // Apply 2-hr minimum from Settings if present
+    var minHours = Number(_getSetting(ss, 'rate_card.minimum.medical.hours') || 2);
+    mins = Math.max(mins, minHours * 60);
+    // Update billable_minutes on the assignment row if there's a claimed one
+    _setAssignmentField(ss, p.job_id, 'billable_minutes', mins);
+  }
+  _setJobField(ss, s.payload.tid, p.job_id, 'status', 'COMPLETED');
+  _appendJobEvent(ss, p.job_id, s.payload.uid, 'status_change', job.status, 'COMPLETED', JSON.stringify({ actual_end:actualEnd }));
+  _logAudit('job.complete', s.payload.tid, s.payload.uid, p.job_id);
+  return _json({ ok:true, status:'COMPLETED' });
+}
+
+function _transitionJob(e, allowedFrom, toStatus, eventType) {
+  var s = _requireSession(e);
+  if (!s.ok) return _json({ ok:false, error:s.error }, 401);
+  var jobId = e.parameter.job_id;
+  if (!jobId) return _json({ ok:false, error:'job_id required' });
+  var ss = SpreadsheetApp.openById(SHEET_ID);
+  var job = _findJob(ss, s.payload.tid, jobId);
+  if (!job) return _json({ ok:false, error:'Job not found' }, 404);
+  if (allowedFrom.indexOf(job.status) < 0) {
+    return _json({ ok:false, error:'Cannot transition from ' + job.status + ' to ' + toStatus });
+  }
+  _setJobField(ss, s.payload.tid, jobId, 'status', toStatus);
+  _appendJobEvent(ss, jobId, s.payload.uid, eventType || 'status_change', job.status, toStatus, '{}');
+  _logAudit('job.' + toStatus.toLowerCase(), s.payload.tid, s.payload.uid, jobId);
+  return _json({ ok:true, status:toStatus });
+}
+
+function _setJobField(ss, tenantId, jobId, field, value) {
+  var sh = ss.getSheetByName(T.Jobs);
+  var data = sh.getDataRange().getValues();
+  var hdr = data[0];
+  var iJob = hdr.indexOf('job_id');
+  var iTenant = hdr.indexOf('tenant_id');
+  var iField = hdr.indexOf(field);
+  var iUpdated = hdr.indexOf('_updated_at');
+  var iRev = hdr.indexOf('_rev');
+  for (var r = 1; r < data.length; r++) {
+    if (String(data[r][iJob]) === jobId && String(data[r][iTenant]) === tenantId) {
+      if (iField >= 0) sh.getRange(r + 1, iField + 1).setValue(value);
+      if (iUpdated >= 0) sh.getRange(r + 1, iUpdated + 1).setValue(new Date().toISOString());
+      if (iRev >= 0) sh.getRange(r + 1, iRev + 1).setValue(Number(data[r][iRev] || 0) + 1);
+      return true;
+    }
+  }
+  return false;
+}
+
+function _setAssignmentField(ss, jobId, field, value) {
+  var sh = ss.getSheetByName(T.JobAssignments);
+  if (!sh) return false;
+  var data = sh.getDataRange().getValues();
+  var hdr = data[0];
+  var iJob = hdr.indexOf('job_id');
+  var iField = hdr.indexOf(field);
+  var iResp = hdr.indexOf('response');
+  if (iField < 0) return false;
+  for (var r = 1; r < data.length; r++) {
+    if (String(data[r][iJob]) === jobId && String(data[r][iResp]) === 'claim') {
+      sh.getRange(r + 1, iField + 1).setValue(value);
+      return true;
+    }
+  }
+  return false;
+}
+
+function _findInterpreter(ss, tenantId, interpreterId) {
+  var sh = ss.getSheetByName(T.Interpreters);
+  if (!sh) return null;
+  var data = sh.getDataRange().getValues();
+  if (data.length < 2) return null;
+  var hdr = data[0];
+  for (var i = 1; i < data.length; i++) {
+    var o = _rowToObj(hdr, data[i]);
+    if (o.tenant_id === tenantId && o.interpreter_id === interpreterId) return o;
+  }
+  return null;
+}
+
+function _resolveInterpreterEmail(ss, interp) {
+  // Look up the linked User row by user_id; fall back to a notes_internal email if present.
+  if (interp.user_id) {
+    var user = _lookupUserById(ss, interp.user_id);
+    if (user && user.email) return user.email;
+  }
+  return '';
+}
+
+function _getSetting(ss, key) {
+  var sh = ss.getSheetByName(T.Settings);
+  if (!sh) return null;
+  var data = sh.getDataRange().getValues();
+  var hdr = data[0];
+  var iKey = hdr.indexOf('key');
+  var iValue = hdr.indexOf('value');
+  for (var i = 1; i < data.length; i++) {
+    if (String(data[i][iKey]) === key) return data[i][iValue];
+  }
+  return null;
+}
+
+function _ratePerHour(ss, serviceType) {
+  var key = 'rate_card.' + serviceType + '.on-site.solo.hourly_cents';
+  var v = _getSetting(ss, key);
+  if (v) return Number(v);
+  return 9500;
+}
+
+function _formatLocalTime(iso, tz) {
+  if (!iso) return '—';
+  try {
+    return Utilities.formatDate(new Date(iso), tz, 'EEE MMM d · h:mm a zzz');
+  } catch (_) { return iso; }
+}
+
+// ============================================================================
+// LISTING HELPERS — assignments / job_events / communications
+// ============================================================================
+
+function apiListAssignments(e) {
+  var s = _requireSession(e);
+  if (!s.ok) return _json({ ok:false, error:s.error }, 401);
+  var jobId = e.parameter.job_id;
+  var ss = SpreadsheetApp.openById(SHEET_ID);
+  var sh = ss.getSheetByName(T.JobAssignments);
+  if (!sh) return _json({ ok:true, assignments:[] });
+  var data = sh.getDataRange().getValues();
+  if (data.length < 2) return _json({ ok:true, assignments:[] });
+  var hdr = data[0];
+  var out = [];
+  for (var i = 1; i < data.length; i++) {
+    var o = _rowToObj(hdr, data[i]);
+    if (jobId && o.job_id !== jobId) continue;
+    out.push(o);
+  }
+  return _json({ ok:true, assignments: out });
+}
+
+function apiListJobEvents(e) {
+  var s = _requireSession(e);
+  if (!s.ok) return _json({ ok:false, error:s.error }, 401);
+  var jobId = e.parameter.job_id;
+  if (!jobId) return _json({ ok:false, error:'job_id required' });
+  var ss = SpreadsheetApp.openById(SHEET_ID);
+  var sh = ss.getSheetByName(T.JobEvents);
+  if (!sh) return _json({ ok:true, events:[] });
+  var data = sh.getDataRange().getValues();
+  if (data.length < 2) return _json({ ok:true, events:[] });
+  var hdr = data[0];
+  var out = [];
+  for (var i = 1; i < data.length; i++) {
+    var o = _rowToObj(hdr, data[i]);
+    if (o.job_id !== jobId) continue;
+    out.push(o);
+  }
+  return _json({ ok:true, events: out });
+}
+
+function apiListCommunications(e) {
+  var s = _requireSession(e);
+  if (!s.ok) return _json({ ok:false, error:s.error }, 401);
+  var jobId = e.parameter.job_id;
+  var ss = SpreadsheetApp.openById(SHEET_ID);
+  var sh = ss.getSheetByName(T.Communications);
+  if (!sh) return _json({ ok:true, comms:[] });
+  var data = sh.getDataRange().getValues();
+  if (data.length < 2) return _json({ ok:true, comms:[] });
+  var hdr = data[0];
+  var out = [];
+  for (var i = 1; i < data.length; i++) {
+    var o = _rowToObj(hdr, data[i]);
+    if (o.tenant_id !== s.payload.tid) continue;
+    if (jobId && o.job_id !== jobId) continue;
+    out.push(o);
+  }
+  return _json({ ok:true, comms: out });
+}
+
+function _logCommunication(ss, tenantId, channel, direction, templateId, toUserId, toAddr, status, provider, jobId) {
+  _ensureTab(ss, T.Communications, _tenantSchema().Communications);
+  var sh = ss.getSheetByName(T.Communications);
+  var now = new Date().toISOString();
+  sh.appendRow([
+    _ulid('c'), tenantId, channel, direction, templateId, toUserId, toAddr, '',
+    status, provider, '', jobId, now, now
+  ]);
+}
+
+// ============================================================================
+// AI INTAKE — natural-language email → structured Job draft via Claude API
+// ============================================================================
+//
+// Reads the Anthropic API key from Script Properties (key: ANTHROPIC_API_KEY) OR
+// from the Settings tab (key: anthropic.api_key). Returns parsed fields ready
+// for apiCreateJob. PHI redaction runs BEFORE the model call.
+
+function apiTestAnthropic(e) {
+  var s = _requireSession(e);
+  if (!s.ok) return _json({ ok:false, error:s.error }, 401);
+  var key = _anthropicKey();
+  if (!key) return _json({ ok:false, configured:false, message:'No Anthropic API key configured. Set it under Settings.' });
+  // Test with a tiny call — minimum tokens
+  try {
+    var res = UrlFetchApp.fetch('https://api.anthropic.com/v1/messages', {
+      method: 'post',
+      contentType: 'application/json',
+      muteHttpExceptions: true,
+      headers: {
+        'x-api-key': key,
+        'anthropic-version': '2023-06-01'
+      },
+      payload: JSON.stringify({
+        model: 'claude-haiku-4-5',
+        max_tokens: 16,
+        messages: [{ role: 'user', content: 'Say "ok".' }]
+      })
+    });
+    var code = res.getResponseCode();
+    var body = res.getContentText();
+    return _json({ ok:true, configured:true, status_code:code, sample: body.slice(0, 200) });
+  } catch (err) {
+    return _json({ ok:false, configured:true, error:String(err) });
+  }
+}
+
+function apiAiIntake(e) {
+  var s = _requireSession(e);
+  if (!s.ok) return _json({ ok:false, error:s.error }, 401);
+  var raw = e.parameter.text || '';
+  if (!raw) return _json({ ok:false, error:'text required' });
+
+  var key = _anthropicKey();
+  if (!key) return _json({ ok:false, error:'No Anthropic API key configured. Set anthropic.api_key on the Settings page.' });
+
+  // PHI redaction — apply before model call.
+  var redacted = _redactForModel(raw);
+
+  var sys = [
+    'You are a structured-data extractor for an interpreting agency.',
+    'Given a free-text request from a requestor (front-desk staff, 504 coordinator, court clerk, etc.),',
+    'extract job-intake fields as JSON. Return ONLY valid JSON, no prose.',
+    '',
+    'Output shape:',
+    '{',
+    '  "service_type": "medical|mental-health|legal|education|gov|corporate|community|translation",',
+    '  "modality": "on-site|VRI|OPI",',
+    '  "source_language_id": "en-US|ASL|es-419|cmn-CN|ar-MSA|ht|fr|ko|ru|vi|so|am|fa|ps|pt-BR|yue-HK",',
+    '  "target_language_id": "(same set)",',
+    '  "scheduled_start_iso": "YYYY-MM-DDTHH:MM:SS (or empty if unclear)",',
+    '  "scheduled_end_iso":   "YYYY-MM-DDTHH:MM:SS (or empty)",',
+    '  "team_config": "solo|team-of-2|cdi+hearing|voicer+signer|cart-solo",',
+    '  "notes_to_interpreter": "(brief; no PHI; if the source includes patient names, diagnoses, or MRN, replace with [REDACTED])",',
+    '  "confidence_per_field": { "service_type": 0.0-1.0, ... },',
+    '  "ambiguities": ["string"]',
+    '}',
+    'Tenant timezone: America/New_York. If the source says "Thursday 2pm" without a date, return empty start/end and add a string to ambiguities.',
+    'For signed-language requests use ASL as the target language and the relevant spoken language as the source.',
+    'Never invent dates or facts.'
+  ].join('\n');
+
+  try {
+    var res = UrlFetchApp.fetch('https://api.anthropic.com/v1/messages', {
+      method: 'post',
+      contentType: 'application/json',
+      muteHttpExceptions: true,
+      headers: {
+        'x-api-key': key,
+        'anthropic-version': '2023-06-01'
+      },
+      payload: JSON.stringify({
+        model: 'claude-sonnet-4-5',
+        max_tokens: 1024,
+        system: 'tenant_id: ' + s.payload.tid + '\n\n' + sys,
+        messages: [{ role: 'user', content: redacted.text }]
+      })
+    });
+    var code = res.getResponseCode();
+    var bodyTxt = res.getContentText();
+    if (code !== 200) {
+      _logAudit('ai_intake_error', s.payload.tid, s.payload.uid, 'status=' + code);
+      return _json({ ok:false, error:'Anthropic returned ' + code, body: bodyTxt.slice(0, 400) });
+    }
+    var resp = JSON.parse(bodyTxt);
+    var content = (resp.content && resp.content[0] && resp.content[0].text) || '{}';
+    // Strip code fences if present
+    content = content.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/, '');
+    var parsed = {};
+    try { parsed = JSON.parse(content); }
+    catch (_) { return _json({ ok:false, error:'Model returned unparseable JSON', raw: content.slice(0, 600) }); }
+
+    // Audit (hashes only — no PHI in the audit body)
+    var inHash = _sha256Hex(raw).slice(0, 16);
+    var outHash = _sha256Hex(content).slice(0, 16);
+    _logAudit('ai_intake', s.payload.tid, s.payload.uid, 'in=' + inHash + ' out=' + outHash + ' redacted=' + redacted.replacements);
+
+    return _json({
+      ok: true,
+      parsed: parsed,
+      redaction_summary: { replacements: redacted.replacements, kinds: redacted.kinds },
+      input_hash: inHash,
+      output_hash: outHash
+    });
+  } catch (err) {
+    _logAudit('ai_intake_exception', s.payload.tid, s.payload.uid, String(err));
+    return _json({ ok:false, error:String(err) });
+  }
+}
+
+function _anthropicKey() {
+  var props = PropertiesService.getScriptProperties();
+  var k = props.getProperty('ANTHROPIC_API_KEY');
+  if (k) return k;
+  // Allow Settings-tab override (admin-managed)
+  var ss = SpreadsheetApp.openById(SHEET_ID);
+  return _getSetting(ss, 'anthropic.api_key');
+}
+
+function _redactForModel(text) {
+  // PHI scrubber. Returns { text, replacements, kinds }.
+  // We intentionally over-redact; the model only needs structural intent.
+  var kinds = {};
+  var n = 0;
+  function rep(re, token, kind) {
+    var m;
+    var out = text;
+    while ((m = re.exec(text)) !== null) { kinds[kind] = (kinds[kind] || 0) + 1; n++; }
+    out = text.replace(re, token);
+    return out;
+  }
+  // SSN
+  text = text.replace(/\b\d{3}-\d{2}-\d{4}\b/g, function () { kinds.ssn = (kinds.ssn || 0) + 1; n++; return '[SSN]'; });
+  // MRN-like long digit runs
+  text = text.replace(/\b\d{8,12}\b/g, function () { kinds.mrn = (kinds.mrn || 0) + 1; n++; return '[ID]'; });
+  // Phone (US-ish)
+  text = text.replace(/(\+?1[ .-]?)?\(?\d{3}\)?[ .-]?\d{3}[ .-]?\d{4}\b/g, function () { kinds.phone = (kinds.phone || 0) + 1; n++; return '[PHONE]'; });
+  // DOB-like dates
+  text = text.replace(/\b(0?[1-9]|1[0-2])[\/\-](0?[1-9]|[12]\d|3[01])[\/\-](19|20)\d{2}\b/g, function () { kinds.dob = (kinds.dob || 0) + 1; n++; return '[DATE]'; });
+  // Email
+  text = text.replace(/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g, function () { kinds.email = (kinds.email || 0) + 1; n++; return '[EMAIL]'; });
+  // Names heuristic (capitalized two-word sequences preceded by patient/Mr/Mrs/Ms/Dr)
+  text = text.replace(/\b(patient|Mr\.?|Mrs\.?|Ms\.?|Dr\.?)\s+[A-Z][a-z]+(?:\s+[A-Z][a-z]+)?\b/g,
+    function (match) { kinds.name_pattern = (kinds.name_pattern || 0) + 1; n++; return match.split(/\s+/)[0] + ' [NAME]'; });
+  // Clinical red-flags — keep the term but flag in audit
+  if (/\b(diagnosis|HIV|cancer|chemotherapy|psychiatric|MRN)\b/i.test(text)) {
+    kinds.clinical_term_flagged = (kinds.clinical_term_flagged || 0) + 1;
+  }
+  return { text: text, replacements: n, kinds: kinds };
 }
 
 // ============================================================================

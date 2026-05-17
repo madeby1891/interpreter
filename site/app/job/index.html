@@ -1,0 +1,274 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Job — 1891 Interpreter</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#C8553D">
+<link rel="icon" type="image/svg+xml" href="/interpreter/assets/img/favicon.svg">
+<link rel="stylesheet" href="/interpreter/assets/css/site.css">
+<link rel="stylesheet" href="/interpreter/assets/css/app.css">
+<style>
+  .job-detail-grid { display: grid; grid-template-columns: 1.4fr .9fr; gap: var(--1891int-s-5); }
+  @media (max-width: 880px) { .job-detail-grid { grid-template-columns: 1fr; } }
+  .timeline-event {
+    display: grid; grid-template-columns: 110px 1fr; gap: var(--1891int-s-3);
+    padding: 10px 0; border-top: 1px solid var(--1891int-line); font-size: 14px;
+  }
+  .timeline-event:first-child { border-top: 0; }
+  .timeline-event time { color: var(--1891int-fog); font-family: var(--1891int-mono); font-size: 12.5px; }
+  .timeline-event .what { font-weight: 600; }
+  .timeline-event .from-to { color: var(--1891int-fog); font-family: var(--1891int-mono); font-size: 12px; }
+  .state-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .state-chips .chip {
+    font-size: 11.5px; padding: 4px 10px; border-radius: 999px;
+    background: var(--1891int-paper-deep); color: var(--1891int-fog); font-family: var(--1891int-mono);
+  }
+  .state-chips .chip.current { background: var(--1891int-bloom-tint); color: var(--1891int-bloom-deep); border: 1px solid var(--1891int-bloom-soft); }
+  .state-chips .chip.done { background: #E6F3EB; color: var(--1891int-ok); }
+</style>
+</head>
+<body>
+<a href="#main" class="skip">Skip to main content</a>
+
+<div class="app-shell">
+  <header class="app-header">
+    <div class="wrap">
+      <a href="/interpreter/app/" class="brand"><img src="/interpreter/assets/img/brand-mark.svg" alt="" width="32" height="32"><span>1891 <span class="brand-sub">Scheduler</span></span></a>
+      <div class="who"><span>Signed in as </span><strong id="who-name">…</strong><button id="signout" type="button">Sign out</button></div>
+    </div>
+  </header>
+
+  <nav class="app-nav" aria-label="App sections">
+    <div class="wrap">
+      <a href="/interpreter/app/">Day-of board</a>
+      <a href="/interpreter/app/interpreters/">Interpreters</a>
+      <a href="/interpreter/app/requestors/">Requestors</a>
+      <a href="/interpreter/app/intake/">AI intake</a>
+      <a href="/interpreter/app/claim/">Interpreter view</a>
+      <a href="/interpreter/app/settings/">Settings</a>
+    </div>
+  </nav>
+
+  <main id="main" class="app-main">
+    <div class="wrap">
+      <div class="breadcrumb"><a href="/interpreter/app/">← Day-of board</a></div>
+      <div id="loading" class="empty-state"><span class="spinner"></span> Loading job…</div>
+
+      <div id="detail" style="display:none">
+        <div class="state-chips" style="margin-bottom:var(--1891int-s-3)" id="state-chips"></div>
+        <h1 id="job-title" style="margin:0 0 var(--1891int-s-2);font-size:30px"></h1>
+        <p class="muted tag" id="job-id" style="margin-bottom:var(--1891int-s-5)"></p>
+
+        <div class="job-detail-grid">
+          <section>
+            <div class="card">
+              <h2 class="mt-0">Details</h2>
+              <dl class="meta" id="meta-detail" style="grid-template-columns:max-content 1fr;display:grid;gap:6px 14px;font-size:14.5px"></dl>
+            </div>
+            <div class="card" style="margin-top:var(--1891int-s-4)">
+              <h2 class="mt-0">Actions</h2>
+              <div class="cluster" id="actions"></div>
+              <p class="muted" id="no-actions" style="font-size:13.5px;display:none">No actions available for this state.</p>
+            </div>
+            <div class="card" style="margin-top:var(--1891int-s-4)">
+              <h2 class="mt-0">Assignments</h2>
+              <div id="assignments"></div>
+            </div>
+          </section>
+          <section>
+            <div class="card">
+              <h2 class="mt-0">Timeline</h2>
+              <div id="timeline"></div>
+            </div>
+            <div class="card" style="margin-top:var(--1891int-s-4)">
+              <h2 class="mt-0">Communications</h2>
+              <div id="comms"></div>
+            </div>
+          </section>
+        </div>
+      </div>
+
+      <div id="not-found" class="empty-state" style="display:none">
+        <h2>Job not found.</h2>
+        <p>Either it never existed, was deleted, or doesn't belong to your tenant.</p>
+        <a class="btn btn-primary" href="/interpreter/app/">Back to board</a>
+      </div>
+    </div>
+  </main>
+</div>
+
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+<script src="/interpreter/assets/js/api.js" defer></script>
+<script>
+(function () {
+  'use strict';
+  document.addEventListener('DOMContentLoaded', init);
+  function $(id) { return document.getElementById(id); }
+  function escHtml(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]; }); }
+  function toast(msg, kind) { var t = $('toast'); t.textContent = msg; t.className = 'toast show' + (kind ? ' ' + kind : ''); setTimeout(function () { t.className = 'toast'; }, 3200); }
+  function fmt(iso) {
+    if (!iso) return '—';
+    var d = new Date(iso);
+    if (isNaN(d.getTime())) return iso;
+    return d.toLocaleString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+  }
+
+  var STATES = ['DRAFT','OPEN','OFFERED','CLAIMED','CONFIRMED','EN_ROUTE','IN_PROGRESS','COMPLETED','BILLED','PAID'];
+
+  function init() {
+    if (!IntApi.getSession()) { location.href = '/interpreter/sign-in.html'; return; }
+    IntApi.whoami().then(function (r) {
+      if (!r || !r.ok) { IntApi.clearSession(); location.href = '/interpreter/sign-in.html'; return; }
+      $('who-name').textContent = r.user.display_name || r.user.email;
+      var params = new URLSearchParams(location.search);
+      var jobId = params.get('id');
+      if (!jobId) { showNotFound(); return; }
+      load(jobId);
+    });
+    $('signout').addEventListener('click', function () { IntApi.clearSession(); location.href = '/interpreter/'; });
+  }
+
+  function showNotFound() {
+    $('loading').style.display = 'none';
+    $('not-found').style.display = '';
+  }
+
+  function load(jobId) {
+    Promise.all([
+      IntApi.getJob(jobId),
+      IntApi.jsonp ? IntApi.jsonp({ action:'list_assignments', job_id: jobId }) : Promise.resolve({ ok:true, assignments:[] }),
+      IntApi.jsonp ? IntApi.jsonp({ action:'list_job_events', job_id: jobId }) : Promise.resolve({ ok:true, events:[] }),
+      IntApi.jsonp ? IntApi.jsonp({ action:'list_communications', job_id: jobId }) : Promise.resolve({ ok:true, comms:[] })
+    ]).then(function (results) {
+      var jobResp = results[0];
+      $('loading').style.display = 'none';
+      if (!jobResp || !jobResp.ok || !jobResp.job) { showNotFound(); return; }
+      $('detail').style.display = '';
+      renderJob(jobResp.job);
+      renderActions(jobResp.job);
+      renderAssignments(results[1].assignments || []);
+      renderTimeline(results[2].events || []);
+      renderComms(results[3].comms || []);
+    }).catch(function () { showNotFound(); });
+  }
+
+  function renderJob(j) {
+    $('job-title').textContent = ((j.service_type || 'medical').replace(/-/g,' ')) + ' · ' + (j.target_language_id || '') + ' · ' + (j.modality || 'on-site');
+    $('job-id').textContent = j.job_id;
+    var chips = STATES.map(function (s) {
+      var cls = (s === j.status) ? 'current' : (STATES.indexOf(j.status) > STATES.indexOf(s) ? 'done' : '');
+      return '<span class="chip ' + cls + '">' + s + '</span>';
+    });
+    if (/^CANCELLED/.test(j.status)) {
+      chips.push('<span class="chip current" style="background:#FDECEC;color:var(--1891int-err);border-color:#F5C8C8">' + escHtml(j.status) + '</span>');
+    }
+    $('state-chips').innerHTML = chips.join('');
+    var meta = [
+      ['Status', j.status],
+      ['Start', fmt(j.scheduled_start)],
+      ['End', fmt(j.scheduled_end)],
+      ['Actual start', fmt(j.actual_start) || '—'],
+      ['Actual end', fmt(j.actual_end) || '—'],
+      ['Team config', j.team_config],
+      ['Source lang', j.source_language_id],
+      ['Target lang', j.target_language_id],
+      ['Requestor', j.requestor_id || '—'],
+      ['Created via', j.created_via],
+      ['Reference', j.reference_no || '—'],
+      ['Notes', j.notes_to_interpreter || '—'],
+      ['Revision', String(j._rev || 1)]
+    ];
+    $('meta-detail').innerHTML = meta.map(function (m) {
+      return '<dt style="color:var(--1891int-fog);font-weight:600">' + escHtml(m[0]) + '</dt><dd style="margin:0">' + escHtml(m[1] || '') + '</dd>';
+    }).join('');
+  }
+
+  function renderActions(j) {
+    var c = $('actions');
+    c.innerHTML = '';
+    var btns = [];
+    if (j.status === 'CLAIMED') btns.push({ label:'Confirm', act:'confirm', kind:'primary' });
+    if (j.status === 'CONFIRMED') btns.push({ label:'Mark en route', act:'start', kind:'secondary' });
+    if (j.status === 'EN_ROUTE') btns.push({ label:'Start (mark in-progress)', act:'start', kind:'primary' });
+    if (j.status === 'IN_PROGRESS') btns.push({ label:'Complete', act:'complete', kind:'primary' });
+    if (/^OPEN|OFFERED|CLAIMED|CONFIRMED|EN_ROUTE|IN_PROGRESS$/.test(j.status)) btns.push({ label:'Cancel', act:'cancel', kind:'ghost' });
+    if (!btns.length) { $('no-actions').style.display = ''; return; }
+    btns.forEach(function (b) {
+      var btn = document.createElement('button');
+      btn.className = 'btn btn-' + b.kind;
+      btn.type = 'button';
+      btn.textContent = b.label;
+      btn.addEventListener('click', function () { runAction(j.job_id, b.act); });
+      c.appendChild(btn);
+    });
+  }
+
+  function runAction(jobId, act) {
+    var p = IntApi;
+    var promise;
+    if (act === 'confirm') promise = fetch(IntApi.ENDPOINT, { method:'POST', mode:'no-cors', body: new URLSearchParams({ action:'confirm_job', job_id:jobId, session: IntApi.getSession() }) });
+    else if (act === 'start') promise = fetch(IntApi.ENDPOINT, { method:'POST', mode:'no-cors', body: new URLSearchParams({ action:'start_job', job_id:jobId, session: IntApi.getSession() }) });
+    else if (act === 'complete') promise = fetch(IntApi.ENDPOINT, { method:'POST', mode:'no-cors', body: new URLSearchParams({ action:'complete_job', job_id:jobId, session: IntApi.getSession() }) });
+    else if (act === 'cancel') {
+      var reason = prompt('Reason for cancellation:'); if (!reason) return;
+      promise = p.cancelJob(jobId, reason);
+    }
+    if (!promise) return;
+    promise.then(function () {
+      toast('Done.', 'ok');
+      setTimeout(function () { location.reload(); }, 900);
+    }).catch(function () { toast('Action failed.', 'error'); });
+  }
+
+  function renderAssignments(list) {
+    if (!list.length) { $('assignments').innerHTML = '<p class="muted" style="font-size:14px">No assignments yet.</p>'; return; }
+    $('assignments').innerHTML = list.map(function (a) {
+      return [
+        '<div class="timeline-event">',
+        '  <time>' + fmt(a.offered_at) + '</time>',
+        '  <div>',
+        '    <span class="what">' + escHtml(a.role_on_job || 'primary') + ' — ' + escHtml(a.response) + '</span>',
+        '    <div class="from-to">interpreter: ' + escHtml(a.interpreter_id) + ' · status: ' + escHtml(a.status) + (a.billable_minutes ? ' · ' + a.billable_minutes + ' min billable' : '') + '</div>',
+        '  </div>',
+        '</div>'
+      ].join('');
+    }).join('');
+  }
+
+  function renderTimeline(events) {
+    if (!events.length) { $('timeline').innerHTML = '<p class="muted" style="font-size:14px">No events yet.</p>'; return; }
+    events.sort(function (a, b) { return (a.ts || '').localeCompare(b.ts || ''); });
+    $('timeline').innerHTML = events.map(function (e) {
+      return [
+        '<div class="timeline-event">',
+        '  <time>' + fmt(e.ts) + '</time>',
+        '  <div>',
+        '    <span class="what">' + escHtml(e.event_type) + '</span>',
+        (e.from_state || e.to_state ? '    <div class="from-to">' + escHtml(e.from_state || '') + ' → ' + escHtml(e.to_state || '') + '</div>' : ''),
+        '  </div>',
+        '</div>'
+      ].join('');
+    }).join('');
+  }
+
+  function renderComms(list) {
+    if (!list.length) { $('comms').innerHTML = '<p class="muted" style="font-size:14px">No communications yet for this job.</p>'; return; }
+    $('comms').innerHTML = list.map(function (c) {
+      return [
+        '<div class="timeline-event">',
+        '  <time>' + fmt(c._created_at) + '</time>',
+        '  <div>',
+        '    <span class="what">' + escHtml(c.channel) + ' · ' + escHtml(c.template_id || '') + '</span>',
+        '    <div class="from-to">' + escHtml(c.direction) + ' · to ' + escHtml(c.to_address || '—') + ' · ' + escHtml(c.status) + '</div>',
+        '  </div>',
+        '</div>'
+      ].join('');
+    }).join('');
+  }
+})();
+</script>
+</body>
+</html>

@@ -4,6 +4,44 @@ Dated history of changes. Newest entries at the top. Note user-visible changes o
 
 ---
 
+## 2026-05-17 — AI intake, full job state machine, offer-to-interpreter, settings + job detail
+
+Closing the loop end-to-end on the scheduler: parse an email into a draft → offer to ranked candidates → claim → confirm → start → complete → audit trail visible per job.
+
+**Apps Script v7 (deployed):**
+- `apiAiIntake` — accepts pasted email text, runs PHI redaction (SSN/MRN/phone/DOB/email/name-pattern), POSTs to `https://api.anthropic.com/v1/messages` with model `claude-sonnet-4-5` (1024 tokens), parses returned JSON, audits input/output hashes only (no PHI in audit body). Tenant ID prefixes the system prompt to prevent prompt-cache cross-tenant hits per PRD A6.
+- `apiTestAnthropic` — admin endpoint that does a 16-token Haiku ping to confirm the key works without spending tokens.
+- `apiOfferJob` — writes Job_Assignments row with response=offered, flips Jobs.status → OFFERED, sends a real email to the interpreter via MailApp, logs to Communications tab.
+- Full state machine: `apiConfirmJob` (CLAIMED → CONFIRMED), `apiStartJob` (CONFIRMED → EN_ROUTE → IN_PROGRESS with actual_start), `apiCompleteJob` (→ COMPLETED with actual_end + computed billable_minutes including the 2-hr minimum from Settings).
+- `apiListAssignments` / `apiListJobEvents` / `apiListCommunications` — read endpoints scoped by tenant + optional job_id filter.
+- Communications tab now gets a row for every email sent through the platform.
+- Anthropic API key resolution: PropertiesService.ANTHROPIC_API_KEY OR Settings tab `anthropic.api_key` (admin-settable from /app/settings/).
+- All new endpoints session-gated, all writes audit-logged.
+
+**New /app/ pages:**
+- `/app/settings/` — agency editor, **Anthropic API key configurator** with "Test key" button (the AI intake feature flips on the moment a valid key is dropped in), rate-card editor, subprocessor disclosure list.
+- `/app/intake/` — paste-an-email pane on the left, parsed Job draft on the right with per-field confidence percentages, redaction summary chips ("phone: 1", "name_pattern: 2"), and a list of model-flagged ambiguities. "Create job from this draft" submits to apiCreateJob with `created_via=email-intake`. Falls back to JSONP when CORS blocks the direct POST.
+- `/app/job/?id=...` — single-job detail page. State-chip strip showing the full lifecycle (DRAFT → OPEN → … → PAID) with current state highlighted. Action buttons that change based on current state (Confirm, Mark en route, Start, Complete, Cancel). Three timeline panels: Assignments, Job_Events, Communications — every row is read live from the tenant Sheet.
+
+**Dashboard upgrades:**
+- Smart-fill candidates now have an "Offer to ..." button that fires `apiOfferJob`. The button confirms with "✓ Offered" inline; the job flips to OFFERED state and the interpreter gets a real email.
+- Every job card has a new "Open" button that goes to `/app/job/?id=...`.
+- App nav extended across all `/app/*` pages: Day-of board · Interpreters · Requestors · **AI intake** · Interpreter view · **Settings**.
+
+**End-to-end flow now possible from a cold start:**
+1. Run `/app/onboard/` (5-step wizard) → agency + first interpreter + first requestor + rate cards.
+2. Drop your Anthropic key in `/app/settings/` → test it.
+3. Paste an inbound email into `/app/intake/` → click Parse → review the AI-extracted Job draft → Create.
+4. On the dashboard, click Smart-fill on the new job → see your interpreter ranked → click "Offer to ...".
+5. Interpreter receives email; opens `/app/claim/`; claims.
+6. Scheduler opens `/app/job/?id=...` → clicks Confirm → Mark en route → Start → Complete.
+7. Every transition writes to Job_Events and Audit_Log; the timeline panel reflects them live.
+
+**Recovery note:**
+A subset of local files (Code.gs, several site HTML pages, brand SVGs, deploy/smoke scripts) lost their content earlier in the session — `stat` reported normal sizes but `read()` returned 0 bytes. Cause appears to be a macOS xattr / metadata-only filesystem event. Restored by `clasp pull` (for Code.gs) and `git checkout` (for tracked site files); regenerated PDF + sitemap with the existing builder. No data loss on the live site or in the Sheet.
+
+---
+
 ## 2026-05-17 — Roster, requestors, and a 5-step onboarding wizard
 
 Closing the loop on the scheduler MVP: smart-fill now has data to rank against, jobs can point at real requestors, and a first-time agency can self-serve through setup.

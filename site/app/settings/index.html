@@ -1,0 +1,216 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Settings — 1891 Interpreter</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#C8553D">
+<link rel="icon" type="image/svg+xml" href="/interpreter/assets/img/favicon.svg">
+<link rel="stylesheet" href="/interpreter/assets/css/site.css">
+<link rel="stylesheet" href="/interpreter/assets/css/app.css">
+</head>
+<body>
+<a href="#main" class="skip">Skip to main content</a>
+
+<div class="app-shell">
+  <header class="app-header">
+    <div class="wrap">
+      <a href="/interpreter/app/" class="brand"><img src="/interpreter/assets/img/brand-mark.svg" alt="" width="32" height="32"><span>1891 <span class="brand-sub">Scheduler</span></span></a>
+      <div class="who"><span>Signed in as </span><strong id="who-name">…</strong><button id="signout" type="button">Sign out</button></div>
+    </div>
+  </header>
+
+  <nav class="app-nav" aria-label="App sections">
+    <div class="wrap">
+      <a href="/interpreter/app/">Day-of board</a>
+      <a href="/interpreter/app/interpreters/">Interpreters</a>
+      <a href="/interpreter/app/requestors/">Requestors</a>
+      <a href="/interpreter/app/intake/">AI intake</a>
+      <a href="/interpreter/app/claim/">Interpreter view</a>
+      <a href="/interpreter/app/settings/" aria-current="page">Settings</a>
+    </div>
+  </nav>
+
+  <main id="main" class="app-main">
+    <div class="wrap" style="max-width:780px;margin:0 auto">
+      <h1 style="font-size:32px;margin:0 0 var(--1891int-s-6)">Settings</h1>
+
+      <!-- AI / Anthropic -->
+      <section class="card" style="margin-bottom:var(--1891int-s-6)">
+        <h2 class="mt-0">AI intake — Anthropic API key</h2>
+        <p class="ink-soft" style="font-size:14.5px">The AI intake parser at <a href="/interpreter/app/intake/">/app/intake/</a> uses the Anthropic API directly. Paste your key here and it's stored in the tenant's Settings tab (admin-readable only). PHI is redacted from the input before any model call — see <a href="/interpreter/security.html">/security</a> for the contract.</p>
+        <form id="anthropic-form" style="margin-top:var(--1891int-s-4)">
+          <div class="field">
+            <label for="ant-key">API key</label>
+            <input id="ant-key" type="password" placeholder="sk-ant-..." autocomplete="off">
+            <span class="hint">Starts with <code>sk-ant-</code>. Stored only in your tenant's Settings tab.</span>
+          </div>
+          <div class="cluster">
+            <button class="btn btn-primary" type="button" id="save-anthropic">Save key</button>
+            <button class="btn btn-ghost" type="button" id="test-anthropic">Test key</button>
+            <span id="anthropic-status" class="muted" style="font-size:14px"></span>
+          </div>
+        </form>
+      </section>
+
+      <!-- Agency -->
+      <section class="card" style="margin-bottom:var(--1891int-s-6)">
+        <h2 class="mt-0">Agency</h2>
+        <form id="agency-form">
+          <div class="field"><label for="a-legal">Legal name</label><input id="a-legal" name="legal_name" type="text"></div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--1891int-s-4)">
+            <div class="field">
+              <label for="a-tz">Timezone</label>
+              <select id="a-tz" name="timezone">
+                <option value="America/New_York">America/New_York</option>
+                <option value="America/Chicago">America/Chicago</option>
+                <option value="America/Denver">America/Denver</option>
+                <option value="America/Los_Angeles">America/Los_Angeles</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="a-phi">PHI mode</label>
+              <select id="a-phi" name="phi_mode">
+                <option value="initials-only">Initials only</option>
+                <option value="full">Full</option>
+                <option value="disabled">Disabled</option>
+              </select>
+            </div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--1891int-s-4)">
+            <div class="field"><label for="a-email">Billing email</label><input id="a-email" name="billing_email" type="email"></div>
+            <div class="field"><label for="a-color">Brand color</label><input id="a-color" name="brand_color" type="text"></div>
+          </div>
+          <button class="btn btn-primary" type="button" id="save-agency">Save agency</button>
+        </form>
+      </section>
+
+      <!-- Rate cards -->
+      <section class="card" style="margin-bottom:var(--1891int-s-6)">
+        <h2 class="mt-0">Rate cards</h2>
+        <form id="rates-form">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--1891int-s-4)">
+            <div class="field"><label>Medical · on-site · solo (¢/hr)</label><input data-key="rate_card.medical.on-site.solo.hourly_cents" type="number" min="0"></div>
+            <div class="field"><label>Legal · on-site · solo (¢/hr)</label><input data-key="rate_card.legal.on-site.solo.hourly_cents" type="number" min="0"></div>
+            <div class="field"><label>Education · on-site · solo (¢/hr)</label><input data-key="rate_card.education.on-site.solo.hourly_cents" type="number" min="0"></div>
+            <div class="field"><label>Translation (¢/word)</label><input data-key="rate_card.translation.per_word_cents" type="number" min="0"></div>
+            <div class="field"><label>Minimum medical (hours)</label><input data-key="rate_card.minimum.medical.hours" type="number" step="0.5" min="0"></div>
+            <div class="field"><label>Late-cancel window (hours)</label><input data-key="cancellation_policy.late_window_hours" type="number" min="0"></div>
+          </div>
+          <p class="muted" style="font-size:13.5px;margin-bottom:0">All rate-card numbers are stored as cents in the Settings tab.</p>
+          <button class="btn btn-primary" type="button" id="save-rates" style="margin-top:var(--1891int-s-3)">Save rates</button>
+        </form>
+      </section>
+
+      <!-- Subprocessors -->
+      <section class="card">
+        <h2 class="mt-0">Subprocessors</h2>
+        <p class="ink-soft" style="font-size:14.5px">The third parties this tenant is using. Documented publicly at <a href="/interpreter/legal/subprocessors.html">/legal/subprocessors</a>.</p>
+        <ul class="xs">
+          <li><strong>Google Workspace</strong> — Sheets as system of record (BAA + DPA)</li>
+          <li><strong>Anthropic</strong> — AI intake parser (redacted inputs only, BAA on direct API)</li>
+          <li><strong>MailApp / Gmail</strong> — transactional email via Apps Script</li>
+        </ul>
+      </section>
+    </div>
+  </main>
+</div>
+
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+<script src="/interpreter/assets/js/api.js" defer></script>
+<script>
+(function () {
+  'use strict';
+  document.addEventListener('DOMContentLoaded', init);
+  function $(id) { return document.getElementById(id); }
+  function toast(msg, kind) { var t = $('toast'); t.textContent = msg; t.className = 'toast show' + (kind ? ' ' + kind : ''); setTimeout(function () { t.className = 'toast'; }, 3500); }
+
+  function init() {
+    if (!IntApi.getSession()) { location.href = '/interpreter/sign-in.html'; return; }
+    IntApi.whoami().then(function (r) {
+      if (!r || !r.ok) { IntApi.clearSession(); location.href = '/interpreter/sign-in.html'; return; }
+      $('who-name').textContent = r.user.display_name || r.user.email;
+      loadSettings();
+    });
+    $('signout').addEventListener('click', function () { IntApi.clearSession(); location.href = '/interpreter/'; });
+    $('save-anthropic').addEventListener('click', saveAnthropic);
+    $('test-anthropic').addEventListener('click', testAnthropic);
+    $('save-agency').addEventListener('click', saveAgency);
+    $('save-rates').addEventListener('click', saveRates);
+  }
+
+  function loadSettings() {
+    IntApi.listSettings().then(function (r) {
+      if (!r || !r.ok) return;
+      var s = r.settings || {};
+      ['rate_card.medical.on-site.solo.hourly_cents','rate_card.legal.on-site.solo.hourly_cents','rate_card.education.on-site.solo.hourly_cents','rate_card.translation.per_word_cents','rate_card.minimum.medical.hours','cancellation_policy.late_window_hours'].forEach(function (k) {
+        var el = document.querySelector('[data-key="' + k + '"]');
+        if (el && s[k]) el.value = s[k].value;
+      });
+      if (s['anthropic.api_key'] && s['anthropic.api_key'].value) {
+        $('anthropic-status').textContent = 'A key is configured (hidden). Replace by entering a new one.';
+        $('anthropic-status').style.color = 'var(--1891int-ok)';
+      }
+    });
+  }
+
+  function saveAnthropic() {
+    var key = $('ant-key').value.trim();
+    if (!key) { toast('Enter a key first.', 'error'); return; }
+    IntApi.updateSetting('anthropic.api_key', key, 'integration').then(function () {
+      $('ant-key').value = '';
+      $('anthropic-status').textContent = 'Saved. Test it with the button on the left.';
+      $('anthropic-status').style.color = 'var(--1891int-ok)';
+      toast('Key saved.', 'ok');
+    }).catch(function () { toast('Save failed.', 'error'); });
+  }
+
+  function testAnthropic() {
+    $('anthropic-status').textContent = 'Testing…';
+    $('anthropic-status').style.color = 'var(--1891int-fog)';
+    fetch(IntApi.ENDPOINT + '?action=test_anthropic&session=' + encodeURIComponent(IntApi.getSession()) + '&callback=cb' + Date.now())
+      .then(function (r) { return r.text(); })
+      .then(function (txt) {
+        var m = txt.match(/\(([\s\S]+)\);?\s*$/);
+        if (!m) { $('anthropic-status').textContent = 'Unexpected response.'; $('anthropic-status').style.color = 'var(--1891int-err)'; return; }
+        try {
+          var j = JSON.parse(m[1]);
+          if (j.ok && j.status_code === 200) {
+            $('anthropic-status').textContent = '✓ API key works (got 200 from Anthropic).';
+            $('anthropic-status').style.color = 'var(--1891int-ok)';
+          } else if (j.status_code) {
+            $('anthropic-status').textContent = '✗ Anthropic returned ' + j.status_code + '. ' + (j.sample || '');
+            $('anthropic-status').style.color = 'var(--1891int-err)';
+          } else {
+            $('anthropic-status').textContent = (j.message || j.error || 'Test failed.');
+            $('anthropic-status').style.color = 'var(--1891int-err)';
+          }
+        } catch (e) { $('anthropic-status').textContent = 'Unparseable response.'; $('anthropic-status').style.color = 'var(--1891int-err)'; }
+      });
+  }
+
+  function saveAgency() {
+    var f = $('agency-form');
+    var fd = new FormData(f);
+    var fields = {};
+    fd.forEach(function (v, k) { if (v) fields[k] = v; });
+    IntApi.updateAgency(fields).then(function () { toast('Agency saved.', 'ok'); }).catch(function () { toast('Save failed.', 'error'); });
+  }
+
+  function saveRates() {
+    var inputs = document.querySelectorAll('#rates-form [data-key]');
+    var promises = [];
+    inputs.forEach(function (el) {
+      if (el.value) {
+        var category = el.getAttribute('data-key').startsWith('rate_card.') ? 'rate-card' : 'cancellation-policy';
+        promises.push(IntApi.updateSetting(el.getAttribute('data-key'), el.value, category));
+      }
+    });
+    Promise.all(promises).then(function () { toast('Rates saved.', 'ok'); }).catch(function () { toast('Save failed.', 'error'); });
+  }
+})();
+</script>
+</body>
+</html>

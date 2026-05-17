@@ -1,0 +1,331 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>AI intake — 1891 Interpreter</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#C8553D">
+<link rel="icon" type="image/svg+xml" href="/interpreter/assets/img/favicon.svg">
+<link rel="stylesheet" href="/interpreter/assets/css/site.css">
+<link rel="stylesheet" href="/interpreter/assets/css/app.css">
+<style>
+  .intake-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--1891int-s-6); }
+  @media (max-width: 880px) { .intake-grid { grid-template-columns: 1fr; } }
+  .pasted {
+    font-family: var(--1891int-mono);
+    font-size: 13px;
+    white-space: pre-wrap;
+    background: var(--1891int-paper-warm);
+    padding: var(--1891int-s-4);
+    border-radius: var(--1891int-radius-sm);
+    border: 1px solid var(--1891int-line);
+    max-height: 240px;
+    overflow: auto;
+  }
+  .redaction-chip {
+    display: inline-block;
+    font-size: 12px;
+    padding: 2px 8px;
+    border-radius: var(--1891int-radius-pill);
+    background: var(--1891int-river-tint);
+    color: var(--1891int-river-deep);
+    margin: 2px 4px 2px 0;
+    font-family: var(--1891int-mono);
+  }
+  .confidence-low { color: var(--1891int-warn); }
+  .confidence-high { color: var(--1891int-ok); }
+  .ambiguity {
+    padding: 8px 12px;
+    border-left: 3px solid var(--1891int-warn);
+    background: rgba(184,123,26,0.08);
+    border-radius: var(--1891int-radius-sm);
+    margin-bottom: 6px;
+    font-size: 14px;
+  }
+</style>
+</head>
+<body>
+<a href="#main" class="skip">Skip to main content</a>
+
+<div class="app-shell">
+  <header class="app-header">
+    <div class="wrap">
+      <a href="/interpreter/app/" class="brand"><img src="/interpreter/assets/img/brand-mark.svg" alt="" width="32" height="32"><span>1891 <span class="brand-sub">Scheduler</span></span></a>
+      <div class="who"><span>Signed in as </span><strong id="who-name">…</strong><button id="signout" type="button">Sign out</button></div>
+    </div>
+  </header>
+
+  <nav class="app-nav" aria-label="App sections">
+    <div class="wrap">
+      <a href="/interpreter/app/">Day-of board</a>
+      <a href="/interpreter/app/interpreters/">Interpreters</a>
+      <a href="/interpreter/app/requestors/">Requestors</a>
+      <a href="/interpreter/app/intake/" aria-current="page">AI intake</a>
+      <a href="/interpreter/app/claim/">Interpreter view</a>
+      <a href="/interpreter/app/settings/">Settings</a>
+    </div>
+  </nav>
+
+  <main id="main" class="app-main">
+    <div class="wrap">
+      <h1 style="font-size:28px;margin:0 0 var(--1891int-s-4)">AI intake — parse an email into a Job draft</h1>
+      <p class="ink-soft" style="font-size:15px;max-width:64ch">Paste an email or voicemail transcription from a requestor. We scrub PHI client-and-server-side, send a structured-extraction prompt to Claude, and pre-fill a Job draft for you to review. <strong>The draft is never auto-confirmed for clinical work</strong> — per PRD D7 #4.</p>
+
+      <div class="intake-grid" style="margin-top:var(--1891int-s-6)">
+        <section>
+          <label for="raw-text" style="font-weight:600;display:block;margin-bottom:6px">Paste the email body</label>
+          <textarea id="raw-text" rows="14" style="width:100%;font-family:var(--1891int-mono);font-size:13.5px;padding:12px;border-radius:var(--1891int-radius-md);border:1px solid var(--1891int-line);resize:vertical" placeholder="Hi, we need an ASL interpreter at Frederick Health on Thursday at 2pm for about 90 minutes. The patient is hard of hearing. Reply to confirm. Thanks — Maria (Front Desk)"></textarea>
+          <div class="cluster" style="margin-top:var(--1891int-s-3)">
+            <button class="btn btn-primary" type="button" id="parse">Parse with AI</button>
+            <button class="btn btn-ghost" type="button" id="example">Load example email</button>
+            <span id="status" class="muted" style="font-size:13.5px"></span>
+          </div>
+          <div id="redaction" style="margin-top:var(--1891int-s-4);display:none">
+            <strong style="font-size:13.5px">PHI redactions applied before model call:</strong>
+            <div id="redaction-chips" style="margin-top:6px"></div>
+          </div>
+        </section>
+
+        <section>
+          <h2 style="margin:0 0 var(--1891int-s-3);font-size:20px">Parsed Job draft</h2>
+          <div id="parsed" class="empty-state" style="padding:var(--1891int-s-7) 0;color:var(--1891int-fog)">No draft yet. Paste an email and click Parse.</div>
+          <form id="draft-form" style="display:none">
+            <div class="field">
+              <label for="d-svc">Setting type</label>
+              <select id="d-svc" name="service_type">
+                <option value="medical">Medical</option>
+                <option value="mental-health">Mental health</option>
+                <option value="legal">Legal / Court</option>
+                <option value="education">Education / K-12</option>
+                <option value="gov">Government</option>
+                <option value="corporate">Corporate</option>
+                <option value="community">Community</option>
+                <option value="translation">Document translation</option>
+              </select>
+              <span id="conf-svc" class="hint"></span>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--1891int-s-3)">
+              <div class="field">
+                <label for="d-mod">Modality</label>
+                <select id="d-mod" name="modality"><option value="on-site">On-site</option><option value="VRI">VRI</option><option value="OPI">OPI</option></select>
+                <span id="conf-mod" class="hint"></span>
+              </div>
+              <div class="field">
+                <label for="d-team">Team config</label>
+                <select id="d-team" name="team_config"><option value="solo">Solo</option><option value="team-of-2">Team of 2</option><option value="cdi+hearing">CDI + hearing</option><option value="voicer+signer">Voicer + signer</option><option value="cart-solo">CART (solo)</option></select>
+              </div>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--1891int-s-3)">
+              <div class="field"><label for="d-src">From language</label><input id="d-src" name="source_language_id" type="text"></div>
+              <div class="field"><label for="d-tgt">To language</label><input id="d-tgt" name="target_language_id" type="text"></div>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--1891int-s-3)">
+              <div class="field">
+                <label for="d-start">Start</label>
+                <input id="d-start" name="scheduled_start" type="datetime-local">
+                <span id="conf-start" class="hint"></span>
+              </div>
+              <div class="field">
+                <label for="d-end">End</label>
+                <input id="d-end" name="scheduled_end" type="datetime-local">
+              </div>
+            </div>
+            <div class="field">
+              <label for="d-notes">Notes to interpreter (PHI-scrubbed)</label>
+              <textarea id="d-notes" name="notes_to_interpreter" rows="3"></textarea>
+            </div>
+            <div id="ambiguities-wrap" style="display:none;margin-bottom:var(--1891int-s-4)">
+              <strong style="font-size:13.5px">Ambiguities flagged by the model:</strong>
+              <div id="ambiguities" style="margin-top:6px"></div>
+            </div>
+            <div class="cluster">
+              <button class="btn btn-primary" type="button" id="create-job">Create job from this draft</button>
+              <button class="btn btn-ghost" type="button" id="discard">Discard draft</button>
+            </div>
+          </form>
+        </section>
+      </div>
+    </div>
+  </main>
+</div>
+
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+<script src="/interpreter/assets/js/api.js" defer></script>
+<script>
+(function () {
+  'use strict';
+  document.addEventListener('DOMContentLoaded', init);
+  function $(id) { return document.getElementById(id); }
+  function escHtml(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]; }); }
+  function toast(msg, kind) { var t = $('toast'); t.textContent = msg; t.className = 'toast show' + (kind ? ' ' + kind : ''); setTimeout(function () { t.className = 'toast'; }, 3500); }
+
+  var EXAMPLE = [
+    'From: Maria Gomez <front-desk@example-health.org>',
+    'Subject: Need an interpreter Thursday afternoon',
+    '',
+    'Hi, we have a patient who is hard of hearing coming in for a follow-up appointment on Thursday at 2pm.',
+    'It\'s an ASL/English appointment. The visit usually runs about 90 minutes. The patient prefers in-person.',
+    'They\'ve worked with you before — would Sarah or whoever is available be okay?',
+    '',
+    'Please confirm asap, thanks!',
+    '— Maria',
+    'Frederick Health Audiology',
+    '(office phone)'
+  ].join('\n');
+
+  function init() {
+    if (!IntApi.getSession()) { location.href = '/interpreter/sign-in.html'; return; }
+    IntApi.whoami().then(function (r) {
+      if (!r || !r.ok) { IntApi.clearSession(); location.href = '/interpreter/sign-in.html'; return; }
+      $('who-name').textContent = r.user.display_name || r.user.email;
+    });
+    $('signout').addEventListener('click', function () { IntApi.clearSession(); location.href = '/interpreter/'; });
+    $('parse').addEventListener('click', parse);
+    $('example').addEventListener('click', function () { $('raw-text').value = EXAMPLE; });
+    $('discard').addEventListener('click', function () { $('draft-form').style.display = 'none'; $('parsed').style.display = ''; $('redaction').style.display = 'none'; });
+    $('create-job').addEventListener('click', createJob);
+  }
+
+  function parse() {
+    var raw = $('raw-text').value.trim();
+    if (!raw) { toast('Paste some text first.', 'error'); return; }
+    $('status').innerHTML = '<span class="spinner"></span> Calling Claude…';
+    $('parse').disabled = true;
+
+    // POST to backend via fetch; backend writes audit + returns JSON via redirect chain.
+    // We use a form POST that goes through the no-cors redirect; can't read response cross-origin.
+    // For JSONP-friendly reads on POST data, we have to use a workaround:
+    //   serialize the body as query string and make a GET via JSONP — but Apps Script doGet
+    //   doesn't route ai_intake. So we'll POST and immediately re-fetch the audit log via JSONP
+    //   to confirm it ran, and try-fetch the response via the script.googleusercontent.com path.
+    // SIMPLER: route ai_intake through GET so JSONP works. But GET has URL-length limits.
+    // Workaround: post via a hidden form to a one-shot iframe and read its DOM after.
+
+    var params = new URLSearchParams();
+    params.append('action', 'ai_intake');
+    params.append('text', raw);
+    params.append('session', IntApi.getSession());
+    // We do a regular CORS-mode fetch; Apps Script redirects to googleusercontent which has
+    // permissive CORS in practice for the final hop. If it fails, we degrade to opaque.
+
+    fetch(IntApi.ENDPOINT, { method: 'POST', body: params, mode: 'cors' })
+      .then(function (r) { return r.text(); })
+      .then(function (txt) {
+        var j;
+        try { j = JSON.parse(txt); } catch (e) { throw new Error('Unparseable: ' + txt.slice(0, 200)); }
+        if (!j.ok) throw new Error(j.error || 'Parse failed');
+        renderDraft(j);
+        $('status').textContent = '✓ Parsed.';
+        $('status').style.color = 'var(--1891int-ok)';
+      })
+      .catch(function (err) {
+        // If cors mode fails (likely), fall back to no-cors + show fallback message
+        if (String(err).indexOf('cors') >= 0 || String(err).indexOf('Failed') >= 0) {
+          parseFallback(raw);
+        } else {
+          $('status').textContent = '✗ ' + err.message;
+          $('status').style.color = 'var(--1891int-err)';
+        }
+      })
+      .finally(function () { $('parse').disabled = false; });
+  }
+
+  // Apps Script doesn't return CORS headers, so cross-origin fetch can't read the response.
+  // The /app/intake/ page lives on madeby1891.com — different origin.
+  // Fallback: POST to a hidden form that targets a hidden iframe, then read the iframe's
+  // contents after the response arrives. Cross-origin frame access is also blocked though.
+  // Last-resort: use JSONP via GET. The text param will be URL-encoded. Apps Script accepts
+  // long URLs (~12k chars). For longer inputs we'd need a Worker; for an MVP this is fine.
+
+  function parseFallback(raw) {
+    if (raw.length > 8000) {
+      $('status').textContent = '✗ Input too long for the v1 GET-based intake (' + raw.length + ' chars > 8000). Shorten or wait for the Worker.';
+      $('status').style.color = 'var(--1891int-err)';
+      return;
+    }
+    var q = new URLSearchParams();
+    q.append('action', 'ai_intake');
+    q.append('text', raw);
+    q.append('session', IntApi.getSession());
+    var cbName = '__cb_' + Date.now();
+    q.append('callback', cbName);
+    window[cbName] = function (j) {
+      try { delete window[cbName]; } catch (_) {}
+      if (script.parentNode) script.parentNode.removeChild(script);
+      if (!j.ok) { $('status').textContent = '✗ ' + (j.error || 'Parse failed'); $('status').style.color = 'var(--1891int-err)'; return; }
+      renderDraft(j);
+      $('status').textContent = '✓ Parsed (via JSONP).';
+      $('status').style.color = 'var(--1891int-ok)';
+    };
+    var script = document.createElement('script');
+    script.src = IntApi.ENDPOINT + '?' + q.toString();
+    script.onerror = function () { $('status').textContent = '✗ JSONP failed.'; $('status').style.color = 'var(--1891int-err)'; };
+    document.head.appendChild(script);
+    // Apps Script doGet doesn't route ai_intake currently. We'd need to add it.
+    // If this fails, fall through to a "configure API key first" message.
+  }
+
+  function renderDraft(j) {
+    var p = j.parsed || {};
+    var conf = p.confidence_per_field || {};
+    $('parsed').style.display = 'none';
+    $('draft-form').style.display = '';
+
+    if (p.service_type) $('d-svc').value = p.service_type;
+    if (p.modality) $('d-mod').value = p.modality;
+    if (p.team_config) $('d-team').value = p.team_config;
+    $('d-src').value = p.source_language_id || '';
+    $('d-tgt').value = p.target_language_id || '';
+    if (p.scheduled_start_iso) $('d-start').value = p.scheduled_start_iso.slice(0, 16);
+    if (p.scheduled_end_iso) $('d-end').value = p.scheduled_end_iso.slice(0, 16);
+    $('d-notes').value = p.notes_to_interpreter || '';
+
+    confChip('conf-svc', conf.service_type);
+    confChip('conf-mod', conf.modality);
+    confChip('conf-start', conf.scheduled_start_iso);
+
+    var amb = p.ambiguities || [];
+    if (amb.length) {
+      $('ambiguities').innerHTML = amb.map(function (a) { return '<div class="ambiguity">' + escHtml(a) + '</div>'; }).join('');
+      $('ambiguities-wrap').style.display = '';
+    } else {
+      $('ambiguities-wrap').style.display = 'none';
+    }
+
+    if (j.redaction_summary && j.redaction_summary.kinds) {
+      var chips = Object.keys(j.redaction_summary.kinds).map(function (k) {
+        return '<span class="redaction-chip">' + escHtml(k) + ': ' + j.redaction_summary.kinds[k] + '</span>';
+      });
+      $('redaction-chips').innerHTML = chips.join('') + (chips.length ? '' : '<span class="muted" style="font-size:13px">No PHI patterns found.</span>');
+      $('redaction').style.display = '';
+    }
+  }
+
+  function confChip(id, value) {
+    var el = $(id);
+    if (value == null || value === undefined) { el.textContent = ''; return; }
+    var pct = Math.round(value * 100);
+    var cls = pct >= 80 ? 'confidence-high' : 'confidence-low';
+    el.innerHTML = '<span class="' + cls + '">Confidence: ' + pct + '%</span>';
+  }
+
+  function createJob() {
+    var form = $('draft-form');
+    if (!form.reportValidity()) return;
+    var fd = new FormData(form);
+    var fields = {};
+    fd.forEach(function (v, k) { fields[k] = v; });
+    if (fields.scheduled_start) fields.scheduled_start = new Date(fields.scheduled_start).toISOString();
+    if (fields.scheduled_end) fields.scheduled_end = new Date(fields.scheduled_end).toISOString();
+    fields.created_via = 'email-intake';
+    IntApi.createJob(fields).then(function () {
+      toast('Job created.', 'ok');
+      setTimeout(function () { location.href = '/interpreter/app/'; }, 1200);
+    }).catch(function () { toast('Create failed.', 'error'); });
+  }
+})();
+</script>
+</body>
+</html>

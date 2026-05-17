@@ -29,8 +29,9 @@
       <a href="/interpreter/app/" aria-current="page">Day-of board</a>
       <a href="/interpreter/app/interpreters/">Interpreters</a>
       <a href="/interpreter/app/requestors/">Requestors</a>
+      <a href="/interpreter/app/intake/">AI intake</a>
       <a href="/interpreter/app/claim/">Interpreter view</a>
-      <a href="/interpreter/app/onboard/">Setup</a>
+      <a href="/interpreter/app/settings/">Settings</a>
     </div>
   </nav>
 
@@ -278,6 +279,7 @@
     var canClaim = (j.status === 'OPEN' || j.status === 'OFFERED');
     var canCancel = !/^CANCELLED|COMPLETED|BILLED|PAID$/.test(j.status);
     var actions = '';
+    actions += '<a class="btn btn-ghost btn-sm" href="/interpreter/app/job/?id=' + encodeURIComponent(j.job_id) + '">Open</a>';
     if (canClaim) actions += '<button class="btn btn-secondary btn-sm" data-act="fill" data-id="' + escHtml(j.job_id) + '">Smart-fill</button>';
     if (canClaim) actions += '<button class="btn btn-primary btn-sm" data-act="claim" data-id="' + escHtml(j.job_id) + '">Claim</button>';
     if (canCancel) actions += '<button class="btn btn-ghost btn-sm" data-act="cancel" data-id="' + escHtml(j.job_id) + '">Cancel</button>';
@@ -390,10 +392,21 @@
           '    ' + c.score.total + '<small>/' + c.score.max + '</small>',
           '  </div>',
           '  <div class="breakdown">cert ' + b.certification + ' &middot; loc ' + b.location + ' &middot; pref ' + b.preference + ' &middot; workload ' + b.workload + ' &middot; perf ' + b.performance + '</div>',
+          '  <div style="grid-column:1/-1;margin-top:8px">',
+          '    <button class="btn btn-primary btn-sm" data-offer="' + escHtml(c.interpreter_id) + '" data-job="' + escHtml(jobId) + '">Offer to ' + escHtml(c.display_name) + '</button>',
+          '  </div>',
           '</div>'
         ].join('\n');
       }).join('\n');
       $('candidates').innerHTML = html;
+      $('candidates').querySelectorAll('[data-offer]').forEach(function (b) {
+        b.addEventListener('click', function () {
+          b.disabled = true; b.textContent = 'Offering…';
+          IntApi.offerJob(b.getAttribute('data-job'), b.getAttribute('data-offer'))
+            .then(function () { b.textContent = '✓ Offered'; toast('Offer sent.', 'ok'); setTimeout(loadJobs, 1200); })
+            .catch(function () { b.disabled = false; b.textContent = 'Offer'; toast('Offer failed.', 'error'); });
+        });
+      });
     }).catch(function () {
       $('candidates').innerHTML = '<p class="muted">Smart-fill request failed.</p>';
     });

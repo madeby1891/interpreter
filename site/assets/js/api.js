@@ -128,6 +128,9 @@
   function listInterpreters() { return jsonp({ action: 'list_interpreters' }); }
   function listRequestors()   { return jsonp({ action: 'list_requestors' }); }
   function listSettings()     { return jsonp({ action: 'list_settings' }); }
+  function listAssignments(jobId)   { return jsonp({ action: 'list_assignments', job_id: jobId || '' }); }
+  function listJobEvents(jobId)     { return jsonp({ action: 'list_job_events', job_id: jobId }); }
+  function listCommunications(jobId){ return jsonp({ action: 'list_communications', job_id: jobId || '' }); }
   function createInterpreter(fields) { return _post('create_interpreter', fields); }
   function updateInterpreter(fields) { return _post('update_interpreter', fields); }
   function createRequestor(fields)   { return _post('create_requestor', fields); }
@@ -135,6 +138,16 @@
   function updateSetting(key, value, category) {
     return _post('update_setting', { key: key, value: value, category: category || '' });
   }
+  function offerJob(jobId, interpreterId, role) {
+    return _post('offer_job', { job_id: jobId, interpreter_id: interpreterId, role_on_job: role || 'primary' });
+  }
+  function confirmJob(jobId)  { return _post('confirm_job',  { job_id: jobId }); }
+  function startJob(jobId)    { return _post('start_job',    { job_id: jobId }); }
+  function completeJob(jobId, actualEnd) {
+    return _post('complete_job', { job_id: jobId, actual_end: actualEnd || '' });
+  }
+  function aiIntake(text)     { return jsonp({ action: 'ai_intake', text: text }); }
+  function testAnthropic()    { return jsonp({ action: 'test_anthropic' }); }
 
   root.IntApi = {
     ENDPOINT: ENDPOINT,
@@ -153,10 +166,20 @@
     listInterpreters: listInterpreters,
     listRequestors: listRequestors,
     listSettings: listSettings,
+    listAssignments: listAssignments,
+    listJobEvents: listJobEvents,
+    listCommunications: listCommunications,
     createInterpreter: createInterpreter,
     updateInterpreter: updateInterpreter,
     createRequestor: createRequestor,
     updateAgency: updateAgency,
-    updateSetting: updateSetting
+    updateSetting: updateSetting,
+    offerJob: offerJob,
+    confirmJob: confirmJob,
+    startJob: startJob,
+    completeJob: completeJob,
+    aiIntake: aiIntake,
+    testAnthropic: testAnthropic,
+    jsonp: jsonp
   };
 })(window);
