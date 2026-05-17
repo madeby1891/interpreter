@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Interpreter — 1891 Interpreter</title>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#C8553D">
+<link rel="icon" type="image/svg+xml" href="/interpreter/assets/img/favicon.svg">
+<link rel="stylesheet" href="/interpreter/assets/css/site.css">
+<link rel="stylesheet" href="/interpreter/assets/css/app.css">
+</head>
+<body style="background:var(--1891int-paper-warm)">
+<a href="#main" class="skip">Skip to main content</a>
+
+<header class="app-header">
+  <div class="wrap">
+    <a href="/interpreter/" class="brand">
+      <img src="/interpreter/assets/img/brand-mark.svg" alt="" width="32" height="32">
+      <span>1891</span>
+    </a>
+    <div class="who"><strong id="who-name">…</strong><button id="signout" type="button">Sign out</button></div>
+  </div>
+</header>
+
+<nav class="app-nav" aria-label="App sections">
+  <div class="wrap">
+    <a href="/interpreter/app/">Day-of board</a>
+    <a href="/interpreter/app/claim/" aria-current="page">Interpreter view</a>
+  </div>
+</nav>
+
+<main id="main" class="claim-shell">
+  <h1 style="font-size:24px;margin-top:0">Open jobs</h1>
+  <p class="muted" style="font-size:14px">Two taps. See your pay before you accept.</p>
+  <div id="loading" class="empty-state"><span class="spinner"></span> Loading&hellip;</div>
+  <div id="list"></div>
+  <div id="empty" class="empty-state" style="display:none">
+    <h2>Nothing open right now.</h2>
+    <p>Quiet morning. New jobs show up here as schedulers post them.</p>
+  </div>
+</main>
+
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+<script src="/interpreter/assets/js/api.js" defer></script>
+<script>
+(function () {
+  'use strict';
+  document.addEventListener('DOMContentLoaded', init);
+
+  function $(id) { return document.getElementById(id); }
+  function escHtml(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+    return { '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c];
+  }); }
+  function toast(msg, kind) {
+    var t = $('toast');
+    t.textContent = msg;
+    t.className = 'toast show' + (kind ? ' ' + kind : '');
+    setTimeout(function () { t.className = 'toast'; }, 3200);
+  }
+  function formatWhen(iso) {
+    if (!iso) return '—';
+    var d = new Date(iso);
+    if (isNaN(d.getTime())) return iso;
+    return d.toLocaleString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+  }
+
+  // Deterministic pay estimate based on rate-card defaults seeded at bootstrap.
+  // Real rate cards come from Settings; this is the v1 fallback.
+  function estimatePay(j) {
+    var hourly = ({
+      'medical':    9500,
+      'legal':      12500,
+      'education':   8500,
+      'mental-health': 11000,
+      'corporate':  11000,
+      'gov':         9500,
+      'community':   8500
+    })[j.service_type] || 9500;
+    var start = new Date(j.scheduled_start).getTime();
+    var end = new Date(j.scheduled_end).getTime();
+    var mins = Math.max(0, Math.round((end - start) / 60000));
+    var hours = Math.max(2, Math.round(mins / 60 * 10) / 10);  // 2hr min
+    return { hours: hours, cents: Math.round(hours * hourly) };
+  }
+  function money(cents) {
+    return '$' + (cents / 100).toFixed(2);
+  }
+
+  function init() {
+    if (!IntApi.getSession()) {
+      location.href = '/interpreter/sign-in.html';
+      return;
+    }
+    IntApi.whoami().then(function (r) {
+      if (!r || !r.ok) {
+        IntApi.clearSession();
+        location.href = '/interpreter/sign-in.html';
+        return;
+      }
+      $('who-name').textContent = (r.user && (r.user.display_name || r.user.email)) || 'unknown';
+      loadJobs();
+    }).catch(function () {
+      toast('Could not reach the server.', 'error');
+    });
+
+    $('signout').addEventListener('click', function () {
+      IntApi.clearSession();
+      location.href = '/interpreter/';
+    });
+  }
+
+  function loadJobs() {
+    $('loading').style.display = '';
+    $('list').innerHTML = '';
+    $('empty').style.display = 'none';
+    IntApi.listJobs('OPEN').then(function (r) {
+      $('loading').style.display = 'none';
+      if (!r || !r.ok) { toast((r && r.error) || 'Load failed', 'error'); return; }
+      var jobs = r.jobs || [];
+      if (!jobs.length) { $('empty').style.display = ''; return; }
+      var html = jobs.map(jobCard).join('');
+      $('list').innerHTML = html;
+      bind();
+    }).catch(function () {
+      $('loading').style.display = 'none';
+      toast('Network error', 'error');
+    });
+  }
+
+  function jobCard(j) {
+    var pay = estimatePay(j);
+    var labelMod = ({ 'on-site': 'On-site', 'VRI': 'VRI', 'OPI': 'OPI' })[j.modality] || j.modality;
+    return [
+      '<article class="claim-card">',
+      '  <div class="when">' + escHtml(formatWhen(j.scheduled_start)) + '</div>',
+      '  <h2>' + escHtml((j.service_type || 'medical').replace(/-/g,' ')) + ' &middot; ' + escHtml(j.target_language_id || 'ASL') + '</h2>',
+      '  <div style="color:var(--1891int-fog);font-size:14.5px">' + escHtml(labelMod) + ' &middot; ' + escHtml(j.team_config) + ' &middot; ' + escHtml(j.source_language_id) + ' → ' + escHtml(j.target_language_id) + '</div>',
+      '  <div class="pay">',
+      '    Hourly ' + money(({medical:9500,legal:12500,education:8500,'mental-health':11000,corporate:11000,gov:9500,community:8500})[j.service_type] || 9500) + '/hr · 2-hr minimum applied',
+      '    <strong>You\'ll be paid ' + money(pay.cents) + '</strong>',
+      '    <span style="color:var(--1891int-fog);font-size:13px">' + pay.hours.toFixed(1) + ' hr · mileage extra</span>',
+      '  </div>',
+      (j.notes_to_interpreter ? '  <p class="ink-soft" style="font-size:14.5px">' + escHtml(j.notes_to_interpreter) + '</p>' : ''),
+      '  <div class="btn-row">',
+      '    <button class="btn btn-ghost" type="button" data-act="decline" data-id="' + escHtml(j.job_id) + '">Pass</button>',
+      '    <button class="btn btn-primary" type="button" data-act="claim" data-id="' + escHtml(j.job_id) + '">Claim</button>',
+      '  </div>',
+      '</article>'
+    ].join('\n');
+  }
+
+  function bind() {
+    document.querySelectorAll('[data-act="claim"]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var id = b.getAttribute('data-id');
+        if (!confirm('Claim this job? You\'ll get a confirmation email.')) return;
+        b.disabled = true;
+        IntApi.claimJob(id).then(function () {
+          toast('Claimed.', 'ok');
+          setTimeout(loadJobs, 800);
+        }).catch(function () { b.disabled = false; toast('Claim failed.', 'error'); });
+      });
+    });
+    document.querySelectorAll('[data-act="decline"]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var id = b.getAttribute('data-id');
+        b.closest('.claim-card').style.opacity = '0.5';
+        b.disabled = true;
+        toast('Passed (visual only; decline state lives on server).', 'ok');
+      });
+    });
+  }
+})();
+</script>
+</body>
+</html>

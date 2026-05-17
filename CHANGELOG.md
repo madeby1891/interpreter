@@ -1,0 +1,112 @@
+# CHANGELOG — 1891 Interpreter
+
+Dated history of changes. Newest entries at the top. Note user-visible changes only; engineering refactors that don't change behavior can stay out.
+
+---
+
+## 2026-05-17 — Backend goes from vaporware to working scheduler MVP
+
+Turning the marketed product into something a design-partner agency can actually use.
+
+**Tenant data layer (real, deployed):**
+- Apps Script `bootstrapHostTenant()` builds every canonical tab from PRD A3 — 21 tabs: Agencies, Users, Roles, Interpreters, Languages, Certifications, Requestors, Requestor_Contacts, Payers, Consumers, Locations, Jobs, Job_Assignments, Job_Events, Communications, Invoices, Invoice_Lines, Payouts, Documents, Settings, Audit_Log.
+- Seeds: 8 system Roles (owner/admin/scheduler/interpreter/requestor_contact/payer_contact/consumer_self/auditor) with permission JSON. 20 Languages (ASL, ProTactile, Spanish dialects, Mandarin, Cantonese, Arabic, Haitian Creole, etc.). 17 Certifications (NIC, CDI, BEI tiers, SC:L, EIPA tiers, CCHI, NBCMI, CMI-Spanish, ATA, FCICE, CRC-NCRA, MD-Court-Cert).
+- Host tenant ('host' tenant_id) auto-provisioned in Agencies row; Anthony Mowl's owner User row auto-created.
+- Default Settings seeded: rate cards (medical $95/hr, legal $125/hr, education $85/hr, translation $0.20/word), cancellation policy (24hr window, 15min no-show), terminology defaults.
+
+**Backend API (real, deployed at the same Apps Script URL):**
+- Magic-link auth — `POST action=auth_request&email=...` issues a token, emails the user a one-time link (15-min TTL). `GET action=auth_verify&token=...` exchanges the token for a session JWT (HS256 over PropertiesService-stored secret, 14-day TTL).
+- Sessions are passed back via JSONP-wrapped responses; the script can be called from the marketing site cross-origin because `doGet`/`doPost` now support a `callback` query param that wraps responses in callback(JSON).
+- Jobs API: `create_job`, `list_jobs`, `get_job`, `claim_job`, `cancel_job` — all session-gated, all tenant-scoped, all writing to the canonical Jobs / Job_Assignments / Job_Events tabs. State machine: DRAFT → OPEN → OFFERED → CLAIMED → CONFIRMED → EN_ROUTE → IN_PROGRESS → COMPLETED → BILLED → PAID with cancellation side-branches.
+- Smart-fill v1: deterministic 5-factor scoring (certification fit 30 / location 20 / preference 20 / workload 15 / performance 15 = 100). Transparent score breakdown returned per candidate. AI ranking deferred to a Worker.
+- All endpoints write to `Audit_Log` with action / tenant_id / user_id / detail.
+- `clasp` used for deploys — no more four-click flow needed. `apps-script/.clasp.json` points at the script project.
+
+**Scheduler MVP (real, behind auth) at `/interpreter/app/`:**
+- `app/callback.html` — magic-link verifier; sets localStorage session, redirects to dashboard.
+- `app/index.html` — day-of board. Color-coded job cards by status (OPEN bloom, CLAIMED river, CONFIRMED green, etc.). Filter by status. Keyboard nav (`/` for filter, `Esc` to close modals). New-job modal with full intake form (modality, languages, datetime range, team config, notes). Smart-fill modal with ranked candidates and visible score breakdown. Claim / cancel actions on each card.
+- `app/claim/index.html` — phone-first interpreter view. Lists OPEN jobs with deterministic pay estimate ($95–125/hr × hours, 2-hour minimum applied per Settings). Two-tap claim with confirmation. Off-canvas decline.
+- Shared `assets/css/app.css` (~400 lines) + `assets/js/api.js` (JSONP client).
+
+**Sign-in (real, replaces placeholder):**
+- `/interpreter/sign-in.html` now POSTs to the live Apps Script via `IntApi.authRequest()`. User gets a real email with a real link. Clicking the link lands on `/app/callback.html` → session minted → dashboard.
+
+**Verification standard PDF (real, generated):**
+- `/interpreter/assets/docs/deaf-owned-verification-standard.pdf` — actual PDF document built via ReportLab. Linked from `/free-for-deaf-owned` next to the HTML mirror. 5.7 KB, ATS-readable, brand-consistent.
+
+**Tooling:**
+- `clasp` 3.3.0 installed locally in the project (`node_modules/`), `.clasp.json` configured. `clasp push` + `clasp deploy --deploymentId ...` redeploys without browser involvement. The four-click flow is now optional.
+
+**Still vaporware** (documented in HANDOFF):
+- Cloudflare Workers (hot paths — real-time presence, faster reads, BAA-tier processing). Tracked in PRD A4.
+- Stripe Connect Express, track1099, QuickBooks/Xero/NetSuite/Bill.com integrations.
+- VRI WebRTC client.
+- AI intake parser (PRD D2).
+- Document translation pipeline.
+- Live STT integration (Deepgram).
+- SSO/SAML.
+- White-label tenant theming.
+
+---
+
+## 2026-05-17 — Apps Script inbound-forms backend live
+
+- Apps Script project **"1891 Interpreter — Inbound forms"** created and deployed as a Web app. Project ID `1m74_xIJtXWBw7ok_73_srlnMkfpO50TPxZEJFXBw4pTYdRQcLaBnJEwg`. Deployment URL baked into `site/assets/js/main.js`.
+- Standalone (not container-bound) — opens the "1891 Interpreter" Sheet (`1RKY0n-dStOoyLtayppvQ0prGVFXMiR0aHg0C_u7eigE`) via `SpreadsheetApp.openById`. Chosen because the Sheets "Extensions → Apps Script" menu uses Material listboxes that require real `event.isTrusted` clicks — un-automatable via Chrome MCP.
+- Source: `apps-script/Code.gs` + `apps-script/appsscript.json`. To redeploy after edits: open the script, paste new Code.gs, Save, then **Deploy → Manage deployments → ✏️ pencil → New version → Deploy** (the four-click manual flow per root CLAUDE.md).
+- Writes inbound submissions to three tabs in the Sheet:
+  - **Inbound** — every form_id, full columns covering all forms (timestamp, form_id, name, email, organization, agency_size, modality, current_platform, helps, topic, message, language, when, setting, notes, agency_legal_name, state_of_formation, owner_name, documentation_type, page, raw_params).
+  - **Deaf_Owned_Applications** — additionally appended for `form_id=deaf_owned_application` with a `review_status` workflow column (pending → approved/denied).
+  - **Audit_Log** — every doPost + every notification attempt + every PHI-filter rejection.
+- Notification email routing: `hello@madeby1891.com` by default; `accessibility@madeby1891.com` for accessibility feedback forms; `security@madeby1891.com` for security disclosure forms.
+- PHI guardrail: `scanForLikelyPHI_` rejects submissions with SSN-shape strings, and rejects submissions to the requestor sample form that contain clinical red-flag terms (diagnosis, MRN, patient name, DOB, HIV, cancer, etc.). Rejected submissions are logged to Audit_Log with the reason.
+- Smoke-tested: `GET /exec` returns expected service JSON; `POST /exec` ran 4.6s and completed in the execution log; Inbound + Audit_Log tabs auto-created on first hit.
+- Site `main.js` updated to call the endpoint via `fetch(..., { mode: 'no-cors' })` — fire-and-forget pattern (Apps Script doesn't return CORS headers; can't read the response cross-origin, but the row lands either way).
+- CSP in `.htaccess` updated to allow `connect-src https://script.google.com https://script.googleusercontent.com` and matching `form-action`.
+
+**Still to do:**
+- Run `bash deployment/deploy.sh` to push the now-final site to `madeby1891.com/interpreter`.
+
+---
+
+## 2026-05-17 — Marketing site v1 built, ready to deploy
+
+- Built the public marketing site under `site/` — 41 HTML pages plus sitemap, robots, and `.htaccess` security baseline. Target URL: `https://madeby1891.com/interpreter/`.
+- Pages: home, 5 audience pages (`for-agencies`, `for-schedulers`, `for-interpreters`, `for-requestors`, `for-payers`), pricing, free-for-deaf-owned, get-a-demo, start-free, contact, sign-in, features index + 9 feature children, security, accessibility, about, our-1891, changelog, 4 content stubs (blog/case-studies/customers/resources), 9 legal pages (privacy, terms, BAA, DPA, subprocessors, accessibility-statement, responsible-disclosure, DMCA, deaf-owned standard mirror), and a real 404.
+- Design system at `site/assets/css/site.css` — brand tokens per PRD F5 (`--1891int-bloom: #C8553D`, `--1891int-river: #2E5E5C`), serif display, warm paper, dark-mode + reduced-motion handling.
+- Builder at `_build/build.py` — single-pass Python script that renders all pages from a content registry. Run `python3 _build/build.py` to regenerate.
+- Deploy infra: `deployment/deploy.sh` (rsync over `~/.ssh/ftd_godaddy_deploy`) and `deployment/smoke.sh` (curl-based smoke checks against the live URL).
+- Security baseline shipped: `.htaccess` blocks `/deployment/`, `/_build/`, `*.md`, `*-secret.*`; real `/404.html` (not soft-200); HSTS preload, X-Frame-Options DENY, X-Content-Type-Options nosniff, Referrer-Policy strict-origin-when-cross-origin, Permissions-Policy locks down camera/mic/geolocation/etc., strict CSP with no external scripts.
+- PII safety: deploy script greps for personal emails, SSN-shape, and phone-number-shape patterns and refuses to deploy on any match. Pre-build sweep clean (0 hits).
+- Anti-claim sweep clean: zero instances of the F1.3 banned phrases ("AI-powered", "revolutionary", "cutting-edge", "enterprise-grade", "empowering", "best-in-class", "accessibility solution", "underserved community", "leverage", "synergy").
+- Internal link audit: 41 pages scanned, 0 broken internal links.
+- Forms POST to placeholder `/api/lead` and `/api/auth/magic-link`; backend not yet wired. JS-side fallback shows a polite confirmation so the page works on first day even without backend.
+
+**Not yet:**
+- Backend endpoints (`/api/lead`, `/api/auth/magic-link`) — Apps Script or Worker.
+- The PDF mirror of the Deaf-owned verification standard. HTML mirror is at `legal/deaf-owned-verification-standard.html`.
+- ASL inset videos on every page — placeholder ASL frame on home; remaining pages reference but don't yet host.
+- Logo wall on `/customers/` — intentionally empty per PRD F10 #7.
+
+**To ship:**
+```
+bash deployment/deploy.sh --dry-run   # verify
+bash deployment/deploy.sh              # ship
+```
+
+---
+
+## 2026-05-16 — Project scaffolded, PRD complete
+
+- Created `~/Desktop/1891/projects/interpreter/` from the 1891 project starter pattern.
+- Drafted the v1 master PRD in six sections (A through F) — see `docs/PRD_index.md`. Sections cover:
+  - **A.** Architecture, data model, multi-tenant Sheet schema, Worker design, auth, HIPAA + PII compliance posture.
+  - **B.** Stakeholders (13 roles), permissions matrix, per-role dashboards, team-interpreter dynamics, W-2 vs 1099 split, multi-agency 1099 (DeShawn's Tuesday), onboarding flows, accessibility commitments.
+  - **C.** Full job lifecycle state machine, intake-to-assignment happy path, smart assignment engine (transparent scoring), modality-specific flows, cancellations/no-shows/replacements, KPI dashboard.
+  - **D.** AI feature inventory (15 features), NL intake deep dive, communications matrix (40 events), audio/speech contract integration, AI guardrails, i18n.
+  - **E.** Rate-construct lexicon, invoicing, payer portal, interpreter payouts (W-2 + 1099 + 1099-NEC + 1042-S + 1099-MISC), money-flow architecture (agency-of-record vs marketplace), tax handling, QBO/Xero integration, audit + SOX-light, reporting.
+  - **F.** Brand positioning, sitemap, public pricing for every tier including Network floor, Deaf-owned verification process, brand identity primitives, 6-month content plan, SEO targets, 4-phase launch plan, competitive matrix, open marketing decisions.
+- 50+ open decisions collected at the ends of A9, C10, D7, E10, F10, each with a recommendation. To be locked in a future decisions sweep.
+- Wrote project root files: README, PROJECT_GUIDE, HANDOFF, CLAUDE, DISASTER_RECOVERY, CHANGELOG (this file).
+
+Next: domain registration, repo creation, tenant Sheet template, Apps Script scaffold, Worker scaffold.

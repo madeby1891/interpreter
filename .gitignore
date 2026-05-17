@@ -1,0 +1,70 @@
+# 1891 Interpreter — gitignore
+# Inherits the 1891 baseline: never commit secrets, never commit PII.
+
+# Runtime backend secrets (FDT audit baseline — these are the only files
+# allowed to hold a live runtime secret on disk, and they MUST be gitignored).
+*-secret.js
+*-secret.gs
+*-secret.json
+*-secret.env
+
+# Private deployment helpers / SSH configs / per-deploy notes.
+deployment/private/
+deployment/.deploy-history
+
+# Per-tenant raw data exports, PII dumps, anything pulled out of a tenant Sheet.
+.private-data/
+**/private-exports/
+
+# Sheet snapshot backups (live in R2; never in git).
+backups/
+
+# Worker secrets / wrangler local config.
+.dev.vars
+.wrangler/
+workers/**/wrangler.toml.local
+workers/**/.env*
+
+# Apps Script local mirror — clasp local files.
+apps-script/.clasp.json
+apps-script/.clasprc.json
+
+# Node deps (build scripts only; we don't ship a Node toolchain to prod).
+node_modules/
+
+# Python build virtualenv + caches.
+_build/.venv/
+_build/__pycache__/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# OS noise.
+.DS_Store
+Thumbs.db
+*.swp
+
+# Editor stuff.
+.vscode/
+.idea/
+*.iml
+
+# Local PDFs, screenshots, scratch.
+scratch/
+*.pdf.bak
+
+# Coverage and test artifacts.
+coverage/
+.nyc_output/
+
+# Stripe / Twilio / Postmark local samples (CRITICAL — these may contain customer data).
+samples/stripe-events/
+samples/twilio-webhooks/
+samples/postmark-webhooks/
+
+# Umbrella telemetry sidecars (auto-generated; not source).
+godview.json
+
+# Generated artifact directories — keep the contents under site/assets/docs in source control
+# but the build script's intermediate scratch directories do not belong here.
+_build/.pdf-cache/

@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="1891 Interpreter">
+  <title>1891 Interpreter</title>
+  <rect width="64" height="64" rx="12" fill="#0F1419"/>
+  <g fill="#FAFAF7" font-family="Iowan Old Style, Palatino Linotype, Palatino, Georgia, serif" font-weight="700" font-size="22" text-anchor="middle">
+    <text x="14" y="29">1</text>
+    <text x="50" y="29">1</text>
+  </g>
+  <g fill="#FAFAF7" font-family="Iowan Old Style, Palatino Linotype, Palatino, Georgia, serif" font-weight="700" font-size="22" text-anchor="middle">
+    <text x="26" y="50">8</text>
+    <text x="38" y="50">9</text>
+  </g>
+  <!-- handshape contact point: bloom-colored arc between 8 and 9 -->
+  <path d="M30,46 Q32,40 34,46" stroke="#C8553D" stroke-width="2.4" fill="none" stroke-linecap="round"/>
+  <circle cx="32" cy="42" r="1.6" fill="#C8553D"/>
+</svg>

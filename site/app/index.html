@@ -1,0 +1,381 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Day-of board — 1891 Interpreter</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#C8553D">
+<link rel="icon" type="image/svg+xml" href="/interpreter/assets/img/favicon.svg">
+<link rel="stylesheet" href="/interpreter/assets/css/site.css">
+<link rel="stylesheet" href="/interpreter/assets/css/app.css">
+</head>
+<body>
+<a href="#main" class="skip">Skip to main content</a>
+
+<div class="app-shell">
+  <header class="app-header">
+    <div class="wrap">
+      <a href="/interpreter/app/" class="brand" aria-label="1891 Interpreter dashboard">
+        <img src="/interpreter/assets/img/brand-mark.svg" alt="" width="32" height="32">
+        <span>1891 <span class="brand-sub">Scheduler</span></span>
+      </a>
+      <div class="who"><span>Signed in as </span><strong id="who-name">…</strong><button id="signout" type="button">Sign out</button></div>
+    </div>
+  </header>
+
+  <nav class="app-nav" aria-label="App sections">
+    <div class="wrap">
+      <a href="/interpreter/app/" aria-current="page">Day-of board</a>
+      <a href="/interpreter/app/claim/">Interpreter view</a>
+    </div>
+  </nav>
+
+  <main id="main" class="app-main">
+    <div class="wrap">
+      <div class="toolbar">
+        <h1 style="margin:0;font-size:28px">Today's jobs</h1>
+        <div class="spacer"></div>
+        <div class="filter">
+          <label for="f-status" style="font-size:13px;color:var(--1891int-fog)">Status</label>
+          <select id="f-status">
+            <option value="">All</option>
+            <option value="OPEN">Open</option>
+            <option value="OFFERED">Offered</option>
+            <option value="CLAIMED">Claimed</option>
+            <option value="CONFIRMED">Confirmed</option>
+            <option value="COMPLETED">Completed</option>
+          </select>
+        </div>
+        <button class="btn btn-ghost btn-sm" type="button" id="refresh">Refresh</button>
+        <button class="btn btn-primary" type="button" id="new-job">+ New job</button>
+      </div>
+
+      <div id="loading" class="empty-state"><span class="spinner"></span> Loading jobs&hellip;</div>
+      <div id="board" class="board" style="display:none"></div>
+      <div id="empty" class="empty-state" style="display:none">
+        <h2>Nothing on the board.</h2>
+        <p>Quiet day, or did the office close early? Tap "+ New job" to create your first.</p>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- New job modal -->
+<div class="modal-backdrop" id="m-new" role="dialog" aria-modal="true" aria-labelledby="m-new-title">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 id="m-new-title">New job</h2>
+      <button class="close" type="button" data-close>&times;</button>
+    </div>
+    <form id="new-job-form" class="modal-body">
+      <div class="field">
+        <label for="j-service">Setting type</label>
+        <select id="j-service" name="service_type">
+          <option value="medical">Medical</option>
+          <option value="mental-health">Mental health</option>
+          <option value="legal">Legal / Court</option>
+          <option value="education">Education / K-12</option>
+          <option value="gov">Government</option>
+          <option value="corporate">Corporate</option>
+          <option value="community">Community</option>
+          <option value="translation">Document translation</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="j-modality">Modality</label>
+        <select id="j-modality" name="modality">
+          <option value="on-site">On-site</option>
+          <option value="VRI">VRI (video remote)</option>
+          <option value="OPI">OPI (over the phone)</option>
+        </select>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--1891int-s-4)">
+        <div class="field">
+          <label for="j-src">From language</label>
+          <select id="j-src" name="source_language_id">
+            <option value="en-US">English</option>
+            <option value="ASL">ASL</option>
+            <option value="es-419">Spanish</option>
+            <option value="cmn-CN">Mandarin</option>
+            <option value="ar-MSA">Arabic</option>
+            <option value="ht">Haitian Creole</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="j-tgt">To language</label>
+          <select id="j-tgt" name="target_language_id">
+            <option value="ASL">ASL</option>
+            <option value="en-US">English</option>
+            <option value="es-419">Spanish</option>
+            <option value="cmn-CN">Mandarin</option>
+            <option value="ar-MSA">Arabic</option>
+            <option value="ht">Haitian Creole</option>
+          </select>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--1891int-s-4)">
+        <div class="field">
+          <label for="j-start">Start</label>
+          <input id="j-start" name="scheduled_start" type="datetime-local" required>
+        </div>
+        <div class="field">
+          <label for="j-end">End</label>
+          <input id="j-end" name="scheduled_end" type="datetime-local" required>
+        </div>
+      </div>
+      <div class="field">
+        <label for="j-team">Team config</label>
+        <select id="j-team" name="team_config">
+          <option value="solo">Solo</option>
+          <option value="team-of-2">Team of 2</option>
+          <option value="cdi+hearing">CDI + hearing voicer</option>
+          <option value="voicer+signer">Voicer + signer</option>
+          <option value="cart-solo">CART (solo)</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="j-notes">Notes to interpreter (no PHI)</label>
+        <textarea id="j-notes" name="notes_to_interpreter" placeholder="Parking, suite number, who to ask for. Do not include patient names or clinical details."></textarea>
+        <span class="hint">Names and clinical details belong on the consumer record (PHI), not in notes.</span>
+      </div>
+    </form>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" type="button" data-close>Cancel</button>
+      <button class="btn btn-primary" type="button" id="save-job">Create job</button>
+    </div>
+  </div>
+</div>
+
+<!-- Smart-fill modal -->
+<div class="modal-backdrop" id="m-fill" role="dialog" aria-modal="true" aria-labelledby="m-fill-title">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 id="m-fill-title">Smart-fill candidates</h2>
+      <button class="close" type="button" data-close>&times;</button>
+    </div>
+    <div class="modal-body">
+      <p class="muted" style="font-size:14px">Ranked by certification fit, location, requestor preference, workload balance, and prior performance. Hover the score for the breakdown.</p>
+      <div id="candidates"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" type="button" data-close>Close</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+<script src="/interpreter/assets/js/api.js" defer></script>
+<script>
+(function () {
+  'use strict';
+  document.addEventListener('DOMContentLoaded', init);
+
+  var state = { jobs: [], me: null };
+
+  function $(id) { return document.getElementById(id); }
+  function escHtml(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+    return { '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c];
+  }); }
+
+  function toast(msg, kind) {
+    var t = $('toast');
+    t.textContent = msg;
+    t.className = 'toast show' + (kind ? ' ' + kind : '');
+    setTimeout(function () { t.className = 'toast'; }, 3200);
+  }
+
+  function init() {
+    if (!IntApi.getSession()) {
+      location.href = '/interpreter/sign-in.html';
+      return;
+    }
+    IntApi.whoami().then(function (r) {
+      if (!r || !r.ok) {
+        IntApi.clearSession();
+        location.href = '/interpreter/sign-in.html';
+        return;
+      }
+      state.me = r.user;
+      $('who-name').textContent = (r.user && (r.user.display_name || r.user.email)) || 'unknown';
+      loadJobs();
+    }).catch(function () {
+      toast('Could not reach the server.', 'error');
+    });
+
+    $('refresh').addEventListener('click', loadJobs);
+    $('f-status').addEventListener('change', loadJobs);
+    $('new-job').addEventListener('click', openNewJob);
+    $('save-job').addEventListener('click', saveJob);
+    $('signout').addEventListener('click', function () {
+      IntApi.clearSession();
+      location.href = '/interpreter/';
+    });
+    document.querySelectorAll('[data-close]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        document.querySelectorAll('.modal-backdrop.open').forEach(function (m) { m.classList.remove('open'); });
+      });
+    });
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') document.querySelectorAll('.modal-backdrop.open').forEach(function (m) { m.classList.remove('open'); });
+      if (e.key === '/' && document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA') {
+        e.preventDefault();
+        $('f-status').focus();
+      }
+    });
+  }
+
+  function loadJobs() {
+    $('loading').style.display = '';
+    $('board').style.display = 'none';
+    $('empty').style.display = 'none';
+    var status = $('f-status').value;
+    IntApi.listJobs(status).then(function (r) {
+      $('loading').style.display = 'none';
+      if (!r || !r.ok) { toast((r && r.error) || 'Load failed', 'error'); return; }
+      state.jobs = r.jobs || [];
+      render();
+    }).catch(function () {
+      $('loading').style.display = 'none';
+      toast('Network error', 'error');
+    });
+  }
+
+  function render() {
+    if (!state.jobs.length) {
+      $('empty').style.display = '';
+      $('board').style.display = 'none';
+      return;
+    }
+    var html = state.jobs.map(jobCard).join('');
+    $('board').innerHTML = html;
+    $('board').style.display = '';
+    bindCardActions();
+  }
+
+  function formatWhen(iso) {
+    if (!iso) return '—';
+    var d = new Date(iso);
+    if (isNaN(d.getTime())) return iso;
+    return d.toLocaleString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+  }
+
+  function jobCard(j) {
+    var labelMod = ({ 'on-site': 'On-site', 'VRI': 'VRI', 'OPI': 'OPI' })[j.modality] || j.modality;
+    var labelSrv = j.service_type || 'medical';
+    var langs = (j.source_language_id || '') + ' → ' + (j.target_language_id || '');
+    var canClaim = (j.status === 'OPEN' || j.status === 'OFFERED');
+    var canCancel = !/^CANCELLED|COMPLETED|BILLED|PAID$/.test(j.status);
+    var actions = '';
+    if (canClaim) actions += '<button class="btn btn-secondary btn-sm" data-act="fill" data-id="' + escHtml(j.job_id) + '">Smart-fill</button>';
+    if (canClaim) actions += '<button class="btn btn-primary btn-sm" data-act="claim" data-id="' + escHtml(j.job_id) + '">Claim</button>';
+    if (canCancel) actions += '<button class="btn btn-ghost btn-sm" data-act="cancel" data-id="' + escHtml(j.job_id) + '">Cancel</button>';
+    return [
+      '<article class="job-card" data-status="' + escHtml(j.status) + '">',
+      '  <span class="status-strip" aria-hidden="true"></span>',
+      '  <div class="job-status">' + escHtml(j.status) + '</div>',
+      '  <h3>' + escHtml(labelSrv.replace(/-/g,' ')) + ' &middot; ' + escHtml(labelMod) + '</h3>',
+      '  <dl class="meta">',
+      '    <dt>Languages</dt><dd>' + escHtml(langs) + '</dd>',
+      '    <dt>Start</dt><dd>' + escHtml(formatWhen(j.scheduled_start)) + '</dd>',
+      '    <dt>End</dt><dd>' + escHtml(formatWhen(j.scheduled_end)) + '</dd>',
+      '    <dt>Team</dt><dd>' + escHtml(j.team_config) + '</dd>',
+      (j.notes_to_interpreter ? '    <dt>Notes</dt><dd>' + escHtml(j.notes_to_interpreter) + '</dd>' : ''),
+      '    <dt class="tag" style="font-family:var(--1891int-mono);font-size:11px">ID</dt><dd class="tag" style="font-family:var(--1891int-mono);font-size:11px">' + escHtml(j.job_id) + '</dd>',
+      '  </dl>',
+      '  <div class="actions">' + actions + '</div>',
+      '</article>'
+    ].join('\n');
+  }
+
+  function bindCardActions() {
+    document.querySelectorAll('[data-act]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var act = b.getAttribute('data-act');
+        var id = b.getAttribute('data-id');
+        if (act === 'fill') openSmartFill(id);
+        if (act === 'claim') {
+          if (!confirm('Claim job ' + id + '?')) return;
+          IntApi.claimJob(id).then(function () {
+            toast('Claimed.', 'ok');
+            setTimeout(loadJobs, 800);
+          }).catch(function () { toast('Claim failed.', 'error'); });
+        }
+        if (act === 'cancel') {
+          var reason = prompt('Reason for cancellation:');
+          if (!reason) return;
+          IntApi.cancelJob(id, reason).then(function () {
+            toast('Cancelled.', 'ok');
+            setTimeout(loadJobs, 800);
+          }).catch(function () { toast('Cancel failed.', 'error'); });
+        }
+      });
+    });
+  }
+
+  function openNewJob() {
+    var form = $('new-job-form');
+    form.reset();
+    // Default start = next hour, end = +90 min
+    var d = new Date();
+    d.setMinutes(0, 0, 0);
+    d.setHours(d.getHours() + 1);
+    var s = d.toISOString().slice(0, 16);
+    var e = new Date(d.getTime() + 90 * 60000).toISOString().slice(0, 16);
+    $('j-start').value = s;
+    $('j-end').value = e;
+    $('m-new').classList.add('open');
+  }
+
+  function saveJob() {
+    var form = $('new-job-form');
+    if (!form.reportValidity()) return;
+    var fd = new FormData(form);
+    var fields = {};
+    fd.forEach(function (v, k) { fields[k] = v; });
+    // datetime-local lacks timezone; treat as local and re-emit ISO
+    if (fields.scheduled_start) fields.scheduled_start = new Date(fields.scheduled_start).toISOString();
+    if (fields.scheduled_end) fields.scheduled_end = new Date(fields.scheduled_end).toISOString();
+    IntApi.createJob(fields).then(function () {
+      toast('Job created — pending Sheet sync.', 'ok');
+      $('m-new').classList.remove('open');
+      setTimeout(loadJobs, 1500);
+    }).catch(function () {
+      toast('Create failed.', 'error');
+    });
+  }
+
+  function openSmartFill(jobId) {
+    $('candidates').innerHTML = '<div class="empty-state"><span class="spinner"></span> Ranking interpreters…</div>';
+    $('m-fill').classList.add('open');
+    IntApi.smartFill(jobId).then(function (r) {
+      if (!r || !r.ok) { $('candidates').innerHTML = '<p class="muted">' + escHtml((r && r.error) || 'Smart-fill failed') + '</p>'; return; }
+      if (!r.candidates || !r.candidates.length) {
+        $('candidates').innerHTML = '<p class="muted">No interpreters on your roster yet. Add some on the Interpreters tab in the Sheet.</p>';
+        return;
+      }
+      var html = r.candidates.map(function (c) {
+        var b = c.score.breakdown;
+        return [
+          '<div class="candidate">',
+          '  <div>',
+          '    <div class="name">' + escHtml(c.display_name || c.interpreter_id) + (c.deaf ? ' <span class="badge">CDI eligible</span>' : '') + '</div>',
+          '    <div class="langs">' + escHtml((c.languages || '').replace(/[\[\]"]/g, '')) + '</div>',
+          '  </div>',
+          '  <div class="score" title="cert ' + b.certification + ' / loc ' + b.location + ' / pref ' + b.preference + ' / workload ' + b.workload + ' / perf ' + b.performance + '">',
+          '    ' + c.score.total + '<small>/' + c.score.max + '</small>',
+          '  </div>',
+          '  <div class="breakdown">cert ' + b.certification + ' &middot; loc ' + b.location + ' &middot; pref ' + b.preference + ' &middot; workload ' + b.workload + ' &middot; perf ' + b.performance + '</div>',
+          '</div>'
+        ].join('\n');
+      }).join('\n');
+      $('candidates').innerHTML = html;
+    }).catch(function () {
+      $('candidates').innerHTML = '<p class="muted">Smart-fill request failed.</p>';
+    });
+  }
+})();
+</script>
+</body>
+</html>

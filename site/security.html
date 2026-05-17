@@ -1,0 +1,253 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Security &amp; compliance — 1891 Interpreter</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="description" content="HIPAA-defensible by default. PHI redacted before any AI model call. Append-only audit log. BAA included on every paid tier and on the Deaf-owned tier.">
+<meta name="theme-color" content="#C8553D">
+<link rel="canonical" href="https://madeby1891.com/interpreter/security.html">
+<link rel="icon" type="image/svg+xml" href="/interpreter/assets/img/favicon.svg">
+<link rel="stylesheet" href="/interpreter/assets/css/site.css">
+<meta property="og:title" content="Security &amp; compliance — 1891 Interpreter">
+<meta property="og:description" content="HIPAA-defensible by default. PHI redacted before any AI model call. Append-only audit log. BAA included on every paid tier and on the Deaf-owned tier.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://madeby1891.com/interpreter/security.html">
+<meta property="og:image" content="https://madeby1891.com/interpreter/assets/img/og-card.svg">
+<meta property="og:image:alt" content="1891 Interpreter — The interpreting agency platform built by the community it serves.">
+<meta property="og:site_name" content="1891 Interpreter">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Security &amp; compliance — 1891 Interpreter">
+<meta name="twitter:description" content="HIPAA-defensible by default. PHI redacted before any AI model call. Append-only audit log. BAA included on every paid tier and on the Deaf-owned tier.">
+<meta name="twitter:image" content="https://madeby1891.com/interpreter/assets/img/og-card.svg">
+<meta name="robots" content="index,follow">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Organization",
+  "name": "1891 Interpreter",
+  "url": "https://madeby1891.com/interpreter/",
+  "founder": [
+    { "@type": "Person", "name": "Anthony Mowl" },
+    { "@type": "Person", "name": "Fallon Brizendine" }
+  ],
+  "description": "The interpreting agency platform built by the community it serves — free, forever, for Deaf-owned agencies."
+}
+</script>
+</head>
+<body>
+<a href="#main" class="skip">Skip to main content</a>
+<header class="site-header">
+  <div class="wrap">
+    <a href="/interpreter/" class="brand" aria-label="1891 Interpreter, home">
+      <img src="/interpreter/assets/img/brand-mark.svg" alt="" class="brand-mark" width="32" height="32">
+      <span>1891 <span class="brand-sub">Interpreter</span></span>
+    </a>
+    <button class="nav-toggle" aria-expanded="false" aria-controls="primary-nav">
+      <span aria-hidden="true">☰</span> Menu
+    </button>
+    <nav class="nav-primary" id="primary-nav" aria-label="Primary">
+      <a href="/interpreter/for-agencies.html">Agencies</a>
+      <a href="/interpreter/for-schedulers.html">Schedulers</a>
+      <a href="/interpreter/for-interpreters.html">Interpreters</a>
+      <a href="/interpreter/features/">Features</a>
+      <a href="/interpreter/pricing.html">Pricing</a>
+      <a href="/interpreter/free-for-deaf-owned.html">Free for Deaf-owned</a>
+      <a href="/interpreter/security.html" aria-current="page">Security</a>
+      <a href="/interpreter/about.html">About</a>
+      <a href="/interpreter/get-a-demo.html" class="btn btn-primary btn-sm nav-cta">Get a demo</a>
+    </nav>
+  </div>
+</header>
+<nav class="breadcrumb" aria-label="Breadcrumb"><div class="wrap"><a href="/interpreter/">Home</a> › <span aria-current="page">Security</span></div></nav><main id="main">
+
+  <section class="feature-hero">
+    <div class="wrap">
+      <span class="eyebrow">Security &amp; compliance</span>
+      <h1>HIPAA-defensible by default. Auditable on demand.</h1>
+      <p class="lede">PHI is redacted before it ever reaches an AI model. Every PHI read writes to an append-only audit log. BAA included on every paid tier and on the Deaf-owned tier — signed in days, not weeks.</p>
+      <div class="cluster" style="margin-top:var(--1891int-s-6)">
+        <a class="btn btn-primary" href="/interpreter/legal/baa.html">Read the BAA</a>
+        <a class="btn btn-secondary" href="/interpreter/legal/subprocessors.html">Subprocessor list</a>
+        <a class="btn btn-ghost" href="mailto:security@madeby1891.com">Responsible disclosure</a>
+      </div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="wrap">
+      <span class="eyebrow">PHI handling</span>
+      <h2>What never reaches Claude, DeepL, or any other model raw.</h2>
+      <div class="grid grid-2 mt-5">
+        <div class="card card-warm">
+          <h3 class="mt-0">Redacted before the model sees it</h3>
+          <ul class="xs">
+            <li>Consumer names → initials only.</li>
+            <li>Free-text clinical notes → regex + NER scrub.</li>
+            <li>Phone numbers, MRNs, DOBs, SSNs → token-replaced for the model; hydrated client-side after the response.</li>
+            <li>Executive-session and paused-mic portions → never captured, never transcribed.</li>
+          </ul>
+          <p class="tag" style="margin-top:var(--1891int-s-4)">Implementation: lib/redact.ts redactForModel(). Every model call writes an AI_Audit row with input/output hashes.</p>
+        </div>
+        <div class="card card-warm">
+          <h3 class="mt-0">Per-tenant prompt-cache isolation</h3>
+          <p class="ink-soft">Every model call begins with <code>tenant_id: &lt;id&gt;</code> in the system prompt. Anthropic prompt-caching keys on prefix, which means cache hits cannot cross tenant boundaries even if two prompts are otherwise identical.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section section-warm">
+    <div class="wrap">
+      <span class="eyebrow">The audit log</span>
+      <h2>Append-only, hash-chained, exportable.</h2>
+      <div class="grid grid-3 mt-5">
+        <div class="card"><h3 class="mt-0">Every PHI read</h3><p class="ink-soft">Every time someone — interpreter, scheduler, requestor — opens a record that contains PHI, an Audit_Log row is written: who, what, when, why.</p></div>
+        <div class="card"><h3 class="mt-0">7-year retention</h3><p class="ink-soft">Audit log retained 7 years. Apps Script editor protections enforce append-only; deletes are physically blocked.</p></div>
+        <div class="card"><h3 class="mt-0">Hash-chain integrity</h3><p class="ink-soft">Each row carries a SHA-256 of itself + the prior row. Any tampering breaks the chain and shows up on the next integrity check.</p></div>
+        <div class="card"><h3 class="mt-0">SIEM export</h3><p class="ink-soft">Network tier exports the audit log to your SIEM (Splunk, Datadog, Elastic, custom). Format is documented and stable.</p></div>
+        <div class="card"><h3 class="mt-0">Subject access</h3><p class="ink-soft">Consumers can request their own access log under HIPAA's right of access. The response is a redacted PDF, ready in 30 days or less.</p></div>
+        <div class="card"><h3 class="mt-0">Tenant export</h3><p class="ink-soft">Your full audit log exports with your other data. CSV or JSON. Same one-click button.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="wrap">
+      <span class="eyebrow">Encryption + keys</span>
+      <h2>Encrypted at rest and in transit. Tenant-isolated.</h2>
+      <ul class="checks">
+        <li><strong>At rest:</strong> R2 server-side encryption. Per-tenant prefixes (<code>r2://1891-interpreter/&lt;tenant_id&gt;/...</code>) so a key compromise doesn't cross tenants.</li>
+        <li><strong>In transit:</strong> TLS 1.3 everywhere. HSTS preload submitted; Strict-Transport-Security with includeSubDomains and preload directive.</li>
+        <li><strong>Sheets-as-source-of-truth:</strong> Google Workspace BAA covers the per-agency Google Sheet. Each tenant Sheet has its own protected ranges and ACL.</li>
+        <li><strong>Tenant isolation:</strong> Durable Objects named <code>AgencyHub:&lt;tenant_id&gt;</code>. KV keys prefixed <code>&lt;tenant_id&gt;:</code>. Lint-enforced in workers/api/src/kv.ts.</li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="section section-river">
+    <div class="wrap">
+      <span class="eyebrow" style="color:#FFE2D6">Audio + speech</span>
+      <h2>Two-party consent. RECORDING indicator. PAUSE.</h2>
+      <p class="lede" style="color:#DCE9E7">Maryland is a two-party-consent state, and most of our audiences are mixed-hearing PSAs / boards / conferences. We apply the strictest rule everywhere, not just in Maryland.</p>
+      <ul class="xs" style="margin-top:var(--1891int-s-4)">
+        <li style="color:#DCE9E7"><strong>Announce.</strong> Every audio-recorded session announces — verbally and visually — at start.</li>
+        <li style="color:#DCE9E7"><strong>Consent at check-in.</strong> Every attendee gives explicit consent, default unchecked.</li>
+        <li style="color:#DCE9E7"><strong>RECORDING indicator</strong> on every shared screen for the duration.</li>
+        <li style="color:#DCE9E7"><strong>One-tap PAUSE</strong> for the chair / host — executive session, off-the-record, personnel matters.</li>
+        <li style="color:#DCE9E7"><strong>Non-consenting lines flagged</strong> in the transcript, redacted from any public output.</li>
+      </ul>
+      <p style="margin-top:var(--1891int-s-5)"><a class="btn btn-secondary" style="border-color:#fff;color:#fff" href="/interpreter/features/cart.html">CART feature detail</a></p>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="wrap">
+      <span class="eyebrow">Retention</span>
+      <h2>Defaults you don't have to ask for.</h2>
+      <div class="table-scroll">
+        <table class="compare">
+          <thead><tr><th>Data type</th><th>Default retention</th><th>What happens after</th></tr></thead>
+          <tbody>
+            <tr><td>Raw audio</td><td>30 days</td><td>Auto-delete (cannot be extended without legal review)</td></tr>
+            <tr><td>Transcript (timed, machine-readable)</td><td>1 year</td><td>Archive (cold storage, restorable on request)</td></tr>
+            <tr><td>Approved minutes / human-edited summary</td><td>Permanent</td><td>This is the legal record</td></tr>
+            <tr><td>Executive-session / paused-mic portions</td><td>Never captured</td><td>Cannot be retroactively recorded</td></tr>
+            <tr><td>Audit log</td><td>7 years</td><td>Append-only, hash-chained, archive after</td></tr>
+            <tr><td>Operational data (jobs, invoices, etc.)</td><td>As long as you're a customer</td><td>One-click export on cancellation</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <section class="section section-warm">
+    <div class="wrap">
+      <span class="eyebrow">Compliance posture</span>
+      <h2>Where we are — honest about the timeline.</h2>
+      <div class="grid grid-3">
+        <div class="card"><h3 class="mt-0">HIPAA</h3><p class="ink-soft">BAA executed. Technical, administrative, and physical safeguards documented. Annual risk assessment.</p></div>
+        <div class="card"><h3 class="mt-0">SOC 2</h3><p class="ink-soft">Type I targeted for Q4 2026; Type II for Q3 2027. We won't claim a Type II we don't have. Status is on this page when it changes.</p></div>
+        <div class="card"><h3 class="mt-0">GDPR / UK GDPR</h3><p class="ink-soft">DPA available on request. EU/UK customers gated behind data-residency review until our EU presence is set up.</p></div>
+        <div class="card"><h3 class="mt-0">FERPA</h3><p class="ink-soft">School-district customers have a FERPA-compatible DPA covering student records. K-12 settings default to no recording.</p></div>
+        <div class="card"><h3 class="mt-0">Section 508 / WCAG 2.2 AA</h3><p class="ink-soft">Public <a href="/interpreter/accessibility.html">VPAT and conformance log</a> updated every release.</p></div>
+        <div class="card"><h3 class="mt-0">PCI</h3><p class="ink-soft">No card data touches our servers. Payments are processed end-to-end by Stripe. We hold tokens, not PANs.</p></div>
+      </div>
+      <p style="margin-top:var(--1891int-s-6)"><a class="btn btn-primary" href="/interpreter/legal/subprocessors.html">See the full subprocessor list</a></p>
+    </div>
+  </section>
+
+  
+  <section class="section section-warm">
+    <div class="wrap center-text">
+      <h2>Need the BAA? It takes days, not weeks.</h2>
+      <p class="lede" style="margin:0 auto var(--1891int-s-6)">Either path gets you to a real person within one business day.</p>
+      <div class="cluster" style="justify-content:center">
+        <a class="btn btn-primary btn-lg" href="/interpreter/legal/baa.html">Read the BAA</a>
+        <a class="btn btn-secondary btn-lg" href="/interpreter/contact.html">Talk to us</a>
+      </div>
+    </div>
+  </section>
+
+
+</main>
+<footer class="site-footer">
+  <div class="wrap">
+    <div class="footer-grid">
+      <div>
+        <a href="/interpreter/" class="brand" style="color:var(--1891int-paper)">
+          <img src="/interpreter/assets/img/brand-mark.svg" alt="" width="32" height="32">
+          <span>1891 <span class="brand-sub" style="color:#8B939C">Interpreter</span></span>
+        </a>
+        <p style="font-size:14.5px; max-width:34ch; margin-top:var(--1891int-s-3)">The interpreting agency platform built by the community it serves.</p>
+        <p style="font-size:13.5px; color:#8B939C">Frederick, MD · <a href="mailto:hello@madeby1891.com">hello@madeby1891.com</a></p>
+      </div>
+      <div>
+        <h4>Product</h4>
+        <ul>
+          <li><a href="/interpreter/features/">Features</a></li>
+          <li><a href="/interpreter/pricing.html">Pricing</a></li>
+          <li><a href="/interpreter/free-for-deaf-owned.html">Free for Deaf-owned</a></li>
+          <li><a href="/interpreter/changelog.html">Changelog</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>For</h4>
+        <ul>
+          <li><a href="/interpreter/for-agencies.html">Agencies</a></li>
+          <li><a href="/interpreter/for-schedulers.html">Schedulers</a></li>
+          <li><a href="/interpreter/for-interpreters.html">Interpreters</a></li>
+          <li><a href="/interpreter/for-requestors.html">Requestors</a></li>
+          <li><a href="/interpreter/for-payers.html">Billing / AP</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>Company</h4>
+        <ul>
+          <li><a href="/interpreter/about.html">About</a></li>
+          <li><a href="/interpreter/our-1891.html">Our 1891</a></li>
+          <li><a href="/interpreter/security.html">Security</a></li>
+          <li><a href="/interpreter/accessibility.html">Accessibility</a></li>
+          <li><a href="/interpreter/contact.html">Contact</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>Legal</h4>
+        <ul>
+          <li><a href="/interpreter/legal/privacy.html">Privacy</a></li>
+          <li><a href="/interpreter/legal/terms.html">Terms</a></li>
+          <li><a href="/interpreter/legal/baa.html">BAA</a></li>
+          <li><a href="/interpreter/legal/subprocessors.html">Subprocessors</a></li>
+          <li><a href="/interpreter/legal/responsible-disclosure.html">Disclosure</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="footer-meta">
+      <div>© <span data-year>2026</span> 1891 LLC. Built in Frederick. Carried forward since 1891.</div>
+      <div><a href="/interpreter/sign-in.html">Sign in</a> · <a href="https://madeby1891.com/">madeby1891.com</a></div>
+    </div>
+  </div>
+</footer>
+<script src="/interpreter/assets/js/main.js" defer></script>
+</body>
+</html>

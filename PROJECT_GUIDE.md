@@ -1,0 +1,84 @@
+# PROJECT_GUIDE — 1891 Interpreter
+
+> Scaffolding + ops checklist. Assumes you've read `~/Desktop/1891/CLAUDE.md`
+> and `~/Desktop/1891/ARCHITECTURE.md` and the [PRD index](docs/PRD_index.md).
+
+---
+
+## TL;DR
+
+| | |
+|---|---|
+| **Folder**   | `~/Desktop/1891/projects/interpreter/` |
+| **Status**   | PRD complete (six sections A–F). Code not yet started. |
+| **Purpose**  | Multi-tenant interpreting agency platform: scheduling, interpreter app, billing, document translation, captioning. Free for Deaf-owned agencies. |
+| **Domain**   | `1891interpreter.app` (planned; not yet registered) |
+| **Repo**     | `git@github.com:madeby1891/interpreter.git` (planned) |
+| **Host**     | GoDaddy cPanel for marketing + static shells; Cloudflare Workers for app |
+| **SSH key**  | `~/.ssh/ftd_godaddy_deploy` (shared 1891 deploy key) |
+| **Backend**  | Google Apps Script + per-agency Google Sheet + Cloudflare Workers + Durable Objects + R2 + KV |
+
+---
+
+## What's done
+
+- Six-section PRD scaffolded in [`docs/`](docs/). Covers architecture, stakeholders, lifecycle, AI features, billing, and go-to-market.
+- Project root files in place: README, PROJECT_GUIDE, HANDOFF, CLAUDE, DISASTER_RECOVERY, CHANGELOG.
+- Open-decisions list collected at end of every section (A9, B-permissions-edge-cases, C10, D7, E10, F10).
+
+## What's next
+
+In order:
+
+1. **Decisions sweep.** Walk the open-decisions tables (A9, C10, D7, E10, F10) with Anthony and Fallon and lock them in. Each section ends with a recommendation per decision; override or accept.
+2. **Domain registration.** `1891interpreter.app` at the registrar. `.app` is preferred — registry-enforced HTTPS. Register `.com` and `.coop` as defensive holds.
+3. **Repo creation.** `gh repo create madeby1891/interpreter --private`.
+4. **Tenant Sheet template.** Build the canonical `1891-interpreter-tenant-template` Google Sheet with every tab from section A3. Add data validation, dropdowns, protected ranges. Store as a Drive template.
+5. **Control Sheet.** Build `1891-interpreter-control` Sheet (Tenants, Tenant_Owners, Sys_Log).
+6. **Apps Script project.** Two scripts: tenant-side (one per agency, container-bound to that agency's Sheet) and control-plane (bound to the control Sheet). Container-bound means provisioning copies the template Sheet + bound script together.
+7. **Worker scaffold.** `wrangler init` for each of `workers/api`, `workers/sync`, `workers/realtime`, `workers/notify`, `workers/translate`, `workers/auth`. Establish shared `lib/` for JWT, tenant, redact, audit, sheet-rpc.
+8. **First static page.** `site/index.html` as the marketing hero per Section F (hero one-liner, three pillars, ASL+captioned explainer placeholder).
+9. **`deploy.sh`.** Standard 1891 rsync pattern over `~/.ssh/ftd_godaddy_deploy`.
+10. **Design partner #1 onboarded.** Per the Phase 0 launch plan in F8 — white-glove for the first Deaf-owned agency.
+
+## Deploy story
+
+Same shape as every other 1891 project:
+
+- `bash deployment/deploy.sh` rsyncs `site/` to the host over `~/.ssh/ftd_godaddy_deploy`.
+- `wrangler deploy --env production` for each Worker.
+- Apps Script deployments: the four-click flow (Deploy → Manage deployments → ✏️ → New version → Deploy) per root CLAUDE.md — Anthony does the clicks; agents prep the paste.
+- `.htaccess` blocks `/deployment/`. Real `/404.html`. Sitemap built. HSTS preload. X-Content-Type-Options nosniff.
+
+## Workspace defaults
+
+- **Stack:** static HTML + vanilla JS + Python build + Apps Script + Workers (TS).
+- **Voice:** plain-spoken. The 1891 lineage is the undercurrent. No "revolutionary," no "AI-powered" as a marketing claim, no "cutting-edge." See F1.3 anti-claims list.
+- **CSS namespace:** `--1891int-*` for any project-specific tokens. Inherit `--c-*` / `--1891-*` from `shared/design-system/tokens.css`. Bloom token is `#C8553D` (1891-interpreter terracotta), river is `#2E5E5C` (teal-green).
+- **HIPAA posture:** every PHI read writes to `Audit_Log`. Anthropic and DeepL never see raw PHI — see Section A6 redaction contract.
+- **Multi-tenant:** per-agency Sheet, per-tenant R2 prefix, per-tenant DO. See A2.
+
+## Initial checklist
+
+- [ ] Decisions sweep with Anthony + Fallon (sections A9, C10, D7, E10, F10)
+- [ ] Register `1891interpreter.app` (+ `.com`, `.coop` defensive)
+- [ ] `gh repo create madeby1891/interpreter --private`
+- [ ] `git init`, first commit (this scaffold + PRD)
+- [ ] Build tenant Sheet template + control Sheet
+- [ ] Apps Script scaffold (tenant + control)
+- [ ] Wrangler scaffold for 6 Workers
+- [ ] Cloudflare account: R2 bucket, KV namespace, Queue, DO migrations, Secrets Store
+- [ ] Stripe Connect platform application
+- [ ] Postmark account + BAA
+- [ ] Twilio account + HIPAA-eligible products + BAA
+- [ ] Anthropic API key with BAA tier
+- [ ] DeepL Pro key (or defer to spoken-language launch)
+- [ ] Point `1891interpreter.app` DNS at GoDaddy
+- [ ] First-page deploy: `bash deployment/deploy.sh --dry-run` then real
+- [ ] Smoke checks all green (homepage 200, `/nope` 404, `/deployment/` 403)
+- [ ] Update root `~/Desktop/1891/README.md` "Projects" table
+- [ ] Design partner #1 onboarding kickoff
+
+## Open work
+
+See [`HANDOFF.md`](HANDOFF.md).

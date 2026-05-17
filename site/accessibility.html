@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Accessibility — 1891 Interpreter</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="description" content="WCAG 2.2 AA across the product. Public VPAT updated every release. ASL videos. Keyboard-navigable everywhere.">
+<meta name="theme-color" content="#C8553D">
+<link rel="canonical" href="https://madeby1891.com/interpreter/accessibility.html">
+<link rel="icon" type="image/svg+xml" href="/interpreter/assets/img/favicon.svg">
+<link rel="stylesheet" href="/interpreter/assets/css/site.css">
+<meta property="og:title" content="Accessibility — 1891 Interpreter">
+<meta property="og:description" content="WCAG 2.2 AA across the product. Public VPAT updated every release. ASL videos. Keyboard-navigable everywhere.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://madeby1891.com/interpreter/accessibility.html">
+<meta property="og:image" content="https://madeby1891.com/interpreter/assets/img/og-card.svg">
+<meta property="og:image:alt" content="1891 Interpreter — The interpreting agency platform built by the community it serves.">
+<meta property="og:site_name" content="1891 Interpreter">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Accessibility — 1891 Interpreter">
+<meta name="twitter:description" content="WCAG 2.2 AA across the product. Public VPAT updated every release. ASL videos. Keyboard-navigable everywhere.">
+<meta name="twitter:image" content="https://madeby1891.com/interpreter/assets/img/og-card.svg">
+<meta name="robots" content="index,follow">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Organization",
+  "name": "1891 Interpreter",
+  "url": "https://madeby1891.com/interpreter/",
+  "founder": [
+    { "@type": "Person", "name": "Anthony Mowl" },
+    { "@type": "Person", "name": "Fallon Brizendine" }
+  ],
+  "description": "The interpreting agency platform built by the community it serves — free, forever, for Deaf-owned agencies."
+}
+</script>
+</head>
+<body>
+<a href="#main" class="skip">Skip to main content</a>
+<header class="site-header">
+  <div class="wrap">
+    <a href="/interpreter/" class="brand" aria-label="1891 Interpreter, home">
+      <img src="/interpreter/assets/img/brand-mark.svg" alt="" class="brand-mark" width="32" height="32">
+      <span>1891 <span class="brand-sub">Interpreter</span></span>
+    </a>
+    <button class="nav-toggle" aria-expanded="false" aria-controls="primary-nav">
+      <span aria-hidden="true">☰</span> Menu
+    </button>
+    <nav class="nav-primary" id="primary-nav" aria-label="Primary">
+      <a href="/interpreter/for-agencies.html">Agencies</a>
+      <a href="/interpreter/for-schedulers.html">Schedulers</a>
+      <a href="/interpreter/for-interpreters.html">Interpreters</a>
+      <a href="/interpreter/features/">Features</a>
+      <a href="/interpreter/pricing.html">Pricing</a>
+      <a href="/interpreter/free-for-deaf-owned.html">Free for Deaf-owned</a>
+      <a href="/interpreter/security.html">Security</a>
+      <a href="/interpreter/about.html">About</a>
+      <a href="/interpreter/get-a-demo.html" class="btn btn-primary btn-sm nav-cta">Get a demo</a>
+    </nav>
+  </div>
+</header>
+<nav class="breadcrumb" aria-label="Breadcrumb"><div class="wrap"><a href="/interpreter/">Home</a> › <span aria-current="page">Accessibility</span></div></nav><main id="main">
+
+  <section class="feature-hero">
+    <div class="wrap">
+      <span class="eyebrow">Accessibility</span>
+      <h1>Universal design as default, not a v2 patch.</h1>
+      <p class="lede">Every screen ships keyboard-navigable, screen-reader-tested, captioned, and high-contrast on day one. We publish the VPAT. We publish the conformance log. We publish the known issues with target fix dates.</p>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="wrap">
+      <span class="eyebrow">Conformance</span>
+      <h2>WCAG 2.2 AA across the product. Updated every release.</h2>
+      <div class="grid grid-3 mt-5">
+        <div class="card"><h3 class="mt-0">Keyboard</h3><p class="ink-soft">Every action reachable via keyboard. Focus is visible on every interactive element. Tab order matches reading order. No focus traps.</p></div>
+        <div class="card"><h3 class="mt-0">Screen reader</h3><p class="ink-soft">VoiceOver, NVDA, JAWS, TalkBack tested every release. Live regions for dynamic content. ARIA used minimally and correctly.</p></div>
+        <div class="card"><h3 class="mt-0">Contrast</h3><p class="ink-soft">Body text at AAA contrast. UI affordances at AA minimum. Color is never the only signal — every state change has color + icon + text.</p></div>
+        <div class="card"><h3 class="mt-0">Captions</h3><p class="ink-soft">Default-on whenever audio plays. Every marketing video has English captions and ASL inset. Every product audio has captions in real time.</p></div>
+        <div class="card"><h3 class="mt-0">ASL videos</h3><p class="ink-soft">Every marketing page that explains a concept has an ASL inset version. Glossary entries each have an ASL video by Fallon or a vetted contributor.</p></div>
+        <div class="card"><h3 class="mt-0">Reduced motion</h3><p class="ink-soft">prefers-reduced-motion: reduce disables all transitions and motion. Tested in every release.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section section-warm">
+    <div class="wrap">
+      <span class="eyebrow">Conformance log</span>
+      <h2>What's tested, what's outstanding, when it's fixed.</h2>
+      <div class="table-scroll">
+        <table class="compare">
+          <thead><tr><th>Release</th><th>Status</th><th>Notes</th></tr></thead>
+          <tbody>
+            <tr><td>2026-05-17 (this site)</td><td class="yes">WCAG 2.2 AA target</td><td>Static marketing site. No known blocking issues at launch. ASL inset videos added with Phase 0.</td></tr>
+            <tr><td>Phase 0 design partners (Q3 2026)</td><td>Targeted</td><td>Full app: scheduler dashboard, interpreter app, billing screens. VPAT 1.0 published with this release.</td></tr>
+            <tr><td>Public launch (Q4 2026)</td><td>Targeted</td><td>VPAT 2.0 with full coverage matrix.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="muted" style="font-size:14px; margin-top:var(--1891int-s-4)">Found something not on the list? Email <a href="mailto:accessibility@madeby1891.com">accessibility@madeby1891.com</a> — it routes to a priority queue.</p>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="wrap-narrow">
+      <span class="eyebrow">Accessibility statement</span>
+      <h2>What we commit to.</h2>
+      <ol class="stack-3" style="padding-left:1.2em">
+        <li>Every screen ships WCAG 2.2 AA-conformant. We block releases on regressions.</li>
+        <li>Every marketing page has ASL with English captions when it explains a product concept.</li>
+        <li>Every accessibility issue reported via <a href="mailto:accessibility@madeby1891.com">accessibility@madeby1891.com</a> gets a response within 2 business days and a target fix date within 5.</li>
+        <li>VPAT is public, on this page, updated every release. No "VPAT available on request" gatekeeping.</li>
+        <li>Accessibility features are in every tier. Never paywalled.</li>
+        <li>We don't auto-caption ASL. That's a research problem, not a product feature. We do auto-caption English speech with vendor-abstracted live STT.</li>
+      </ol>
+      <p style="margin-top:var(--1891int-s-5)"><a class="btn btn-primary" href="/interpreter/legal/accessibility-statement.html">Read the legal-form accessibility statement</a></p>
+    </div>
+  </section>
+
+</main>
+<footer class="site-footer">
+  <div class="wrap">
+    <div class="footer-grid">
+      <div>
+        <a href="/interpreter/" class="brand" style="color:var(--1891int-paper)">
+          <img src="/interpreter/assets/img/brand-mark.svg" alt="" width="32" height="32">
+          <span>1891 <span class="brand-sub" style="color:#8B939C">Interpreter</span></span>
+        </a>
+        <p style="font-size:14.5px; max-width:34ch; margin-top:var(--1891int-s-3)">The interpreting agency platform built by the community it serves.</p>
+        <p style="font-size:13.5px; color:#8B939C">Frederick, MD · <a href="mailto:hello@madeby1891.com">hello@madeby1891.com</a></p>
+      </div>
+      <div>
+        <h4>Product</h4>
+        <ul>
+          <li><a href="/interpreter/features/">Features</a></li>
+          <li><a href="/interpreter/pricing.html">Pricing</a></li>
+          <li><a href="/interpreter/free-for-deaf-owned.html">Free for Deaf-owned</a></li>
+          <li><a href="/interpreter/changelog.html">Changelog</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>For</h4>
+        <ul>
+          <li><a href="/interpreter/for-agencies.html">Agencies</a></li>
+          <li><a href="/interpreter/for-schedulers.html">Schedulers</a></li>
+          <li><a href="/interpreter/for-interpreters.html">Interpreters</a></li>
+          <li><a href="/interpreter/for-requestors.html">Requestors</a></li>
+          <li><a href="/interpreter/for-payers.html">Billing / AP</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>Company</h4>
+        <ul>
+          <li><a href="/interpreter/about.html">About</a></li>
+          <li><a href="/interpreter/our-1891.html">Our 1891</a></li>
+          <li><a href="/interpreter/security.html">Security</a></li>
+          <li><a href="/interpreter/accessibility.html">Accessibility</a></li>
+          <li><a href="/interpreter/contact.html">Contact</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>Legal</h4>
+        <ul>
+          <li><a href="/interpreter/legal/privacy.html">Privacy</a></li>
+          <li><a href="/interpreter/legal/terms.html">Terms</a></li>
+          <li><a href="/interpreter/legal/baa.html">BAA</a></li>
+          <li><a href="/interpreter/legal/subprocessors.html">Subprocessors</a></li>
+          <li><a href="/interpreter/legal/responsible-disclosure.html">Disclosure</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="footer-meta">
+      <div>© <span data-year>2026</span> 1891 LLC. Built in Frederick. Carried forward since 1891.</div>
+      <div><a href="/interpreter/sign-in.html">Sign in</a> · <a href="https://madeby1891.com/">madeby1891.com</a></div>
+    </div>
+  </div>
+</footer>
+<script src="/interpreter/assets/js/main.js" defer></script>
+</body>
+</html>

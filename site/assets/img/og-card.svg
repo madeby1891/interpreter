@@ -1,0 +1,68 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" role="img" aria-label="1891 Interpreter — The interpreting agency platform built by the community it serves.">
+  <title>1891 Interpreter — The interpreting agency platform built by the community it serves.</title>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#FAFAF7"/>
+      <stop offset="1" stop-color="#F2EEE3"/>
+    </linearGradient>
+    <radialGradient id="bloom" cx="0.85" cy="0.1" r="0.55">
+      <stop offset="0" stop-color="#F6E5DE"/>
+      <stop offset="1" stop-color="#F2EEE3" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="river" cx="0" cy="1" r="0.55">
+      <stop offset="0" stop-color="#DCE9E7"/>
+      <stop offset="1" stop-color="#F2EEE3" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <rect width="1200" height="630" fill="url(#bg)"/>
+  <rect width="1200" height="630" fill="url(#bloom)"/>
+  <rect width="1200" height="630" fill="url(#river)"/>
+
+  <!-- Top brand strip -->
+  <g transform="translate(80,80)">
+    <rect width="64" height="64" rx="14" fill="#0F1419"/>
+    <g fill="#FAFAF7" font-family="Iowan Old Style, Palatino Linotype, Palatino, Georgia, serif" font-weight="700" font-size="22" text-anchor="middle">
+      <text x="14" y="29">1</text><text x="50" y="29">1</text>
+      <text x="26" y="50">8</text><text x="38" y="50">9</text>
+    </g>
+    <path d="M30,46 Q32,40 34,46" stroke="#C8553D" stroke-width="2.4" fill="none" stroke-linecap="round"/>
+    <circle cx="32" cy="42" r="1.6" fill="#C8553D"/>
+
+    <text x="84" y="34" font-family="Iowan Old Style, Palatino Linotype, Palatino, Georgia, serif" font-weight="700" font-size="26" fill="#0F1419">1891</text>
+    <text x="84" y="56" font-family="system-ui, -apple-system, sans-serif" font-weight="500" font-size="18" fill="#5C6670">Interpreter</text>
+  </g>
+
+  <!-- Eyebrow chip -->
+  <g transform="translate(80,220)">
+    <rect width="430" height="36" rx="18" fill="#F6E5DE" stroke="#E8B9AC"/>
+    <text x="215" y="24" font-family="system-ui, -apple-system, sans-serif" font-weight="600" font-size="14" fill="#9E3F2C" text-anchor="middle">Built in Frederick · Carried forward since 1891</text>
+  </g>
+
+  <!-- Hero headline -->
+  <g transform="translate(80,290)" font-family="Iowan Old Style, Palatino Linotype, Palatino, Georgia, serif" fill="#0F1419">
+    <text x="0" y="0" font-size="60" font-weight="700">The interpreting agency</text>
+    <text x="0" y="70" font-size="60" font-weight="700">platform built by the</text>
+    <text x="0" y="140" font-size="60" font-weight="700">community it serves.</text>
+  </g>
+
+  <!-- Subline -->
+  <text x="80" y="525" font-family="system-ui, -apple-system, sans-serif" font-size="22" fill="#2A3138" font-weight="500">
+    Scheduling. Interpreter app. Billing. Translation. Live captions. One tool.
+  </text>
+  <text x="80" y="558" font-family="system-ui, -apple-system, sans-serif" font-size="20" fill="#5C6670">
+    Free, forever, for verified Deaf-owned agencies.
+  </text>
+
+  <!-- Right accent: oversized 1891 mark -->
+  <g transform="translate(940,210)" opacity="0.5">
+    <text font-family="Iowan Old Style, Palatino Linotype, Palatino, Georgia, serif" font-weight="700" font-size="180" fill="#C8553D" text-anchor="middle" x="100" y="120">1891</text>
+  </g>
+
+  <!-- Bottom URL strip -->
+  <g transform="translate(0,595)">
+    <rect width="1200" height="35" fill="#0F1419"/>
+    <text x="80" y="22" font-family="system-ui, -apple-system, sans-serif" font-size="14" fill="#FAFAF7" font-weight="500">madeby1891.com/interpreter</text>
+    <text x="1120" y="22" font-family="system-ui, -apple-system, sans-serif" font-size="14" fill="#88B0AE" font-weight="500" text-anchor="end">Free for verified Deaf-owned agencies</text>
+  </g>
+</svg>
