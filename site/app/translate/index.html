@@ -1,0 +1,668 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Translations — 1891 Interpreter</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#C8553D">
+<link rel="icon" type="image/svg+xml" href="/interpreter/assets/img/favicon.svg">
+<link rel="stylesheet" href="/interpreter/assets/css/site.css">
+<link rel="stylesheet" href="/interpreter/assets/css/app.css">
+<style>
+  .tr-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--1891int-s-5); }
+  @media (max-width: 980px) { .tr-grid { grid-template-columns: 1fr; } }
+  .tr-pane label { font-weight: 600; font-size: 13.5px; display:block; margin-bottom: 4px; }
+  .tr-pane textarea {
+    width: 100%;
+    min-height: 360px;
+    font-family: Georgia, serif;
+    font-size: 14px;
+    padding: 14px;
+    border-radius: var(--1891int-radius-md);
+    border: 1px solid var(--1891int-line);
+    resize: vertical;
+    line-height: 1.55;
+    background: var(--1891int-paper-warm);
+  }
+  .tr-pane textarea[readonly] { background: #FAFAF7; color: var(--1891int-ink-soft); }
+  .hard-gate-banner {
+    margin: var(--1891int-s-4) 0;
+    padding: 14px 18px;
+    background: rgba(200,85,61,0.08);
+    border-left: 4px solid var(--1891int-bloom);
+    border-radius: var(--1891int-radius-sm);
+    font-size: 14px;
+  }
+  .hard-gate-banner strong { color: var(--1891int-bloom); }
+  .glossary {
+    margin-top: var(--1891int-s-4);
+    padding: var(--1891int-s-4);
+    background: #FAFAF7;
+    border: 1px solid var(--1891int-line);
+    border-radius: var(--1891int-radius-md);
+  }
+  .glossary h3 { margin: 0 0 8px; font-size: 14px; font-weight: 700; }
+  .glossary-chip {
+    display: inline-block;
+    margin: 3px 6px 3px 0;
+    padding: 4px 10px;
+    font-size: 12px;
+    background: var(--1891int-paper-warm);
+    border: 1px solid var(--1891int-line);
+    border-radius: var(--1891int-radius-pill);
+    cursor: pointer;
+    font-family: var(--1891int-mono);
+  }
+  .glossary-chip:hover { background: var(--1891int-bloom); color: #fff; border-color: var(--1891int-bloom); }
+  .glossary-chip small { color: var(--1891int-fog); margin-left: 4px; font-size: 10px; }
+  .redaction-chip {
+    display: inline-block;
+    font-size: 12px;
+    padding: 2px 8px;
+    border-radius: var(--1891int-radius-pill);
+    background: var(--1891int-river-tint, rgba(46,94,92,0.12));
+    color: var(--1891int-river, #2E5E5C);
+    margin: 2px 4px 2px 0;
+    font-family: var(--1891int-mono);
+  }
+  .timeline {
+    margin-top: var(--1891int-s-4);
+    border-left: 2px solid var(--1891int-line);
+    padding-left: var(--1891int-s-4);
+  }
+  .timeline li {
+    list-style: none;
+    margin-bottom: 10px;
+    font-size: 13px;
+    line-height: 1.5;
+  }
+  .timeline .when { color: var(--1891int-fog); font-family: var(--1891int-mono); font-size: 11px; }
+  .pair-pill {
+    display: inline-block;
+    padding: 2px 10px;
+    font-size: 12px;
+    border-radius: var(--1891int-radius-pill);
+    background: var(--1891int-paper-warm);
+    border: 1px solid var(--1891int-line);
+    font-family: var(--1891int-mono);
+  }
+</style>
+</head>
+<body>
+<a href="#main" class="skip">Skip to main content</a>
+
+<div class="app-shell">
+  <header class="app-header">
+    <div class="wrap">
+      <a href="/interpreter/app/" class="brand" aria-label="1891 Interpreter dashboard">
+        <img src="/interpreter/assets/img/brand-mark.svg" alt="" width="32" height="32">
+        <span>1891 <span class="brand-sub">Scheduler</span></span>
+      </a>
+      <div class="who"><span>Signed in as </span><strong id="who-name">…</strong><button id="signout" type="button">Sign out</button></div>
+    </div>
+  </header>
+
+  <nav class="app-nav" aria-label="App sections">
+    <div class="wrap">
+      <a href="/interpreter/app/">Day-of board</a>
+      <a href="/interpreter/app/interpreters/">Interpreters</a>
+      <a href="/interpreter/app/requestors/">Requestors</a>
+      <a href="/interpreter/app/translate/" aria-current="page">Translations</a>
+      <a href="/interpreter/app/invoices/">Invoices</a>
+      <a href="/interpreter/app/settings/">Settings</a>
+    </div>
+  </nav>
+
+  <main id="main" class="app-main">
+    <div class="wrap">
+
+      <!-- LIST VIEW -->
+      <section id="list-view">
+        <div class="toolbar">
+          <h1 style="margin:0;font-size:28px">Translations</h1>
+          <div class="spacer"></div>
+          <div class="filter">
+            <label for="f-status" style="font-size:13px;color:var(--1891int-fog)">Status</label>
+            <select id="f-status">
+              <option value="">All</option>
+              <option value="REQUESTED">Requested</option>
+              <option value="IN_TRANSLATION">In translation</option>
+              <option value="IN_REVIEW">In review</option>
+              <option value="APPROVED">Approved</option>
+              <option value="DELIVERED">Delivered</option>
+              <option value="CANCELLED_BY_AGENCY">Cancelled</option>
+            </select>
+          </div>
+          <button class="btn btn-ghost btn-sm" type="button" id="refresh">Refresh</button>
+          <button class="btn btn-primary" type="button" id="new-tr">+ New translation</button>
+        </div>
+
+        <p class="ink-soft" style="font-size:14.5px;max-width:72ch">Document translation, with a translator-of-record always in the loop. DeepL handles the spoken-language pairs it speaks well; Claude handles everything else. Medical, mental-health, legal, and government documents are never machine pre-filled — the translator works from scratch and we still surface translation-memory suggestions.</p>
+
+        <div id="loading" class="empty-state"><span class="spinner"></span> Loading translations&hellip;</div>
+        <div id="board" class="board" style="display:none"></div>
+        <div id="empty" class="empty-state" style="display:none">
+          <h2>No translations yet.</h2>
+          <p>Create your first translation job — paste the source text, pick the language pair, and we'll route it to a qualified translator.</p>
+          <button class="btn btn-primary" type="button" id="empty-add">+ New translation</button>
+        </div>
+      </section>
+
+      <!-- DETAIL VIEW -->
+      <section id="detail-view" style="display:none">
+        <div class="toolbar">
+          <a href="/interpreter/app/translate/" class="btn btn-ghost btn-sm">&larr; Back</a>
+          <h1 style="margin:0;font-size:22px" id="d-title">Translation</h1>
+          <span class="pair-pill" id="d-pair"></span>
+          <span class="pair-pill" id="d-svc"></span>
+          <div class="spacer"></div>
+          <button class="btn btn-ghost btn-sm" type="button" id="d-refresh">Refresh</button>
+          <a class="btn btn-ghost btn-sm" id="d-pdf" href="#" target="_blank" rel="noopener" style="display:none">Download PDF</a>
+        </div>
+
+        <div id="d-loading" class="empty-state"><span class="spinner"></span> Loading&hellip;</div>
+
+        <div id="d-body" style="display:none">
+
+          <div id="d-hardgate" class="hard-gate-banner" style="display:none">
+            <strong>Translator-only — no MT pre-fill.</strong>
+            This category requires a human translator-of-record working from scratch. Translation Memory suggestions still appear in the glossary panel below.
+          </div>
+
+          <div class="tr-grid">
+            <div class="tr-pane">
+              <label for="src-text">Source <span id="src-lang" class="ink-soft" style="font-weight:500"></span></label>
+              <textarea id="src-text" readonly></textarea>
+            </div>
+            <div class="tr-pane">
+              <label for="tgt-text">Translation <span id="tgt-lang" class="ink-soft" style="font-weight:500"></span></label>
+              <textarea id="tgt-text" placeholder="Translation goes here. Edit, paste glossary terms from below, or click 'Get AI pre-fill' if the category allows it."></textarea>
+            </div>
+          </div>
+
+          <div class="cluster" style="margin-top:var(--1891int-s-4)">
+            <button class="btn btn-secondary" type="button" id="prefill-btn">Get AI pre-fill</button>
+            <span id="prefill-status" class="ink-soft" style="font-size:13.5px"></span>
+          </div>
+          <div id="redaction" style="margin-top:var(--1891int-s-3);display:none">
+            <strong style="font-size:13px">PHI redactions applied before the model call:</strong>
+            <div id="redaction-chips" style="margin-top:4px"></div>
+          </div>
+
+          <div class="glossary" id="d-glossary" style="display:none">
+            <h3>Glossary &amp; translation memory</h3>
+            <p class="ink-soft" style="font-size:12.5px;margin:0 0 8px">Click a chip to paste the target term at your cursor in the translation pane.</p>
+            <div id="glossary-chips"></div>
+          </div>
+
+          <!-- Action bar -->
+          <div class="cluster" style="margin-top:var(--1891int-s-5);gap:var(--1891int-s-3)">
+            <button class="btn btn-primary" type="button" id="action-start" style="display:none">Start translation</button>
+            <button class="btn btn-primary" type="button" id="action-submit" style="display:none">Submit for review</button>
+            <button class="btn btn-primary" type="button" id="action-approve" style="display:none">Approve</button>
+            <button class="btn btn-ghost"    type="button" id="action-reject"  style="display:none">Send back</button>
+            <button class="btn btn-ghost"    type="button" id="action-cancel"  style="display:none">Cancel</button>
+          </div>
+
+          <h2 style="font-size:18px;margin-top:var(--1891int-s-6)">Timeline</h2>
+          <ul class="timeline" id="d-events"></ul>
+        </div>
+      </section>
+
+    </div>
+  </main>
+</div>
+
+<!-- New translation modal -->
+<div class="modal-backdrop" id="m-new" role="dialog" aria-modal="true" aria-labelledby="m-new-title">
+  <div class="modal" style="max-width:680px">
+    <div class="modal-header">
+      <h2 id="m-new-title">New translation</h2>
+      <button class="close" type="button" data-close>&times;</button>
+    </div>
+    <form id="new-tr-form" class="modal-body">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--1891int-s-4)">
+        <div class="field">
+          <label for="t-src-lang">Source language</label>
+          <input id="t-src-lang" name="source_language_id" type="text" placeholder="en-US" required>
+        </div>
+        <div class="field">
+          <label for="t-tgt-lang">Target language</label>
+          <input id="t-tgt-lang" name="target_language_id" type="text" placeholder="es-419" required>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--1891int-s-4)">
+        <div class="field">
+          <label for="t-svc">Category</label>
+          <select id="t-svc" name="service_type" required>
+            <option value="">— Select —</option>
+            <option value="medical">Medical (translator-only)</option>
+            <option value="mental-health">Mental health (translator-only)</option>
+            <option value="legal">Legal / Court (translator-only)</option>
+            <option value="gov">Government (translator-only)</option>
+            <option value="education">Education</option>
+            <option value="corporate">Corporate</option>
+            <option value="community">Community</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="t-due">Due date</label>
+          <input id="t-due" name="due_at" type="date">
+        </div>
+      </div>
+      <div class="field">
+        <label for="t-req">Requestor</label>
+        <select id="t-req" name="requestor_id">
+          <option value="">— Select requestor —</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="t-source-text">Source text (paste)</label>
+        <textarea id="t-source-text" name="source_text" rows="8" required placeholder="Paste the document text here. File upload is coming soon — for now, paste plain text."></textarea>
+        <span class="hint">PHI is scrubbed before any model call. The full text is stored encrypted in the agency Sheet.</span>
+      </div>
+      <div class="field">
+        <label for="t-notes">Notes to translator (optional)</label>
+        <textarea id="t-notes" name="notes" rows="2" placeholder="Tone, audience, formatting constraints…"></textarea>
+      </div>
+    </form>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" type="button" data-close>Cancel</button>
+      <button class="btn btn-primary" type="button" id="save-tr">Create translation job</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+<script src="/interpreter/assets/js/whitelabel.js" defer></script>
+<script src="/interpreter/assets/js/api.js" defer></script>
+<script src="/interpreter/assets/js/api-translate.js" defer></script>
+<script>
+(function () {
+  'use strict';
+  document.addEventListener('DOMContentLoaded', init);
+
+  var state = {
+    me: null,
+    rows: [],          // list of translation Documents (kind=translation-source) enriched with job info
+    detail: null,      // { document, full_text, siblings, job }
+    targetDoc: null,
+    targetText: '',
+    requestors: []
+  };
+
+  function $(id) { return document.getElementById(id); }
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+      return { '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c];
+    });
+  }
+  function qparam(k) { return new URLSearchParams(location.search).get(k); }
+  function toast(msg, kind) {
+    var t = $('toast');
+    t.textContent = msg;
+    t.className = 'toast show' + (kind ? ' ' + kind : '');
+    setTimeout(function () { t.className = 'toast'; }, 3200);
+  }
+
+  function init() {
+    if (!IntApi.getSession()) { location.href = '/interpreter/sign-in.html'; return; }
+    IntApi.whoami().then(function (r) {
+      if (!r || !r.ok) { IntApi.clearSession(); location.href = '/interpreter/sign-in.html'; return; }
+      state.me = r.user;
+      $('who-name').textContent = (r.user && (r.user.display_name || r.user.email)) || 'unknown';
+      if (window.IntTheme && r.agency) IntTheme.apply(r.agency);
+      var id = qparam('id');
+      if (id) loadDetail(id);
+      else loadList();
+    }).catch(function () { toast('Could not reach the server.', 'error'); });
+
+    $('refresh').addEventListener('click', loadList);
+    $('f-status').addEventListener('change', renderList);
+    $('new-tr').addEventListener('click', openNew);
+    $('save-tr').addEventListener('click', saveNew);
+    $('d-refresh').addEventListener('click', function () { var id = qparam('id'); if (id) loadDetail(id); });
+    $('signout').addEventListener('click', function () { IntApi.clearSession(); location.href = '/interpreter/'; });
+    var emptyBtn = $('empty-add'); if (emptyBtn) emptyBtn.addEventListener('click', openNew);
+    document.querySelectorAll('[data-close]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        document.querySelectorAll('.modal-backdrop.open').forEach(function (m) { m.classList.remove('open'); });
+      });
+    });
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') document.querySelectorAll('.modal-backdrop.open').forEach(function (m) { m.classList.remove('open'); });
+    });
+
+    $('prefill-btn').addEventListener('click', onPrefill);
+    $('action-start').addEventListener('click', onStart);
+    $('action-submit').addEventListener('click', onSubmit);
+    $('action-approve').addEventListener('click', onApprove);
+    $('action-reject').addEventListener('click', onReject);
+    $('action-cancel').addEventListener('click', onCancel);
+  }
+
+  // ---------- LIST ----------
+
+  function loadList() {
+    $('list-view').style.display = '';
+    $('detail-view').style.display = 'none';
+    $('loading').style.display = '';
+    $('board').style.display = 'none';
+    $('empty').style.display = 'none';
+    IntApiTranslate.listDocuments('translation-source').then(function (r) {
+      $('loading').style.display = 'none';
+      if (!r || !r.ok) { toast((r && r.error) || 'Load failed', 'error'); return; }
+      state.rows = r.documents || [];
+      renderList();
+    }).catch(function () { $('loading').style.display = 'none'; toast('Network error', 'error'); });
+  }
+
+  function renderList() {
+    var f = $('f-status').value;
+    var rows = state.rows.filter(function (d) {
+      return !f || String(d.job_status || '').toUpperCase() === f;
+    });
+    if (!rows.length) {
+      $('empty').style.display = '';
+      $('board').style.display = 'none';
+      return;
+    }
+    $('board').innerHTML = rows.map(card).join('');
+    $('board').style.display = '';
+    $('empty').style.display = 'none';
+  }
+
+  function card(d) {
+    var statusU = String(d.job_status || 'REQUESTED').toUpperCase();
+    var pair = (d.job_source_language_id || '?') + ' → ' + (d.job_target_language_id || '?');
+    var due = IntApiTranslate.shortIso(d.job_scheduled_end);
+    var rate = {}; try { rate = JSON.parse(d.rate_applied || '{}'); } catch (_) {}
+    var subtype = rate.service_subtype || '—';
+    return [
+      '<article class="job-card" data-status="' + esc(statusU) + '">',
+      '  <span class="status-strip" aria-hidden="true"></span>',
+      '  <div class="job-status">' + esc(IntApiTranslate.statusLabel(statusU)) + '</div>',
+      '  <h3>' + esc(pair) + '</h3>',
+      '  <dl class="meta">',
+      '    <dt>Category</dt><dd>' + esc(subtype) + (IntApiTranslate.isHardGated(subtype) ? ' <span class="redaction-chip">translator-only</span>' : '') + '</dd>',
+      '    <dt>Due</dt><dd>' + esc(due) + '</dd>',
+      '    <dt>Length</dt><dd>' + esc(String(d.size_bytes || 0)) + ' chars</dd>',
+      '    <dt class="tag">Job</dt><dd class="tag">' + esc(d.linked_job_id) + '</dd>',
+      '  </dl>',
+      '  <div class="actions">',
+      '    <a class="btn btn-ghost btn-sm" href="/interpreter/app/translate/?id=' + encodeURIComponent(d.linked_job_id) + '">Open</a>',
+      '  </div>',
+      '</article>'
+    ].join('\n');
+  }
+
+  // ---------- NEW ----------
+
+  function openNew() {
+    $('new-tr-form').reset();
+    // populate requestors
+    var sel = $('t-req');
+    if (sel.options.length <= 1) {
+      IntApi.listRequestors().then(function (r) {
+        if (!r || !r.ok) return;
+        state.requestors = r.requestors || [];
+        state.requestors.forEach(function (req) {
+          var opt = document.createElement('option');
+          opt.value = req.requestor_id;
+          opt.textContent = req.display_name;
+          sel.appendChild(opt);
+        });
+      });
+    }
+    $('m-new').classList.add('open');
+  }
+
+  function saveNew() {
+    var form = $('new-tr-form');
+    if (!form.reportValidity()) return;
+    var fd = new FormData(form);
+    var fields = {};
+    fd.forEach(function (v, k) { fields[k] = v; });
+    IntApiTranslate.createTranslationJob(fields).then(function () {
+      toast('Translation job created — pending Sheet sync.', 'ok');
+      $('m-new').classList.remove('open');
+      setTimeout(loadList, 1500);
+    }).catch(function () { toast('Create failed.', 'error'); });
+  }
+
+  // ---------- DETAIL ----------
+
+  function loadDetail(jobId) {
+    $('list-view').style.display = 'none';
+    $('detail-view').style.display = '';
+    $('d-loading').style.display = '';
+    $('d-body').style.display = 'none';
+
+    // We hold the job_id in the URL but ask the server for the latest source doc on this job
+    // via list_documents + filter, then call get_document for full text.
+    IntApiTranslate.listDocuments('translation-source').then(function (r) {
+      if (!r || !r.ok) { toast('Load failed', 'error'); return; }
+      var src = (r.documents || []).find(function (d) { return d.linked_job_id === jobId; });
+      if (!src) { $('d-loading').textContent = 'Not found.'; return; }
+      return IntApiTranslate.getDocument(src.document_id);
+    }).then(function (r) {
+      $('d-loading').style.display = 'none';
+      if (!r || !r.ok) { toast('Load failed', 'error'); return; }
+      state.detail = r;
+      // pick the most recent translation-target sibling if any
+      state.targetDoc = (r.siblings || []).filter(function (d) {
+        return d.kind === 'translation-target';
+      }).sort(function (a, b) {
+        return String(b._created_at || '').localeCompare(String(a._created_at || ''));
+      })[0] || null;
+      if (state.targetDoc) {
+        // fetch the target full_text
+        IntApiTranslate.getDocument(state.targetDoc.document_id).then(function (tr) {
+          state.targetText = (tr && tr.full_text) || '';
+          renderDetail();
+        });
+      } else {
+        state.targetText = '';
+        renderDetail();
+      }
+    }).catch(function () {
+      $('d-loading').style.display = 'none';
+      toast('Network error', 'error');
+    });
+  }
+
+  function renderDetail() {
+    var d = state.detail;
+    var job = d.job || {};
+    var rate = {}; try { rate = JSON.parse(job.rate_applied || '{}'); } catch (_) {}
+    var subtype = rate.service_subtype || '—';
+    var hardGated = IntApiTranslate.isHardGated(subtype);
+    var status = String(job.status || '').toUpperCase();
+
+    $('d-title').textContent = 'Translation · ' + IntApiTranslate.statusLabel(status);
+    $('d-pair').textContent = (job.source_language_id || '?') + ' → ' + (job.target_language_id || '?');
+    $('d-svc').textContent = subtype + (hardGated ? ' · translator-only' : '');
+
+    $('src-text').value = d.full_text || '';
+    $('src-lang').textContent = '(' + (job.source_language_id || '?') + ')';
+    $('tgt-text').value = state.targetText || '';
+    $('tgt-lang').textContent = '(' + (job.target_language_id || '?') + ')';
+
+    // Hard-gate banner + prefill button
+    $('d-hardgate').style.display = hardGated ? '' : 'none';
+    var prefillBtn = $('prefill-btn');
+    if (hardGated) {
+      prefillBtn.disabled = true;
+      prefillBtn.title = 'Hard-gated category — translator must work from scratch.';
+    } else {
+      prefillBtn.disabled = false;
+      prefillBtn.title = '';
+    }
+
+    // Action buttons (state machine)
+    setVisible('action-start',   status === 'REQUESTED');
+    setVisible('action-submit',  status === 'IN_TRANSLATION');
+    setVisible('action-approve', status === 'IN_REVIEW');
+    setVisible('action-reject',  status === 'IN_REVIEW');
+    setVisible('action-cancel',  ['REQUESTED','IN_TRANSLATION','IN_REVIEW','APPROVED'].indexOf(status) >= 0);
+
+    // PDF download visible when approved or delivered
+    var pdf = $('d-pdf');
+    if (status === 'APPROVED' || status === 'DELIVERED') {
+      pdf.href = IntApiTranslate.downloadUrl(job.job_id);
+      pdf.style.display = '';
+    } else {
+      pdf.style.display = 'none';
+    }
+
+    // Glossary fetch
+    IntApiTranslate.glossary(job.source_language_id || '', job.target_language_id || '').then(function (g) {
+      if (!g || !g.ok) return;
+      renderGlossary(g.terms || []);
+    }).catch(function () { /* glossary is non-fatal */ });
+
+    // Timeline — pull job_events for this job
+    IntApi.listJobEvents(job.job_id).then(function (ev) {
+      if (!ev || !ev.ok) return;
+      renderTimeline(ev.events || []);
+    });
+
+    $('d-body').style.display = '';
+  }
+
+  function renderGlossary(terms) {
+    var box = $('d-glossary');
+    if (!terms.length) { box.style.display = 'none'; return; }
+    var html = terms.map(function (t) {
+      return '<span class="glossary-chip" data-target="' + esc(t.target) + '">'
+        + esc(t.source) + ' → ' + esc(t.target)
+        + '<small>' + esc(t.domain) + '</small></span>';
+    }).join('');
+    $('glossary-chips').innerHTML = html;
+    box.style.display = '';
+    // Click-to-paste at the cursor in the target pane.
+    $('glossary-chips').querySelectorAll('.glossary-chip').forEach(function (el) {
+      el.addEventListener('click', function () {
+        var ta = $('tgt-text');
+        var s = ta.selectionStart, e = ta.selectionEnd;
+        var v = ta.value;
+        var insert = el.getAttribute('data-target') || '';
+        ta.value = v.slice(0, s) + insert + v.slice(e);
+        ta.focus();
+        ta.selectionStart = ta.selectionEnd = s + insert.length;
+        state.targetText = ta.value;
+      });
+    });
+  }
+
+  function renderTimeline(events) {
+    var ul = $('d-events');
+    if (!events.length) { ul.innerHTML = '<li class="ink-soft">No events yet.</li>'; return; }
+    ul.innerHTML = events.map(function (ev) {
+      var when = new Date(ev.ts || Date.now()).toLocaleString();
+      var label = String(ev.event_type || '').replace(/_/g, ' ');
+      var trans = ev.from_state && ev.to_state ? (ev.from_state + ' → ' + ev.to_state) : (ev.to_state || '');
+      return '<li><div><strong>' + esc(label) + '</strong>'
+        + (trans ? ' <span class="ink-soft">· ' + esc(trans) + '</span>' : '')
+        + '</div><div class="when">' + esc(when) + '</div></li>';
+    }).join('');
+  }
+
+  function setVisible(id, on) { $(id).style.display = on ? '' : 'none'; }
+
+  // ---------- ACTIONS ----------
+
+  function onPrefill() {
+    var d = state.detail; if (!d) return;
+    var job = d.job || {};
+    var rate = {}; try { rate = JSON.parse(job.rate_applied || '{}'); } catch (_) {}
+    var subtype = rate.service_subtype || job.service_type || '';
+    $('prefill-status').textContent = 'Calling translation service…';
+    IntApiTranslate.prefill(
+      d.document.document_id,
+      job.source_language_id || '',
+      job.target_language_id || '',
+      d.full_text || '',
+      subtype
+    ).then(function (r) {
+      if (!r) { $('prefill-status').textContent = 'No response.'; return; }
+      if (r.prefill_blocked) {
+        $('prefill-status').textContent = 'Pre-fill blocked — ' + (r.reason || 'hard-gated category') + '.';
+        renderRedaction(r.redaction_summary);
+        return;
+      }
+      if (!r.ok) { $('prefill-status').textContent = 'Error: ' + (r.error || 'unknown'); return; }
+      $('tgt-text').value = r.translated_text || '';
+      state.targetText = $('tgt-text').value;
+      $('prefill-status').textContent = 'Pre-filled from ' + (r.source || 'machine translation') + '. Edit before submitting.';
+      renderRedaction(r.redaction_summary);
+    }).catch(function (err) {
+      $('prefill-status').textContent = 'Pre-fill request failed.';
+      console.warn('[prefill]', err);
+    });
+  }
+
+  function renderRedaction(summary) {
+    var box = $('redaction');
+    if (!summary || !summary.replacements) { box.style.display = 'none'; return; }
+    var chips = Object.keys(summary.kinds || {}).map(function (k) {
+      return '<span class="redaction-chip">' + esc(k) + ' × ' + esc(summary.kinds[k]) + '</span>';
+    }).join('');
+    $('redaction-chips').innerHTML = chips;
+    box.style.display = '';
+  }
+
+  function onStart() {
+    var job = (state.detail || {}).job; if (!job) return;
+    // For v1, the scheduler self-assigns or assigns later. Skip prompt for an interpreter
+    // — orchestrator can add a "pick translator" dropdown in a follow-up.
+    IntApiTranslate.startTranslation(job.job_id, '').then(function () {
+      toast('Started — pending Sheet sync.', 'ok');
+      setTimeout(function () { loadDetail(job.job_id); }, 1200);
+    });
+  }
+
+  function onSubmit() {
+    var job = (state.detail || {}).job; if (!job) return;
+    var txt = $('tgt-text').value.trim();
+    if (!txt) { toast('Translation is empty.', 'error'); return; }
+    IntApiTranslate.submitTranslationReview(job.job_id, txt).then(function () {
+      toast('Submitted for review — pending Sheet sync.', 'ok');
+      setTimeout(function () { loadDetail(job.job_id); }, 1200);
+    });
+  }
+
+  function onApprove() {
+    var job = (state.detail || {}).job; if (!job) return;
+    if (!confirm('Approve this translation? The translator will receive the approval notice.')) return;
+    IntApiTranslate.approveTranslation(job.job_id).then(function () {
+      toast('Approved — pending Sheet sync.', 'ok');
+      setTimeout(function () { loadDetail(job.job_id); }, 1200);
+    });
+  }
+
+  function onReject() {
+    var job = (state.detail || {}).job; if (!job) return;
+    var notes = prompt('Reviewer notes (sent back to translator):');
+    if (notes == null) return;
+    IntApiTranslate.rejectTranslation(job.job_id, notes).then(function () {
+      toast('Sent back to translator.', 'ok');
+      setTimeout(function () { loadDetail(job.job_id); }, 1200);
+    });
+  }
+
+  function onCancel() {
+    var job = (state.detail || {}).job; if (!job) return;
+    var reason = prompt('Reason for cancelling this translation:');
+    if (!reason) return;
+    IntApiTranslate.cancelTranslation(job.job_id, reason).then(function () {
+      toast('Cancelled — pending Sheet sync.', 'ok');
+      setTimeout(function () { loadDetail(job.job_id); }, 1200);
+    });
+  }
+})();
+</script>
+</body>
+</html>

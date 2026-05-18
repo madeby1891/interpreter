@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Stripe Connect — 1891 Interpreter</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#C8553D">
+<link rel="icon" type="image/svg+xml" href="/interpreter/assets/img/favicon.svg">
+<link rel="stylesheet" href="/interpreter/assets/css/site.css">
+<link rel="stylesheet" href="/interpreter/assets/css/app.css">
+</head>
+<body>
+<a href="#main" class="skip">Skip to main content</a>
+
+<div class="app-shell">
+  <header class="app-header">
+    <div class="wrap">
+      <a href="/interpreter/app/" class="brand"><img src="/interpreter/assets/img/brand-mark.svg" alt="" width="32" height="32"><span>1891 <span class="brand-sub">Interpreter</span></span></a>
+      <div class="who"><span>Signed in as </span><strong id="who-name">…</strong><button id="signout" type="button">Sign out</button></div>
+    </div>
+  </header>
+
+  <main id="main" class="app-main">
+    <div class="wrap" style="max-width:680px;margin:0 auto">
+      <h1 style="font-size:28px;margin-top:var(--1891int-s-6)">Set up payouts</h1>
+
+      <section class="card" id="needs-onboard" style="display:none">
+        <h2 class="mt-0">Connect your bank account</h2>
+        <p>Stripe handles your payout setup. They'll ask for your legal name, SSN or ITIN (for tax reporting), and bank account or debit card.</p>
+        <p class="ink-soft" style="font-size:14px">Your information goes directly to Stripe. We never see your SSN or bank PAN — we only see whether onboarding finished and that the IRS-required W-9 data is on file.</p>
+        <div class="cluster" style="margin-top:var(--1891int-s-4)">
+          <button class="btn btn-primary" id="start" type="button">Start Stripe setup</button>
+          <a class="btn btn-ghost" href="/interpreter/app/">Cancel</a>
+        </div>
+      </section>
+
+      <section class="card" id="returned" style="display:none">
+        <h2 class="mt-0">Thanks — checking your status</h2>
+        <p class="ink-soft">We're confirming your Stripe Connect onboarding finished. This usually takes a second.</p>
+        <div class="empty-state"><span class="spinner"></span> Refreshing&hellip;</div>
+      </section>
+
+      <section class="card" id="active" style="display:none">
+        <h2 class="mt-0">You're set up</h2>
+        <p>Stripe has verified your account. Payouts will arrive in your bank within 1–2 business days after each pay period closes.</p>
+        <div class="cluster" style="margin-top:var(--1891int-s-4)">
+          <a class="btn btn-primary" href="/interpreter/app/">Back to dashboard</a>
+        </div>
+      </section>
+
+      <section class="card" id="pending" style="display:none">
+        <h2 class="mt-0">Almost there</h2>
+        <p>Stripe is still verifying some of your information. You'll get an email from Stripe if they need anything else. Once they finish, you can come back here to confirm.</p>
+        <div class="cluster" style="margin-top:var(--1891int-s-4)">
+          <button class="btn btn-ghost" id="refresh" type="button">Check again</button>
+          <a class="btn btn-ghost" href="/interpreter/app/">Back to dashboard</a>
+        </div>
+      </section>
+
+      <section class="card" id="error" style="display:none">
+        <h2 class="mt-0">Something went wrong</h2>
+        <p id="error-detail" class="ink-soft" style="font-size:14px">We couldn't reach Stripe just now.</p>
+        <div class="cluster" style="margin-top:var(--1891int-s-4)">
+          <button class="btn btn-ghost" id="retry" type="button">Try again</button>
+          <a class="btn btn-ghost" href="/interpreter/app/">Back to dashboard</a>
+        </div>
+      </section>
+    </div>
+  </main>
+</div>
+
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+<script src="/interpreter/assets/js/whitelabel.js" defer></script>
+<script src="/interpreter/assets/js/api.js" defer></script>
+<script src="/interpreter/assets/js/api-payments.js" defer></script>
+<script>
+(function () {
+  'use strict';
+  document.addEventListener('DOMContentLoaded', init);
+
+  function $(id) { return document.getElementById(id); }
+  function qparam(k) { return new URLSearchParams(location.search).get(k); }
+  function show(id) {
+    ['needs-onboard','returned','active','pending','error'].forEach(function (x) {
+      $(x).style.display = x === id ? '' : 'none';
+    });
+  }
+  function toast(msg, kind) {
+    var t = $('toast'); t.textContent = msg;
+    t.className = 'toast show' + (kind ? ' ' + kind : '');
+    setTimeout(function () { t.className = 'toast'; }, 3200);
+  }
+
+  function init() {
+    if (!IntApi.getSession()) { location.href = '/interpreter/sign-in.html'; return; }
+    IntApi.whoami().then(function (r) {
+      if (!r || !r.ok) { IntApi.clearSession(); location.href = '/interpreter/sign-in.html'; return; }
+      $('who-name').textContent = (r.user && (r.user.display_name || r.user.email)) || 'unknown';
+      if (window.IntTheme && r.agency) IntTheme.apply(r.agency);
+      route();
+    }).catch(function () { showError('Could not reach the server.'); });
+
+    $('signout').addEventListener('click', function () { IntApi.clearSession(); location.href = '/interpreter/'; });
+    $('start').addEventListener('click', startOnboard);
+    $('refresh').addEventListener('click', refresh);
+    $('retry').addEventListener('click', refresh);
+  }
+
+  function showError(msg) { show('error'); $('error-detail').textContent = msg || 'Unknown error'; }
+
+  function getInterpId() {
+    return qparam('interpreter_id') || '';
+  }
+
+  function route() {
+    var returned = qparam('return') === 'true';
+    var refresh = qparam('refresh') === 'true';
+    var id = getInterpId();
+    if (!id) { show('needs-onboard'); return; }
+    if (returned) {
+      show('returned');
+      // Pull current state from Stripe.
+      IntApiPayments.connectAccountRefresh(id).then(function () {
+        // We can't read the response (no-cors POST); fall through to the
+        // list page state pattern — give the webhook a beat to propagate.
+        setTimeout(loadStatus, 1500);
+      });
+      return;
+    }
+    if (refresh) { show('pending'); return; }
+    show('needs-onboard');
+  }
+
+  function startOnboard() {
+    var id = getInterpId();
+    if (!id) { toast('Missing interpreter_id in URL.', 'error'); return; }
+    toast('Asking Stripe for an onboarding link…');
+    IntApiPayments.connectAccountLink(id);
+    // The onboarding URL is also emailed to the interpreter. For self-serve,
+    // surface a message and let the page poll for status.
+    setTimeout(function () { show('returned'); setTimeout(loadStatus, 1500); }, 800);
+  }
+
+  function loadStatus() {
+    IntApiPayments.listStripeAccounts().then(function (r) {
+      var id = getInterpId();
+      var found = ((r && r.accounts) || []).find(function (a) { return a.interpreter_id === id; });
+      if (!found) { showError('Interpreter not found.'); return; }
+      if (found.connect_state === 'active') show('active');
+      else if (found.connect_state === 'pending') show('pending');
+      else show('pending');
+    }).catch(function () { showError('Could not reach the server.'); });
+  }
+
+  function refresh() {
+    var id = getInterpId();
+    if (!id) return;
+    show('returned');
+    IntApiPayments.connectAccountRefresh(id);
+    setTimeout(loadStatus, 1200);
+  }
+})();
+</script>
+</body>
+</html>

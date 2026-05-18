@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Payments setup — 1891 Interpreter</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#C8553D">
+<link rel="icon" type="image/svg+xml" href="/interpreter/assets/img/favicon.svg">
+<link rel="stylesheet" href="/interpreter/assets/css/site.css">
+<link rel="stylesheet" href="/interpreter/assets/css/app.css">
+</head>
+<body>
+<a href="#main" class="skip">Skip to main content</a>
+
+<div class="app-shell">
+  <header class="app-header">
+    <div class="wrap">
+      <a href="/interpreter/app/" class="brand"><img src="/interpreter/assets/img/brand-mark.svg" alt="" width="32" height="32"><span>1891 <span class="brand-sub">Scheduler</span></span></a>
+      <div class="who"><span>Signed in as </span><strong id="who-name">…</strong><button id="signout" type="button">Sign out</button></div>
+    </div>
+  </header>
+
+  <nav class="app-nav" aria-label="App sections">
+    <div class="wrap">
+      <a href="/interpreter/app/">Day-of board</a>
+      <a href="/interpreter/app/interpreters/">Interpreters</a>
+      <a href="/interpreter/app/requestors/">Requestors</a>
+      <a href="/interpreter/app/invoices/">Invoices</a>
+      <a href="/interpreter/app/payouts/">Payouts</a>
+      <a href="/interpreter/app/payments/">Payments</a>
+      <a href="/interpreter/app/settings/">Settings</a>
+    </div>
+  </nav>
+
+  <main id="main" class="app-main">
+    <div class="wrap" style="max-width:780px;margin:0 auto">
+      <div class="toolbar">
+        <h1 style="margin:0;font-size:28px">Payments setup</h1>
+        <div class="spacer"></div>
+        <a href="/interpreter/app/payments/" class="btn btn-ghost btn-sm">&larr; Back to payments</a>
+      </div>
+
+      <section class="card" style="margin-bottom:var(--1891int-s-6)">
+        <h2 class="mt-0">Where the secrets live</h2>
+        <p style="font-size:14.5px">Production API keys for Stripe, track1099, and Plaid live in the Cloudflare Worker's secret store — NOT in the Google Sheet. Setting them is a one-time shell command from the agency owner's machine:</p>
+        <pre style="background:#0F1419;color:#E4E0D6;padding:14px 16px;border-radius:6px;font-size:12.5px;overflow:auto">cd workers/api
+wrangler secret put STRIPE_API_KEY          # sk_test_... or sk_live_...
+wrangler secret put STRIPE_WEBHOOK_SECRET   # whsec_...
+wrangler secret put TRACK1099_API_KEY
+wrangler secret put PLAID_CLIENT_ID
+wrangler secret put PLAID_SECRET</pre>
+        <p class="ink-soft" style="font-size:13.5px">Stripe webhook endpoint (paste into Stripe Dashboard → Developers → Webhooks):</p>
+        <p><code id="webhook-url" style="font-size:13.5px"></code></p>
+      </section>
+
+      <section class="card" id="status-card" style="margin-bottom:var(--1891int-s-6)">
+        <h2 class="mt-0">Status</h2>
+        <ul id="status-list" style="font-size:14.5px"></ul>
+      </section>
+
+      <!-- Stripe public/handle config -->
+      <section class="card" style="margin-bottom:var(--1891int-s-6)">
+        <h2 class="mt-0">Stripe</h2>
+        <p class="ink-soft" style="font-size:14px">These are non-secret values stored in your tenant's Settings tab. The live API key stays in Worker secrets.</p>
+        <form id="stripe-form">
+          <div class="field"><label for="s-pub">Publishable key</label><input id="s-pub" name="stripe_publishable_key" type="text" placeholder="pk_test_... or pk_live_..."></div>
+          <div class="field"><label for="s-platform">Platform account ID</label><input id="s-platform" name="stripe_platform_account_id" type="text" placeholder="acct_..."></div>
+          <div class="field"><label for="s-return">Return URL base</label><input id="s-return" name="return_url_base" type="text" placeholder="https://madeby1891.com/interpreter"></div>
+          <div class="cluster"><button class="btn btn-primary" type="button" id="save-stripe">Save Stripe settings</button><span id="stripe-status" class="muted" style="font-size:14px"></span></div>
+        </form>
+      </section>
+
+      <!-- track1099 -->
+      <section class="card" style="margin-bottom:var(--1891int-s-6)">
+        <h2 class="mt-0">track1099</h2>
+        <p class="ink-soft" style="font-size:14px">After you create your agency as a "payer" in track1099, paste its track1099 payer ID here. Forms we issue will be linked to it.</p>
+        <form id="track-form">
+          <div class="field"><label for="t-payer">Payer ID in track1099</label><input id="t-payer" name="track1099_payer_id" type="text"></div>
+          <div class="cluster"><button class="btn btn-primary" type="button" id="save-track">Save track1099 settings</button><span id="track-status" class="muted" style="font-size:14px"></span></div>
+        </form>
+      </section>
+
+      <!-- Plaid -->
+      <section class="card">
+        <h2 class="mt-0">Plaid</h2>
+        <p class="ink-soft" style="font-size:14px">Plaid is for the manual-ACH fallback (long-tenured interpreters who don't onboard Stripe Connect). Only the environment selector lives here; the client_id and secret stay in Worker secrets.</p>
+        <form id="plaid-form">
+          <div class="field">
+            <label for="p-env">Environment</label>
+            <select id="p-env" name="plaid_environment">
+              <option value="">— Not configured —</option>
+              <option value="sandbox">sandbox</option>
+              <option value="development">development</option>
+              <option value="production">production</option>
+            </select>
+          </div>
+          <div class="cluster"><button class="btn btn-primary" type="button" id="save-plaid">Save Plaid settings</button><span id="plaid-status" class="muted" style="font-size:14px"></span></div>
+        </form>
+      </section>
+    </div>
+  </main>
+</div>
+
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+<script src="/interpreter/assets/js/whitelabel.js" defer></script>
+<script src="/interpreter/assets/js/api.js" defer></script>
+<script src="/interpreter/assets/js/api-payments.js" defer></script>
+<script>
+(function () {
+  'use strict';
+  document.addEventListener('DOMContentLoaded', init);
+
+  function $(id) { return document.getElementById(id); }
+  function toast(msg, kind) {
+    var t = $('toast'); t.textContent = msg;
+    t.className = 'toast show' + (kind ? ' ' + kind : '');
+    setTimeout(function () { t.className = 'toast'; }, 3200);
+  }
+
+  function init() {
+    if (!IntApi.getSession()) { location.href = '/interpreter/sign-in.html'; return; }
+    IntApi.whoami().then(function (r) {
+      if (!r || !r.ok) { IntApi.clearSession(); location.href = '/interpreter/sign-in.html'; return; }
+      $('who-name').textContent = (r.user && (r.user.display_name || r.user.email)) || 'unknown';
+      if (window.IntTheme && r.agency) IntTheme.apply(r.agency);
+      loadStatus();
+    }).catch(function () { toast('Could not reach the server.', 'error'); });
+
+    $('signout').addEventListener('click', function () { IntApi.clearSession(); location.href = '/interpreter/'; });
+    $('save-stripe').addEventListener('click', saveStripe);
+    $('save-track').addEventListener('click', saveTrack);
+    $('save-plaid').addEventListener('click', savePlaid);
+
+    // Pre-fill from existing settings so the admin sees what's already there.
+    IntApi.listSettings().then(function (r) {
+      var s = (r && r.settings) || {};
+      function v(k) { return (s[k] && s[k].value) || ''; }
+      $('s-pub').value = v('payments.stripe.publishable_key');
+      $('s-platform').value = v('payments.stripe.platform_account_id');
+      $('s-return').value = v('payments.return_url_base');
+      $('t-payer').value = v('payments.track1099.payer_id');
+      $('p-env').value = v('payments.plaid.environment');
+    });
+  }
+
+  function loadStatus() {
+    IntApiPayments.paymentSetupStatus().then(function (r) {
+      var setup = r && r.setup;
+      var workerBase = r && r.worker_base ? r.worker_base : '';
+      $('webhook-url').textContent = workerBase ? workerBase + '/v1/stripe/webhook' : '(worker base not configured)';
+      var lines = [];
+      function mark(name, ok, extra) {
+        return '<li>' + (ok ? '✔ ' : '✗ ') + '<strong>' + name + '</strong> — ' + (ok ? 'configured' : 'not configured') + (extra ? ' (' + extra + ')' : '') + '</li>';
+      }
+      if (setup) {
+        lines.push(mark('Stripe', setup.stripe.configured));
+        lines.push(mark('track1099', setup.track1099.configured));
+        lines.push(mark('Plaid', setup.plaid.configured, setup.plaid.environment));
+      } else {
+        lines.push('<li class="muted">Could not read setup status.</li>');
+      }
+      $('status-list').innerHTML = lines.join('');
+    });
+  }
+
+  function saveStripe() {
+    IntApiPayments.setupStripeCredentials({
+      stripe_publishable_key: $('s-pub').value,
+      stripe_platform_account_id: $('s-platform').value,
+      return_url_base: $('s-return').value
+    });
+    toast('Saved Stripe settings.', 'success');
+    setTimeout(loadStatus, 800);
+  }
+  function saveTrack() {
+    IntApiPayments.setupTrack1099Credentials({ track1099_payer_id: $('t-payer').value });
+    toast('Saved track1099 settings.', 'success');
+    setTimeout(loadStatus, 800);
+  }
+  function savePlaid() {
+    IntApiPayments.setupPlaidCredentials({ plaid_environment: $('p-env').value });
+    toast('Saved Plaid settings.', 'success');
+    setTimeout(loadStatus, 800);
+  }
+})();
+</script>
+</body>
+</html>

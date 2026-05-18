@@ -104,8 +104,17 @@ function doGet(e) {
       case 'list_tenants':       return _safeCall('apiListTenants', e);
       case 'get_tenant':         return _safeCall('apiGetTenant', e);
       case 'list_tenant_owners': return _safeCall('apiListTenantOwners', e);
+      // Translation
+      case 'list_documents':     return _safeCall('apiListDocuments', e);
+      case 'get_document':       return _safeCall('apiGetDocument', e);
+      case 'download_translation': return _safeCall('apiDownloadTranslation', e);
+      // Payments
+      case 'list_stripe_accounts': return _safeCall('apiListStripeAccounts', e);
+      case 'list_1099_forms':    return _safeCall('apiList1099Forms', e);
+      case 'payment_setup_status': return _safeCall('apiPaymentSetupStatus', e);
       case 'switch_tenant':      return _safeCall('apiSwitchTenant', e);  // GET-path enables JSONP response read
       case '_rotate_hmac':       return apiRotateHmac(e);                  // one-shot Worker-secret sync
+      case '_mail_debug':        return apiMailDebug(e);                   // diagnostic
       default:                   return _json({ ok:false, error:'Unknown action: ' + action }, 404);
     }
   } catch (err) {
@@ -151,6 +160,22 @@ function doPost(e) {
       case 'provision_tenant':   return _safeCall('apiProvisionTenant', e);
       case 'switch_tenant':      return _safeCall('apiSwitchTenant', e);
       case 'add_tenant_owner':   return _safeCall('apiAddTenantOwner', e);
+      // Translation
+      case 'create_translation_job':    return _safeCall('apiCreateTranslationJob', e);
+      case 'start_translation':         return _safeCall('apiStartTranslation', e);
+      case 'submit_translation_review': return _safeCall('apiSubmitTranslationReview', e);
+      case 'approve_translation':       return _safeCall('apiApproveTranslation', e);
+      case 'reject_translation':        return _safeCall('apiRejectTranslation', e);
+      case 'cancel_translation':        return _safeCall('apiCancelTranslation', e);
+      // Payments
+      case 'connect_account_link':      return _safeCall('apiConnectAccountLink', e);
+      case 'connect_account_refresh':   return _safeCall('apiConnectAccountRefresh', e);
+      case 'payout_send':               return _safeCall('apiPayoutSend', e);
+      case 'invoice_send':              return _safeCall('apiInvoiceSend', e);
+      case 'issue_1099_nec':            return _safeCall('apiIssue1099Nec', e);
+      case 'setup_stripe_credentials':  return _safeCall('apiSetupStripeCredentials', e);
+      case 'setup_track1099_credentials': return _safeCall('apiSetupTrack1099Credentials', e);
+      case 'setup_plaid_credentials':   return _safeCall('apiSetupPlaidCredentials', e);
       default:                   return _json({ ok:false, error:'Unknown action: ' + action }, 404);
     }
   } catch (err) {
@@ -1907,4 +1932,55 @@ function apiRotateHmac(e) {
   PropertiesService.getScriptProperties().setProperty('HMAC_SECRET', newSecret);
   _logAudit('hmac.rotate', 'host', 'system', '');
   return _json({ ok:true, message:'Rotated. All existing sessions invalidated; sign in again.' });
+}
+
+// Debug: report mail quota + recent auth-related audit log entries.
+// Owner-only via session, but we also allow setup= for bootstrap parity.
+function apiMailDebug(e) {
+  var setup = e.parameter.setup;
+  var s = _requireSession(e);
+  var authed = (s.ok && s.payload.role === 'role_owner') || (setup === SHEET_ID);
+  if (!authed) return _json({ ok:false, error:'Forbidden' }, 403);
+
+  var remaining = MailApp.getRemainingDailyQuota();
+  var ss = SpreadsheetApp.openById(SHEET_ID);
+
+  // Recent auth audit entries
+  var auditSh = ss.getSheetByName(T.Audit_Log);
+  var recent = [];
+  if (auditSh && auditSh.getLastRow() >= 2) {
+    var data = auditSh.getDataRange().getValues();
+    var hdr = data[0];
+    for (var i = Math.max(1, data.length - 50); i < data.length; i++) {
+      var o = _rowToObj(hdr, data[i]);
+      if (String(o.action || '').indexOf('auth') >= 0) recent.push(o);
+    }
+  }
+
+  // Recent Auth_Tokens entries
+  var tokensSh = ss.getSheetByName(T.AuthTokens);
+  var tokens = [];
+  if (tokensSh && tokensSh.getLastRow() >= 2) {
+    var tData = tokensSh.getDataRange().getValues();
+    var tHdr = tData[0];
+    for (var j = Math.max(1, tData.length - 10); j < tData.length; j++) {
+      var t = _rowToObj(tHdr, tData[j]);
+      tokens.push({
+        issued_at: t.issued_at,
+        email: t.email,
+        user_id: t.user_id,
+        tenant_id: t.tenant_id,
+        expires_at: t.expires_at,
+        consumed_at: t.consumed_at,
+        token_hash_prefix: String(t.token_hash || '').slice(0, 12)
+      });
+    }
+  }
+
+  return _json({
+    ok: true,
+    mail_quota_remaining: remaining,
+    recent_auth_audit: recent.slice(-15),
+    recent_tokens: tokens
+  });
 }

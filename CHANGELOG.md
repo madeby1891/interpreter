@@ -4,6 +4,61 @@ Dated history of changes. Newest entries at the top. Note user-visible changes o
 
 ---
 
+## 2026-05-17 — v11: Document translation pipeline + Stripe Connect + track1099 + Plaid
+
+Two more parallel agents shipped, all integrated.
+
+### Apps Script v11 (5 .gs files deployed, version 13)
+
+- **`Code_Translate.gs`** (29 KB) — full translation workflow: REQUESTED → IN_TRANSLATION → IN_REVIEW → APPROVED → DELIVERED. State machine refuses to skip review (no auto-approval on legal/medical). PDF export reuses the invoice template with a sworn-translation footer when service_type is `legal` or `gov`. Full source/target text lives in lazy-created `Translation_Sources` / `Translation_Targets` tabs to keep main Documents rows small.
+- **`Code_Payments.gs`** (34 KB) — Stripe Connect onboarding, transfers, invoice send, 1099-NEC issuance via track1099, Plaid scaffolding. Provides `_payMintInternalSession` so the Worker can call back into Apps Script with a synthesized internal session JWT.
+- **`Code.gs`** router extended with 19 new routes:
+  - GET: `list_documents`, `get_document`, `download_translation`, `list_stripe_accounts`, `list_1099_forms`, `payment_setup_status`
+  - POST: `create_translation_job`, `start_translation`, `submit_translation_review`, `approve_translation`, `reject_translation`, `cancel_translation`, `connect_account_link`, `connect_account_refresh`, `payout_send`, `invoice_send`, `issue_1099_nec`, and 3 credential-setup endpoints
+
+### Cloudflare Worker v2 (deployed, 48 KB, version `93a56dcb`)
+
+- **`src/translate.ts`** — `/v1/translate/prefill` (DeepL or Claude based on language pair + hard-gate) and `/v1/translate/glossary`. DeepL allowlist hard-coded: `en, es, de, fr, it, ja, pt-PT, pt-BR, ru, zh-CN, zh-TW, ko, nl, pl, sv, tr, ar`. ASL/PSE/ProTactile/CDI never route to DeepL. PHI scrubber is a TS port of `_redactForModel`.
+- **`src/stripe.ts`** — Stripe API client + HMAC-SHA256 webhook signature verification + event router (invoice.paid → mark_invoice_paid, transfer.paid → mark_payout_paid, account.updated → update_interpreter). Constant-time signature compare.
+- **`src/track1099.ts`** — 1099-NEC create + status fetch, sandbox base override, dash-stripping TIN handling.
+- **`src/internal.ts`** — `X-1891-Internal` header verify (constant-time) for machine-to-machine callbacks from Stripe webhooks back into Apps Script.
+- **71/71 vitest passing** (cors 18 + jwt 6 + proxy 5 + translate 24 + stripe 21 + track1099 8)
+
+### New /app/ pages (all live)
+
+- **`/app/translate/`** — list + filter chips + "+ New translation" modal + two-pane source/target editor + glossary panel with click-to-paste + hard-gate banner for `medical, mental-health, legal, gov` service types (translator must work from scratch, no MT pre-fill) + state-aware action buttons + timeline + redaction summary chips
+- **`/app/payments/`** — integration status grid (Stripe / track1099 / Plaid configured?), interpreter Stripe Connect status table (charges enabled, payouts enabled, requirements due), 1099-NEC issuance table with year picker + IRS-deadline gate
+- **`/app/payments/connect.html`** — interpreter-facing onboarding return page (after they finish Stripe's hosted flow)
+- **`/app/payments/setup.html`** — agency-owner setup: Stripe Connect platform credentials, track1099 API token, Plaid client_id/secret
+
+### Stripe webhook endpoint (to register in Stripe Dashboard when you're ready)
+
+```
+https://1891-interpreter-api.anthonymowl.workers.dev/v1/stripe/webhook
+```
+
+Subscribe to: `invoice.paid`, `invoice.payment_succeeded`, `transfer.paid`, `transfer.created`, `account.updated`, `charge.dispute.created`, `charge.refunded`, `charge.failed`.
+
+### Worker secrets to set when you have accounts
+
+```
+wrangler secret put STRIPE_API_KEY          # sk_test_... in dev, sk_live_... in prod
+wrangler secret put STRIPE_WEBHOOK_SECRET   # whsec_... from Stripe Dashboard
+wrangler secret put TRACK1099_API_KEY
+wrangler secret put PLAID_CLIENT_ID
+wrangler secret put PLAID_SECRET
+wrangler secret put DEEPL_API_KEY           # optional; if missing, falls through to Claude
+wrangler secret put ANTHROPIC_API_KEY       # for the Worker-side translate prefill
+```
+
+Site CSP already allows the Worker domain; nothing else to change to flip these on.
+
+### Known follow-up
+
+Stripe webhook callback into Apps Script uses `X-1891-Internal` header, but Apps Script doesn't expose request headers to script code. The Worker should mint an internal session JWT (it has the shared HMAC secret) and pass it as `&session=<jwt>` instead. ~30 min fix, queued for v12.
+
+---
+
 ## 2026-05-17 — v10: PDF generation + white-label theming + Cloudflare Worker LIVE
 
 The three follow-ups from v9 all shipped.

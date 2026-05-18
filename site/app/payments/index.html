@@ -1,0 +1,340 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Payments — 1891 Interpreter</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#C8553D">
+<link rel="icon" type="image/svg+xml" href="/interpreter/assets/img/favicon.svg">
+<link rel="stylesheet" href="/interpreter/assets/css/site.css">
+<link rel="stylesheet" href="/interpreter/assets/css/app.css">
+</head>
+<body>
+<a href="#main" class="skip">Skip to main content</a>
+
+<div class="app-shell">
+  <header class="app-header">
+    <div class="wrap">
+      <a href="/interpreter/app/" class="brand"><img src="/interpreter/assets/img/brand-mark.svg" alt="" width="32" height="32"><span>1891 <span class="brand-sub">Scheduler</span></span></a>
+      <div class="who"><span>Signed in as </span><strong id="who-name">…</strong><button id="signout" type="button">Sign out</button></div>
+    </div>
+  </header>
+
+  <nav class="app-nav" aria-label="App sections">
+    <div class="wrap">
+      <a href="/interpreter/app/">Day-of board</a>
+      <a href="/interpreter/app/interpreters/">Interpreters</a>
+      <a href="/interpreter/app/requestors/">Requestors</a>
+      <a href="/interpreter/app/invoices/">Invoices</a>
+      <a href="/interpreter/app/payouts/">Payouts</a>
+      <a href="/interpreter/app/payments/" aria-current="page">Payments</a>
+      <a href="/interpreter/app/settings/">Settings</a>
+    </div>
+  </nav>
+
+  <main id="main" class="app-main">
+    <div class="wrap">
+      <div class="toolbar">
+        <h1 style="margin:0;font-size:28px">Payments</h1>
+        <div class="spacer"></div>
+        <button class="btn btn-ghost btn-sm" type="button" id="refresh">Refresh</button>
+        <a class="btn btn-ghost btn-sm" href="/interpreter/app/payments/setup.html">Configure</a>
+      </div>
+
+      <!-- Setup banner — surfaces when STRIPE_API_KEY / TRACK1099_API_KEY are unset. -->
+      <div id="setup-banner" class="card" style="display:none;border-left:4px solid var(--1891int-bloom);margin-bottom:var(--1891int-s-5)">
+        <h2 class="mt-0">Finish payment setup</h2>
+        <p class="ink-soft" style="font-size:14.5px">One or more payment gateways aren't connected yet. Connect them in <a href="/interpreter/app/payments/setup.html">Configure</a> before sending invoices or paying interpreters via Stripe.</p>
+        <ul id="setup-missing" style="font-size:14px;color:var(--1891int-fog)"></ul>
+      </div>
+
+      <!-- Stripe Connect status table -->
+      <section class="card" style="margin-bottom:var(--1891int-s-6)">
+        <h2 class="mt-0">Stripe Connect — interpreters</h2>
+        <p class="ink-soft" style="font-size:14px;margin-bottom:var(--1891int-s-4)">Interpreters complete Stripe's hosted onboarding to receive ACH payouts. Status here mirrors what Stripe reports back; refresh after an interpreter completes onboarding to update.</p>
+        <div id="connect-loading" class="empty-state"><span class="spinner"></span> Loading interpreters&hellip;</div>
+        <div id="connect-empty" class="empty-state" style="display:none">
+          <h2>No interpreters yet.</h2>
+          <p>Add interpreters first, then come back to send Stripe Connect onboarding links.</p>
+          <a class="btn btn-primary" href="/interpreter/app/interpreters/">Add interpreters</a>
+        </div>
+        <div id="connect-table-wrap" style="overflow:auto;display:none">
+          <table class="data" id="connect-table" style="width:100%;border-collapse:collapse">
+            <thead>
+              <tr>
+                <th style="text-align:left">Interpreter</th>
+                <th style="text-align:left">Connect status</th>
+                <th style="text-align:left">Capabilities</th>
+                <th style="text-align:left">Account ID</th>
+                <th style="text-align:right">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="connect-rows"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- 1099 issuance table -->
+      <section class="card">
+        <h2 class="mt-0">1099-NEC issuance <span id="tax-year-label" class="muted" style="font-size:14px"></span></h2>
+        <p class="ink-soft" style="font-size:14px;margin-bottom:var(--1891int-s-4)">Interpreters paid $600 or more in the prior calendar year need a 1099-NEC. Forms are generated and e-filed via track1099. The IRS deadline is Jan 31 of the following year.</p>
+        <div id="forms-loading" class="empty-state"><span class="spinner"></span> Computing totals&hellip;</div>
+        <div id="forms-empty" class="empty-state" style="display:none">
+          <h2>Nothing to issue yet.</h2>
+          <p>No interpreter on this roster crossed the $600 threshold for last year.</p>
+        </div>
+        <div id="forms-table-wrap" style="overflow:auto;display:none">
+          <table class="data" id="forms-table" style="width:100%;border-collapse:collapse">
+            <thead>
+              <tr>
+                <th style="text-align:left">Interpreter</th>
+                <th style="text-align:right">Paid (prior year)</th>
+                <th style="text-align:left">Status</th>
+                <th style="text-align:left">Form ID</th>
+                <th style="text-align:right">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="forms-rows"></tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+  </main>
+</div>
+
+<!-- 1099 issuance modal — collects TIN + address (required by IRS, not in our row schema yet). -->
+<div class="modal-backdrop" id="m-1099" role="dialog" aria-modal="true" aria-labelledby="m-1099-title">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 id="m-1099-title">Issue 1099-NEC</h2>
+      <button class="close" type="button" data-close>&times;</button>
+    </div>
+    <form id="form-1099" class="modal-body">
+      <p class="ink-soft" style="font-size:14px;margin-top:0">We pass these details to track1099 for IRS e-file + recipient mailing. Pull them from the interpreter's W-9 (or Stripe Connect-collected TIN). Nothing is stored in the platform Sheet beyond the resulting form ID.</p>
+      <input type="hidden" id="f-1099-interp" name="interpreter_id">
+      <input type="hidden" id="f-1099-year" name="tax_year">
+      <div class="field"><label for="f-1099-tin">TIN (SSN or EIN)</label><input id="f-1099-tin" name="tin" type="text" inputmode="numeric" autocomplete="off" required placeholder="XXX-XX-XXXX"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--1891int-s-4)">
+        <div class="field"><label for="f-1099-tin-type">TIN type</label><select id="f-1099-tin-type" name="tin_type"><option value="SSN">SSN</option><option value="EIN">EIN</option></select></div>
+        <div class="field"><label for="f-1099-withhold">Backup withholding (cents)</label><input id="f-1099-withhold" name="federal_income_tax_withheld_cents" type="number" min="0" value="0"></div>
+      </div>
+      <div class="field"><label for="f-1099-addr1">Address line 1</label><input id="f-1099-addr1" name="address1" type="text" required></div>
+      <div class="field"><label for="f-1099-addr2">Address line 2</label><input id="f-1099-addr2" name="address2" type="text"></div>
+      <div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:var(--1891int-s-4)">
+        <div class="field"><label for="f-1099-city">City</label><input id="f-1099-city" name="city" type="text" required></div>
+        <div class="field"><label for="f-1099-state">State</label><input id="f-1099-state" name="state" type="text" required maxlength="2"></div>
+        <div class="field"><label for="f-1099-zip">ZIP</label><input id="f-1099-zip" name="zip" type="text" required></div>
+      </div>
+      <div class="cluster" style="margin-top:var(--1891int-s-4)">
+        <button class="btn btn-primary" type="button" id="f-1099-submit">Submit to track1099</button>
+        <button class="btn btn-ghost" type="button" data-close>Cancel</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+<script src="/interpreter/assets/js/whitelabel.js" defer></script>
+<script src="/interpreter/assets/js/api.js" defer></script>
+<script src="/interpreter/assets/js/api-payments.js" defer></script>
+<script>
+(function () {
+  'use strict';
+  document.addEventListener('DOMContentLoaded', init);
+
+  var state = { accounts: [], forms: [], setup: null, taxYear: 0 };
+
+  function $(id) { return document.getElementById(id); }
+  function escHtml(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+    return { '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c];
+  }); }
+  function toast(msg, kind) {
+    var t = $('toast');
+    t.textContent = msg;
+    t.className = 'toast show' + (kind ? ' ' + kind : '');
+    setTimeout(function () { t.className = 'toast'; }, 3200);
+  }
+
+  function init() {
+    if (!IntApi.getSession()) { location.href = '/interpreter/sign-in.html'; return; }
+    IntApi.whoami().then(function (r) {
+      if (!r || !r.ok) { IntApi.clearSession(); location.href = '/interpreter/sign-in.html'; return; }
+      $('who-name').textContent = (r.user && (r.user.display_name || r.user.email)) || 'unknown';
+      if (window.IntTheme && r.agency) IntTheme.apply(r.agency);
+      loadAll();
+    }).catch(function () { toast('Could not reach the server.', 'error'); });
+
+    $('refresh').addEventListener('click', loadAll);
+    $('signout').addEventListener('click', function () { IntApi.clearSession(); location.href = '/interpreter/'; });
+    $('f-1099-submit').addEventListener('click', submit1099);
+    document.querySelectorAll('[data-close]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        document.querySelectorAll('.modal-backdrop.open').forEach(function (m) { m.classList.remove('open'); });
+      });
+    });
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') document.querySelectorAll('.modal-backdrop.open').forEach(function (m) { m.classList.remove('open'); });
+    });
+  }
+
+  function loadAll() {
+    renderConnectLoading();
+    renderFormsLoading();
+    IntApiPayments.paymentSetupStatus().then(function (r) {
+      state.setup = r && r.setup ? r.setup : null;
+      renderSetupBanner();
+    });
+    IntApiPayments.listStripeAccounts().then(function (r) {
+      state.accounts = (r && r.accounts) || [];
+      renderConnect();
+    }).catch(function () { toast('Could not load Stripe accounts.', 'error'); });
+    IntApiPayments.list1099Forms().then(function (r) {
+      state.forms = (r && r.forms) || [];
+      state.taxYear = (r && r.tax_year) || 0;
+      $('tax-year-label').textContent = state.taxYear ? '· tax year ' + state.taxYear : '';
+      renderForms();
+    }).catch(function () { toast('Could not load 1099 dashboard.', 'error'); });
+  }
+
+  function renderSetupBanner() {
+    var missing = [];
+    if (state.setup && !state.setup.stripe.configured) missing.push('Stripe API key (set <code>STRIPE_API_KEY</code>)');
+    if (state.setup && !state.setup.track1099.configured) missing.push('track1099 API key (set <code>TRACK1099_API_KEY</code>)');
+    if (!missing.length) { $('setup-banner').style.display = 'none'; return; }
+    $('setup-banner').style.display = '';
+    $('setup-missing').innerHTML = missing.map(function (m) { return '<li>' + m + '</li>'; }).join('');
+  }
+
+  function renderConnectLoading() {
+    $('connect-loading').style.display = '';
+    $('connect-table-wrap').style.display = 'none';
+    $('connect-empty').style.display = 'none';
+  }
+
+  function renderConnect() {
+    $('connect-loading').style.display = 'none';
+    if (!state.accounts.length) { $('connect-empty').style.display = ''; return; }
+    $('connect-table-wrap').style.display = '';
+    var html = state.accounts.map(function (a) {
+      var capStr = a.charges_enabled ? 'charges' : '';
+      if (a.payouts_enabled) capStr += (capStr ? ' · ' : '') + 'payouts';
+      if (!capStr) capStr = a.details_submitted ? 'pending Stripe review' : 'not yet started';
+      var actionBtn;
+      if (a.connect_state === 'not_started') {
+        actionBtn = '<button class="btn btn-primary btn-sm" data-act="onboard" data-id="' + escHtml(a.interpreter_id) + '">Send onboarding link</button>';
+      } else if (a.connect_state === 'active') {
+        actionBtn = '<button class="btn btn-ghost btn-sm" data-act="refresh" data-id="' + escHtml(a.interpreter_id) + '">Refresh</button>';
+      } else {
+        actionBtn = '<button class="btn btn-ghost btn-sm" data-act="onboard" data-id="' + escHtml(a.interpreter_id) + '">Resend link</button> '
+                  + '<button class="btn btn-ghost btn-sm" data-act="refresh" data-id="' + escHtml(a.interpreter_id) + '">Refresh</button>';
+      }
+      return '<tr>' +
+        '<td>' + escHtml(a.display_name) + '</td>' +
+        '<td><span class="status-dot status-' + escHtml(a.connect_state) + '"></span>' + escHtml(IntApiPayments.connectStateLabel(a.connect_state)) + '</td>' +
+        '<td>' + escHtml(capStr) + '</td>' +
+        '<td><code style="font-size:11px">' + escHtml(a.stripe_account_id || '—') + '</code></td>' +
+        '<td style="text-align:right">' + actionBtn + '</td>' +
+      '</tr>';
+    }).join('');
+    $('connect-rows').innerHTML = html;
+    $('connect-rows').querySelectorAll('button[data-act]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var id = b.getAttribute('data-id');
+        var act = b.getAttribute('data-act');
+        if (act === 'onboard') {
+          toast('Creating onboarding link…');
+          IntApiPayments.connectAccountLink(id).then(function () {
+            toast('Onboarding link sent (check the interpreter\'s email).', 'success');
+            setTimeout(loadAll, 1000);
+          });
+        } else if (act === 'refresh') {
+          toast('Refreshing from Stripe…');
+          IntApiPayments.connectAccountRefresh(id).then(function () { setTimeout(loadAll, 800); });
+        }
+      });
+    });
+  }
+
+  function renderFormsLoading() {
+    $('forms-loading').style.display = '';
+    $('forms-table-wrap').style.display = 'none';
+    $('forms-empty').style.display = 'none';
+  }
+
+  function renderForms() {
+    $('forms-loading').style.display = 'none';
+    var eligible = state.forms.filter(function (f) { return f.meets_threshold || f.form_id; });
+    if (!eligible.length) { $('forms-empty').style.display = ''; return; }
+    $('forms-table-wrap').style.display = '';
+    // IRS deadline gate — only enable the button after Jan 31 of the year after taxYear (per brief).
+    var now = new Date();
+    var afterDeadline = now.getUTCFullYear() > state.taxYear || (now.getUTCFullYear() === state.taxYear + 1 && now.getUTCMonth() >= 0); // pragmatic: any time in the next calendar year
+    var html = eligible.map(function (f) {
+      var btn;
+      if (f.form_id) {
+        btn = '<span class="muted" style="font-size:13px">issued ' + escHtml(String(f.form_tax_year || '')) + '</span>';
+      } else if (!afterDeadline) {
+        btn = '<button class="btn btn-ghost btn-sm" disabled title="Available after Jan 1 of the following year">Not yet eligible</button>';
+      } else {
+        btn = '<button class="btn btn-primary btn-sm" data-issue="' + escHtml(f.interpreter_id) + '">Issue 1099-NEC</button>';
+      }
+      return '<tr>' +
+        '<td>' + escHtml(f.display_name) + '</td>' +
+        '<td style="text-align:right">' + IntApiPayments.formatCents(f.total_paid_cents) + '</td>' +
+        '<td>' + escHtml(f.status) + '</td>' +
+        '<td><code style="font-size:11px">' + escHtml(f.form_id || '—') + '</code></td>' +
+        '<td style="text-align:right">' + btn + '</td>' +
+      '</tr>';
+    }).join('');
+    $('forms-rows').innerHTML = html;
+    $('forms-rows').querySelectorAll('button[data-issue]').forEach(function (b) {
+      b.addEventListener('click', function () { open1099(b.getAttribute('data-issue')); });
+    });
+  }
+
+  function open1099(interpreterId) {
+    $('f-1099-interp').value = interpreterId;
+    $('f-1099-year').value = state.taxYear;
+    document.getElementById('m-1099').classList.add('open');
+  }
+
+  function submit1099() {
+    var fields = {
+      interpreter_id: $('f-1099-interp').value,
+      tax_year: $('f-1099-year').value,
+      tin: $('f-1099-tin').value,
+      tin_type: $('f-1099-tin-type').value,
+      address1: $('f-1099-addr1').value,
+      address2: $('f-1099-addr2').value,
+      city: $('f-1099-city').value,
+      state: $('f-1099-state').value,
+      zip: $('f-1099-zip').value,
+      federal_income_tax_withheld_cents: $('f-1099-withhold').value || '0'
+    };
+    if (!fields.tin || !fields.address1 || !fields.city || !fields.state || !fields.zip) {
+      toast('Fill in TIN + full address.', 'error'); return;
+    }
+    toast('Submitting to track1099…');
+    IntApiPayments.issue1099Nec(fields).then(function () {
+      document.getElementById('m-1099').classList.remove('open');
+      toast('1099 form queued. We will update status on the next refresh.', 'success');
+      setTimeout(loadAll, 1200);
+    });
+  }
+})();
+</script>
+
+<style>
+.status-dot { display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;background:var(--1891int-fog) }
+.status-active { background:#1F8A4C }
+.status-pending { background:#C97A12 }
+.status-started { background:#5C6670 }
+.status-not_started { background:var(--1891int-fog) }
+.status-restricted { background:#B62D33 }
+table.data th { padding:8px 10px;border-bottom:2px solid var(--1891int-ink);font-size:12px;text-transform:uppercase;letter-spacing:.06em }
+table.data td { padding:10px;border-bottom:1px solid var(--1891int-line);font-size:13.5px;vertical-align:middle }
+</style>
+</body>
+</html>

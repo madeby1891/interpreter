@@ -14,6 +14,27 @@ import { handlePreflight, withCors, type CorsConfig } from "./cors";
 import { proxyToAppsScript } from "./proxy";
 import { verifyToken } from "./jwt";
 import { JobBoardRoom } from "./durable/JobBoardRoom";
+import { routeTranslate } from "./translate";
+import { verifyInternalHeader } from "./internal";
+import {
+  createConnectAccount,
+  createAccountLink,
+  fetchAccount,
+  createTransfer,
+  findOrCreateCustomer,
+  createAndSendInvoice,
+  verifyWebhookSignature,
+  handleWebhookEvent,
+  isConfigured as stripeConfigured,
+  isTestMode as stripeTestMode,
+  unconfigured as stripeUnconfigured,
+} from "./stripe";
+import {
+  createNec1099,
+  getForm as get1099Form,
+  isConfigured as track1099Configured,
+  unconfigured as track1099Unconfigured,
+} from "./track1099";
 
 export { JobBoardRoom };
 
@@ -22,6 +43,19 @@ export interface Env {
   ALLOWED_ORIGIN: string;
   JWT_SECRET: string;
   JOB_BOARD_ROOM: DurableObjectNamespace;
+  // Translation Worker secrets — set with `wrangler secret put`.
+  // Either may be absent; if both are absent, /v1/translate/prefill returns 502.
+  DEEPL_API_KEY?: string;
+  ANTHROPIC_API_KEY?: string;
+  // Payment-gateway secrets — set with `wrangler secret put`.
+  // Any missing key causes the corresponding /v1/stripe/* or /v1/track1099/*
+  // route to return { ok:false, status:'unconfigured' } rather than 500.
+  STRIPE_API_KEY?: string;
+  STRIPE_WEBHOOK_SECRET?: string;
+  TRACK1099_API_KEY?: string;
+  TRACK1099_BASE?: string;
+  PLAID_CLIENT_ID?: string;
+  PLAID_SECRET?: string;
 }
 
 function corsConfig(env: Env): CorsConfig {
@@ -70,7 +104,203 @@ async function handle(req: Request, env: Env, ctx: ExecutionContext): Promise<Re
     return handleNotify(req, env);
   }
 
+  // Document translation routes (PRD A4 §workers/translate).
+  if (url.pathname.startsWith("/v1/translate/")) {
+    const r = await routeTranslate(req, env);
+    if (r) return withCors(r, req, cfg);
+  }
+
+  // Stripe webhook — verified by signature, NOT by internal header.
+  // Cloudflare will deliver the raw body; signature is over t + raw body.
+  if (url.pathname === "/v1/stripe/webhook" && req.method === "POST") {
+    return handleStripeWebhook(req, env);
+  }
+
+  // Internal Stripe routes (Apps Script → Worker), gated by X-1891-Internal.
+  if (url.pathname.startsWith("/v1/stripe/") && req.method === "POST") {
+    return withCors(await handleStripeInternal(req, env, url.pathname), req, cfg);
+  }
+
+  // Internal track1099 routes (Apps Script → Worker).
+  if (url.pathname.startsWith("/v1/track1099/")) {
+    return withCors(await handleTrack1099(req, env, url.pathname), req, cfg);
+  }
+
   return withCors(json({ ok: false, error: "not found" }, { status: 404 }), req, cfg);
+}
+
+// ---------------------------------------------------------------------------
+// Stripe webhook receiver
+// ---------------------------------------------------------------------------
+
+async function handleStripeWebhook(req: Request, env: Env): Promise<Response> {
+  if (!env.STRIPE_WEBHOOK_SECRET) {
+    return json(
+      { ok: false, error: "STRIPE_WEBHOOK_SECRET not set. Configure via `wrangler secret put STRIPE_WEBHOOK_SECRET`." },
+      { status: 503 }
+    );
+  }
+  const rawBody = await req.text();
+  const sig = req.headers.get("Stripe-Signature");
+  const v = await verifyWebhookSignature(rawBody, sig, env.STRIPE_WEBHOOK_SECRET);
+  if (!v.ok || !v.event) {
+    return json({ ok: false, error: `webhook signature: ${v.reason ?? "unknown"}` }, { status: 400 });
+  }
+  const result = await handleWebhookEvent(env, v.event);
+  return json({ received: true, ...result });
+}
+
+// ---------------------------------------------------------------------------
+// Stripe internal routes (Apps Script → Worker)
+// ---------------------------------------------------------------------------
+
+async function handleStripeInternal(req: Request, env: Env, pathname: string): Promise<Response> {
+  const auth = verifyInternalHeader(req, env.JWT_SECRET);
+  if (!auth.authorized) return json({ ok: false, error: auth.error ?? "unauthorized" }, { status: 401 });
+  if (!stripeConfigured(env)) return json(stripeUnconfigured(), { status: 200 });
+
+  let body: Record<string, unknown> = {};
+  try {
+    body = (await req.json()) as Record<string, unknown>;
+  } catch {
+    // Allow empty body for GET-like POSTs.
+  }
+
+  switch (pathname) {
+    case "/v1/stripe/account/create": {
+      const interpreterId = String(body.interpreter_id ?? "");
+      if (!interpreterId) return json({ ok: false, error: "interpreter_id required" }, { status: 400 });
+      const account = await createConnectAccount(env, {
+        interpreter_id: interpreterId,
+        email: body.email ? String(body.email) : undefined,
+        country: body.country ? String(body.country) : "US",
+      });
+      return json({ ok: !(account as { ok?: false }).ok ? true : false, test_mode: stripeTestMode(env), account });
+    }
+    case "/v1/stripe/account/onboard": {
+      const accountId = String(body.account_id ?? "");
+      const returnUrl = String(body.return_url ?? "");
+      const refreshUrl = String(body.refresh_url ?? "");
+      if (!accountId || !returnUrl || !refreshUrl) {
+        return json({ ok: false, error: "account_id, return_url, refresh_url required" }, { status: 400 });
+      }
+      const link = await createAccountLink(env, {
+        account: accountId,
+        return_url: returnUrl,
+        refresh_url: refreshUrl,
+      });
+      return json({ ok: !(link as { ok?: false }).ok ? true : false, link });
+    }
+    case "/v1/stripe/account/refresh": {
+      const accountId = String(body.account_id ?? "");
+      if (!accountId) return json({ ok: false, error: "account_id required" }, { status: 400 });
+      const account = await fetchAccount(env, accountId);
+      return json({ ok: !(account as { ok?: false }).ok ? true : false, account });
+    }
+    case "/v1/stripe/transfer/send": {
+      const amount = Number(body.amount_cents ?? 0);
+      const destination = String(body.destination_account ?? "");
+      const payoutId = String(body.payout_id ?? "");
+      if (!amount || !destination || !payoutId) {
+        return json({ ok: false, error: "amount_cents, destination_account, payout_id required" }, { status: 400 });
+      }
+      const transfer = await createTransfer(env, {
+        amount_cents: amount,
+        destination_account: destination,
+        payout_id: payoutId,
+      });
+      return json({ ok: !(transfer as { ok?: false }).ok ? true : false, transfer });
+    }
+    case "/v1/stripe/invoice/send": {
+      const ourInvoiceId = String(body.invoice_id ?? "");
+      const payerId = String(body.payer_id ?? "");
+      const lineItemsRaw = body.line_items;
+      if (!ourInvoiceId || !payerId || !Array.isArray(lineItemsRaw) || !lineItemsRaw.length) {
+        return json({ ok: false, error: "invoice_id, payer_id, line_items required" }, { status: 400 });
+      }
+      const customer = await findOrCreateCustomer(env, {
+        existing_id: body.stripe_customer_id ? String(body.stripe_customer_id) : undefined,
+        payer_id: payerId,
+        email: body.payer_email ? String(body.payer_email) : undefined,
+        name: body.payer_name ? String(body.payer_name) : undefined,
+      });
+      if ((customer as { ok?: false }).ok === false) {
+        return json({ ok: false, customer });
+      }
+      const lineItems = (lineItemsRaw as Array<Record<string, unknown>>).map((ln) => ({
+        description: String(ln.description ?? "—"),
+        amount_cents: Number(ln.amount_cents ?? 0),
+        quantity: Number(ln.quantity ?? 1),
+      }));
+      const invoice = await createAndSendInvoice(env, {
+        customer: (customer as { id: string }).id,
+        invoice_id: ourInvoiceId,
+        line_items: lineItems,
+        days_until_due: body.days_until_due ? Number(body.days_until_due) : 30,
+      });
+      return json({
+        ok: !(invoice as { ok?: false }).ok ? true : false,
+        customer_id: (customer as { id: string }).id,
+        invoice,
+      });
+    }
+    default:
+      return json({ ok: false, error: "unknown stripe internal route" }, { status: 404 });
+  }
+}
+
+// ---------------------------------------------------------------------------
+// track1099 internal routes
+// ---------------------------------------------------------------------------
+
+async function handleTrack1099(req: Request, env: Env, pathname: string): Promise<Response> {
+  const auth = verifyInternalHeader(req, env.JWT_SECRET);
+  if (!auth.authorized) return json({ ok: false, error: auth.error ?? "unauthorized" }, { status: 401 });
+  if (!track1099Configured(env)) return json(track1099Unconfigured(), { status: 200 });
+
+  if (pathname === "/v1/track1099/forms/create" && req.method === "POST") {
+    let body: Record<string, unknown> = {};
+    try {
+      body = (await req.json()) as Record<string, unknown>;
+    } catch {
+      return json({ ok: false, error: "bad json" }, { status: 400 });
+    }
+    const recipient = body.recipient as Record<string, unknown> | undefined;
+    if (!recipient) return json({ ok: false, error: "recipient required" }, { status: 400 });
+    const form = await createNec1099(env, {
+      tax_year: Number(body.tax_year ?? new Date().getUTCFullYear() - 1),
+      payer_id_in_track1099: body.payer_id_in_track1099 ? String(body.payer_id_in_track1099) : undefined,
+      recipient: {
+        name: String(recipient.name ?? ""),
+        tin: String(recipient.tin ?? ""),
+        tin_type: (recipient.tin_type as "SSN" | "EIN") ?? "SSN",
+        email: recipient.email ? String(recipient.email) : undefined,
+        address1: String(recipient.address1 ?? ""),
+        address2: recipient.address2 ? String(recipient.address2) : undefined,
+        city: String(recipient.city ?? ""),
+        state: String(recipient.state ?? ""),
+        zip: String(recipient.zip ?? ""),
+        country: recipient.country ? String(recipient.country) : "US",
+      },
+      nonemployee_comp_cents: Number(body.nonemployee_comp_cents ?? 0),
+      federal_income_tax_withheld_cents: body.federal_income_tax_withheld_cents
+        ? Number(body.federal_income_tax_withheld_cents)
+        : 0,
+      interpreter_id: String(body.interpreter_id ?? ""),
+      tenant_id: String(body.tenant_id ?? ""),
+    });
+    return json({ ok: !(form as { ok?: false }).ok ? true : false, form });
+  }
+
+  // GET /v1/track1099/forms/:id
+  if (req.method === "GET" && pathname.startsWith("/v1/track1099/forms/")) {
+    const formId = pathname.slice("/v1/track1099/forms/".length);
+    if (!formId) return json({ ok: false, error: "form id required" }, { status: 400 });
+    const form = await get1099Form(env, formId);
+    return json({ ok: !(form as { ok?: false }).ok ? true : false, form });
+  }
+
+  return json({ ok: false, error: "unknown track1099 route" }, { status: 404 });
 }
 
 async function handleSubscribe(
