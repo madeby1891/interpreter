@@ -27,6 +27,15 @@
   }
   .state-chips .chip.current { background: var(--1891int-bloom-tint); color: var(--1891int-bloom-deep); border: 1px solid var(--1891int-bloom-soft); }
   .state-chips .chip.done { background: #E6F3EB; color: var(--1891int-ok); }
+  .cancel-preview {
+    background: var(--1891int-paper-deep); border: 1px solid var(--1891int-line);
+    border-radius: 8px; padding: var(--1891int-s-3) var(--1891int-s-4); margin: 0 0 var(--1891int-s-3);
+    font-size: 14px; line-height: 1.5;
+  }
+  .cancel-preview .tier-label { font-family: var(--1891int-mono); font-size: 12.5px; color: var(--1891int-fog); }
+  .cancel-preview strong { font-variant-numeric: tabular-nums; }
+  .cancel-preview.is-loading { color: var(--1891int-fog); }
+  .cancel-preview.is-error { background:#FDECEC; color:var(--1891int-err); border-color:#F5C8C8; }
 </style>
 </head>
 <body>
@@ -99,6 +108,31 @@
   </main>
 </div>
 
+<!-- Cancel-job modal -->
+<div class="modal-backdrop" id="m-cancel" role="dialog" aria-modal="true" aria-labelledby="m-cancel-title">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 id="m-cancel-title">Cancel this job?</h2>
+      <button class="close" type="button" data-close aria-label="Close">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div id="cancel-preview" class="cancel-preview is-loading">Loading cancellation preview…</div>
+      <p class="muted" style="font-size:13px;margin:0 0 var(--1891int-s-3)">
+        Assigned interpreters will be notified by email and SMS (per their preferences) when you confirm.
+      </p>
+      <div class="field">
+        <label for="cancel-reason"><strong>Reason for cancellation</strong> <span class="muted" style="font-weight:400">(min 10 characters, recorded in the audit log)</span></label>
+        <textarea id="cancel-reason" rows="3" required minlength="10" placeholder="e.g., Requestor rescheduled to next month. New job will be created when date is firm."></textarea>
+        <p id="cancel-reason-err" class="muted" style="color:var(--1891int-err);font-size:12.5px;margin:4px 0 0;display:none">Please enter at least 10 characters.</p>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" type="button" data-close>Keep job</button>
+      <button class="btn btn-primary" type="button" id="confirm-cancel">Confirm cancellation</button>
+    </div>
+  </div>
+</div>
+
 <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
 <script src="/interpreter/assets/js/whitelabel.js" defer></script>
@@ -131,6 +165,7 @@
       load(jobId);
     });
     $('signout').addEventListener('click', function () { IntApi.clearSession(); location.href = '/interpreter/'; });
+    bindCancelModal();
   }
 
   function showNotFound() {
@@ -158,6 +193,7 @@
   }
 
   function renderJob(j) {
+    currentJob = j;
     $('job-title').textContent = ((j.service_type || 'medical').replace(/-/g,' ')) + ' · ' + (j.target_language_id || '') + ' · ' + (j.modality || 'on-site');
     $('job-id').textContent = j.job_id;
     var chips = STATES.map(function (s) {
@@ -196,7 +232,7 @@
     if (j.status === 'CONFIRMED') btns.push({ label:'Mark en route', act:'start', kind:'secondary' });
     if (j.status === 'EN_ROUTE') btns.push({ label:'Start (mark in-progress)', act:'start', kind:'primary' });
     if (j.status === 'IN_PROGRESS') btns.push({ label:'Complete', act:'complete', kind:'primary' });
-    if (/^OPEN|OFFERED|CLAIMED|CONFIRMED|EN_ROUTE|IN_PROGRESS$/.test(j.status)) btns.push({ label:'Cancel', act:'cancel', kind:'ghost' });
+    if (/^(OPEN|OFFERED|CLAIMED|CONFIRMED)$/.test(j.status)) btns.push({ label:'Cancel job', act:'cancel', kind:'ghost' });
     if (!btns.length) { $('no-actions').style.display = ''; return; }
     btns.forEach(function (b) {
       var btn = document.createElement('button');
@@ -208,21 +244,123 @@
     });
   }
 
+  // Holds the job currently shown — set by renderJob — so the cancel modal can use it.
+  var currentJob = null;
+
   function runAction(jobId, act) {
-    var p = IntApi;
+    if (act === 'cancel') { openCancelModal(jobId); return; }
     var promise;
     if (act === 'confirm') promise = fetch(IntApi.ENDPOINT, { method:'POST', mode:'no-cors', body: new URLSearchParams({ action:'confirm_job', job_id:jobId, session: IntApi.getSession() }) });
     else if (act === 'start') promise = fetch(IntApi.ENDPOINT, { method:'POST', mode:'no-cors', body: new URLSearchParams({ action:'start_job', job_id:jobId, session: IntApi.getSession() }) });
     else if (act === 'complete') promise = fetch(IntApi.ENDPOINT, { method:'POST', mode:'no-cors', body: new URLSearchParams({ action:'complete_job', job_id:jobId, session: IntApi.getSession() }) });
-    else if (act === 'cancel') {
-      var reason = prompt('Reason for cancellation:'); if (!reason) return;
-      promise = p.cancelJob(jobId, reason);
-    }
     if (!promise) return;
     promise.then(function () {
       toast('Done.', 'ok');
       setTimeout(function () { location.reload(); }, 900);
     }).catch(function () { toast('Action failed.', 'error'); });
+  }
+
+  function fmtCents(c) {
+    var n = Number(c || 0) / 100;
+    return '$' + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+
+  function tierLabel(tier, hoursUntilStart) {
+    var window = '';
+    if (tier === '>=48h') window = '≥48 hours before start';
+    else if (tier === '24-48h') window = '24-48 hours before start';
+    else if (tier === '12-24h') window = '12-24 hours before start';
+    else if (tier === '<12h') window = 'less than 12 hours before start';
+    else window = tier;
+    var hrs = (hoursUntilStart != null) ? (' · ' + Math.max(0, hoursUntilStart).toFixed(1) + 'h to start') : '';
+    return window + hrs;
+  }
+
+  function renderCancelPreview(q) {
+    var el = document.getElementById('cancel-preview');
+    if (!el) return;
+    if (!q || !q.ok) {
+      el.className = 'cancel-preview is-error';
+      el.textContent = 'Could not load cancellation preview. You can still cancel — the system will apply the policy at confirm time.';
+      return;
+    }
+    el.className = 'cancel-preview';
+    var billLine = (q.bill_pct > 0)
+      ? 'bills <strong>' + fmtCents(q.bill_cents) + '</strong> to the requestor (' + q.bill_pct + '%)'
+      : 'does <strong>not</strong> bill the requestor (0%)';
+    var payLine;
+    if (q.assigned_count > 0 && q.pay_pct > 0) {
+      payLine = 'pays <strong>' + fmtCents(q.pay_cents_per_interpreter) + '</strong> per interpreter (' + q.pay_pct + '%)' +
+                (q.assigned_count > 1 ? ' — <strong>' + fmtCents(q.total_pay_cents) + '</strong> total across ' + q.assigned_count + ' assigned' : '');
+    } else if (q.assigned_count === 0) {
+      payLine = 'pays no interpreters (none currently assigned)';
+    } else {
+      payLine = 'pays interpreters <strong>nothing</strong> (0%)';
+    }
+    el.innerHTML =
+      '<div class="tier-label">Tier: ' + escHtml(tierLabel(q.tier, q.hours_until_start)) + '</div>' +
+      'Cancelling this job now ' + billLine + ' and ' + payLine + '.';
+  }
+
+  function openCancelModal(jobId) {
+    var modal = document.getElementById('m-cancel');
+    if (!modal) return;
+    var ta = document.getElementById('cancel-reason');
+    var err = document.getElementById('cancel-reason-err');
+    if (ta) ta.value = '';
+    if (err) err.style.display = 'none';
+    var preview = document.getElementById('cancel-preview');
+    if (preview) { preview.className = 'cancel-preview is-loading'; preview.textContent = 'Loading cancellation preview…'; }
+    modal.classList.add('open');
+    if (ta) setTimeout(function () { try { ta.focus(); } catch (_) {} }, 50);
+    // Pull live preview
+    if (IntApi.cancelJobQuote) {
+      IntApi.cancelJobQuote(jobId)
+        .then(renderCancelPreview)
+        .catch(function () { renderCancelPreview(null); });
+    } else {
+      renderCancelPreview(null);
+    }
+  }
+
+  function closeAllModals() {
+    document.querySelectorAll('.modal-backdrop.open').forEach(function (m) { m.classList.remove('open'); });
+  }
+
+  function bindCancelModal() {
+    document.querySelectorAll('#m-cancel [data-close]').forEach(function (b) {
+      b.addEventListener('click', closeAllModals);
+    });
+    document.getElementById('m-cancel').addEventListener('click', function (ev) {
+      if (ev.target && ev.target.id === 'm-cancel') closeAllModals();
+    });
+    document.addEventListener('keydown', function (ev) {
+      if (ev.key === 'Escape') closeAllModals();
+    });
+    var btn = document.getElementById('confirm-cancel');
+    btn.addEventListener('click', function () {
+      if (!currentJob) return;
+      var ta = document.getElementById('cancel-reason');
+      var err = document.getElementById('cancel-reason-err');
+      var reason = (ta.value || '').trim();
+      if (reason.length < 10) {
+        err.style.display = '';
+        ta.focus();
+        return;
+      }
+      err.style.display = 'none';
+      btn.disabled = true;
+      btn.textContent = 'Cancelling…';
+      IntApi.cancelJob(currentJob.job_id, reason).then(function () {
+        toast('Job cancelled. Assigned interpreters have been notified.', 'ok');
+        closeAllModals();
+        setTimeout(function () { location.reload(); }, 900);
+      }).catch(function () {
+        btn.disabled = false;
+        btn.textContent = 'Confirm cancellation';
+        toast('Cancel failed.', 'error');
+      });
+    });
   }
 
   function renderAssignments(list) {

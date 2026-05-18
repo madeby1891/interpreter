@@ -444,11 +444,17 @@ export async function handleWebhookEvent(
       const obj = event.data.object as { metadata?: Record<string, string>; id?: string };
       const ourInvoiceId = obj?.metadata?.our_invoice_id;
       if (!ourInvoiceId) return { ok: true, handled: event.type, skipped: "no our_invoice_id metadata" };
-      const result = await callAppsScript(env.APPS_SCRIPT_URL, env.JWT_SECRET, "mark_invoice_paid", {
-        invoice_id: ourInvoiceId,
-        stripe_invoice_id: obj.id ?? "",
-        paid_at: new Date().toISOString(),
-      });
+      const result = await callAppsScript(
+        env.APPS_SCRIPT_URL,
+        env.JWT_SECRET,
+        "mark_invoice_paid",
+        {
+          invoice_id: ourInvoiceId,
+          stripe_invoice_id: obj.id ?? "",
+          paid_at: new Date().toISOString(),
+        },
+        { purpose: "stripe_webhook" }
+      );
       return { ok: true, handled: event.type, apps_script: result };
     }
     case "transfer.paid":
@@ -456,11 +462,17 @@ export async function handleWebhookEvent(
       const obj = event.data.object as { metadata?: Record<string, string>; id?: string };
       const payoutId = obj?.metadata?.payout_id;
       if (!payoutId) return { ok: true, handled: event.type, skipped: "no payout_id metadata" };
-      const result = await callAppsScript(env.APPS_SCRIPT_URL, env.JWT_SECRET, "mark_payout_paid", {
-        payout_id: payoutId,
-        stripe_transfer_id: obj.id ?? "",
-        paid_at: new Date().toISOString(),
-      });
+      const result = await callAppsScript(
+        env.APPS_SCRIPT_URL,
+        env.JWT_SECRET,
+        "mark_payout_paid",
+        {
+          payout_id: payoutId,
+          stripe_transfer_id: obj.id ?? "",
+          paid_at: new Date().toISOString(),
+        },
+        { purpose: "stripe_webhook" }
+      );
       return { ok: true, handled: event.type, apps_script: result };
     }
     case "account.updated": {
@@ -473,14 +485,20 @@ export async function handleWebhookEvent(
       };
       const interpreterId = obj?.metadata?.interpreter_id;
       if (!interpreterId) return { ok: true, handled: event.type, skipped: "no interpreter_id metadata" };
-      const result = await callAppsScript(env.APPS_SCRIPT_URL, env.JWT_SECRET, "update_interpreter", {
-        interpreter_id: interpreterId,
-        stripe_account_id: obj.id ?? "",
-        stripe_charges_enabled: String(obj.charges_enabled ?? false),
-        stripe_payouts_enabled: String(obj.payouts_enabled ?? false),
-        stripe_details_submitted: String(obj.details_submitted ?? false),
-        _internal_source: "stripe_webhook",
-      });
+      const result = await callAppsScript(
+        env.APPS_SCRIPT_URL,
+        env.JWT_SECRET,
+        "update_interpreter",
+        {
+          interpreter_id: interpreterId,
+          stripe_account_id: obj.id ?? "",
+          stripe_charges_enabled: String(obj.charges_enabled ?? false),
+          stripe_payouts_enabled: String(obj.payouts_enabled ?? false),
+          stripe_details_submitted: String(obj.details_submitted ?? false),
+          _internal_source: "stripe_webhook",
+        },
+        { purpose: "stripe_webhook" }
+      );
       return { ok: true, handled: event.type, apps_script: result };
     }
     case "charge.dispute.created":

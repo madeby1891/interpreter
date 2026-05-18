@@ -4,6 +4,149 @@ Dated history of changes. Newest entries at the top. Note user-visible changes o
 
 ---
 
+## 2026-05-18 — v18: Client hierarchy + per-client billing rules + role expansion
+
+The healthcare-system shape lands. One **Client** (Frederick Health) can have
+many **Requestors** (departments — Cardiology, ED, Pediatrics, Oncology),
+many **Locations** (Main Hospital, Urbana Clinic, Mt Airy, Brunswick), many
+**Specialists** (the doctor on the chart) — all rolling up to **one billing
+office** with one invoice cycle per month.
+
+### 1. Schema (`Code.gs`, `_tenantSchema`)
+
+Four new tabs:
+- **Clients** — parent org. legal_name, display_name, client_type, industry,
+  billing_address/email/phone, tax_exempt, net_terms, primary_payer_id.
+- **Client_Contacts** — owner / billing-AP / scheduler / signatory per client.
+- **Specialists** — the doctor a job is "for." Carries department, NPI,
+  specialty_code, default_location_id. Surfaced on invoice lines so AP
+  can match the right cost center.
+- **Client_Billing_Rules** — consolidation_mode, billing_cycle, PO format,
+  GL template, invoice_format (standard / hipaa_safe / detailed), and
+  toggles for showing initials / specialist / interpreter name on the PDF.
+
+Existing tabs got new columns:
+- `Requestors.client_id`, `Requestors.default_specialist_id`
+- `Jobs.client_id`, `Jobs.specialist_id`, `Jobs.po_number`,
+  `Jobs.cancellation_bill_cents`, `Jobs.cancellation_pay_cents`,
+  `Jobs.invoice_id`
+- `Invoices.client_id`, `Invoices.invoice_number`, `Invoices.po_number`,
+  `Invoices.consolidation_mode`, `Invoices.split_group_key`,
+  `Invoices.statement_descriptor`, `Invoices.sent_at`, `Invoices.paid_at`,
+  `Invoices.voided_at`
+- `Invoice_Lines` adds `line_kind`, `client_id`, `requestor_id`,
+  `location_id`, `specialist_id`, `consumer_initials`, `interpreter_id`,
+  `interpreter_name`, `service_type`, `modality`, `scheduled_start`,
+  `scheduled_end`, `sort_order`.
+
+### 2. Role hierarchy expansion (`_seedRoles`)
+
+New top-down hierarchy:
+- **role_platform_staff** — 1891 employees — cross-tenant
+- **role_owner** — agency owner — all in their tenant
+- **role_manager** — operations manager — all except user/billing admin
+- **role_scheduler** — books jobs, sees masked PII
+- **role_interpreter** — sees offers + their own assignments
+- **role_client_contact** — top contact at a client — sees all the client's requestors + invoices
+- **role_requestor_contact** — single requestor / department — own jobs only
+- **role_billing_contact** — AP person at the client — sees invoices for their client
+- legacy role_admin retained as alias (back-compat)
+
+Seeding is now idempotent — re-runs only add roles that aren't already present.
+
+### 3. Client API (`Code_Clients.gs`, ~12 KB)
+
+- `list_clients` / `get_client` (returns client + contacts + specialists +
+  requestors + locations + billing_rules in one round-trip)
+- `create_client` / `update_client`
+- `upsert_client_contact` / `upsert_specialist`
+- `update_client_billing_rules`
+
+### 4. Invoice composition (`Code_Invoicing.gs`)
+
+`apiCreateInvoice` now accepts either `payer_id` (back-compat) or `client_id`.
+When called with a client, it pulls billing rules and **splits by
+consolidation_mode**:
+
+| Mode | Result |
+| --- | --- |
+| `one_per_client` (default) | All jobs across all requestors → 1 invoice |
+| `one_per_requestor` | Each department gets its own invoice |
+| `one_per_location` | Each location → its own invoice |
+| `one_per_specialist` | Each doctor → its own invoice |
+| `one_per_job` | Itemized per-job invoicing (small clients) |
+
+Lines now carry the full attribution chain — `client_id`, `requestor_id`,
+`location_id`, `specialist_id`, `consumer_initials`, `interpreter_name`. The
+PDF template surfaces location + specialist + consumer + interpreter as their
+own columns (only the columns with data appear).
+
+Invoice numbers are now monotonic per-tenant-per-year: **INV-2026-0001**.
+
+The PDF "Bill to" block prefers the **client** legal entity when set, with
+a "via [Payer]" subline when those names differ.
+
+### 5. /app/clients/ page
+
+New scheduler-facing UI:
+- `/app/clients/index.html` — grid of client cards, "+ Add client" modal with
+  type, industry, billing address/email/phone, net terms, tax-exempt flag.
+- `/app/clients/profile.html?id=...` — per-client detail page with sidebar
+  billing summary, **Billing rules** editor (consolidation mode + cycle + PO
+  format regex + GL template + initials/specialist/interpreter toggles +
+  rounding + minimum invoice), and tables for **Requestors**, **Locations**,
+  **Specialists**, **Contacts**. Specialist + contact upsert modals.
+
+### 6. Seed data: Frederick-Health-style hierarchy (`Code_Seed.gs`)
+
+The demo now shows the real shape:
+- **Frederick Health** (6 specialists across Cardiology, ED, Pediatrics,
+  Oncology, OB-GYN) — `one_per_client` consolidation, rolls 4 departments
+  across 6 locations to one billing office
+- **Frederick County Schools** — `one_per_client`, PO required, GL template,
+  PO format `^PO-\d{6}$`
+- **Catoctin County Govt** (court) — `one_per_requestor`, PO required,
+  30-min rounding
+- **Midstate Behavioral** (2 specialists) — `one_per_client`, **biweekly**,
+  **hipaa_safe** invoice format (initials only, no specialist on invoice)
+- **Liberty Hill CC** — `one_per_location`
+- **Riverside Family Practice** — `one_per_job` (small practice, per-job invoicing)
+
+Seed adds 6 clients, 8 client contacts, 7 specialists, 12 locations, 10
+requestors (was 7), 6 billing-rule rows. Jobs now carry client_id +
+specialist_id so the invoice-rollup demo works out of the box.
+
+### 7. Three parallel agent fixes that landed in v18
+
+- **Agent A — Interpreter ↔ User linking.** Seeded interpreters now have
+  matching `Users` rows with synthetic `firstname.lastname@seed.example`
+  emails and `role_id='role_interpreter'`. Magic-link sign-in works for
+  every seeded interpreter; QA pulls the token from the `Auth_Tokens` sheet.
+- **Agent B — Cancellation UI.** `/app/job/` gets a "Cancel job" button +
+  modal with live tier preview + required reason textarea (10-char min).
+  New `cancel_job_quote` JSONP action returns the snapshot; `apiCancelJob`
+  persists `cancellation_bill_cents` + `cancellation_pay_cents` + status +
+  reason and notifies every assigned interpreter.
+- **Agent C — Stripe webhook auth gap closed.** Worker mints a 60s
+  HMAC-SHA256 JWT (iss='worker', purpose='stripe_webhook') after Stripe
+  signature verification; Apps Script's `_requireSessionOrWorker` accepts
+  it for whitelisted purposes (stripe_webhook, track1099_webhook,
+  twilio_inbound). `apiUpdateInterpreter` accepts worker tokens with a
+  narrow column allowlist for Connect-Express sync.
+
+### Operational notes
+
+- v18 schema changes are additive — existing tenants get the new columns/tabs
+  the first time anything reads or writes a row. No migration script needed.
+- The Apps Script "New version → Deploy" four-click flow still has to be done
+  manually in the browser; `clasp push` synced the source but won't cut a new
+  `/exec` deployment.
+- Seed re-runs are idempotent — `_seedRoles` only inserts roles not already
+  present, and seeded clients/specialists/billing-rules skip existing rows by
+  legal_name / display_name / client_id.
+
+---
+
 ## 2026-05-17 — v17: PII reveal-on-accept + notifications + SMS + agency health dashboard
 
 The scheduler / interpreter workflow gets serious. Five new capabilities,

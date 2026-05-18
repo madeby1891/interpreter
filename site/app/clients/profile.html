@@ -1,0 +1,456 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Client profile — 1891 Interpreter</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#C8553D">
+<link rel="icon" type="image/svg+xml" href="/interpreter/assets/img/favicon.svg">
+<link rel="stylesheet" href="/interpreter/assets/css/site.css">
+<link rel="stylesheet" href="/interpreter/assets/css/app.css">
+<style>
+  .panel { display:grid; grid-template-columns:280px 1fr; gap:var(--1891int-s-5) }
+  @media (max-width:880px) { .panel { grid-template-columns:1fr } }
+  .side .side-h { font-size:11px; text-transform:uppercase; letter-spacing:.1em; color:var(--1891int-fog); margin:var(--1891int-s-3) 0 6px }
+  .side ul { list-style:none; padding:0; margin:0 }
+  .side li { font-size:13.5px; padding:4px 0; color:var(--1891int-ink) }
+  .pill-row { display:flex; gap:6px; flex-wrap:wrap; margin-top:8px }
+  .pill { font-size:11.5px; font-family:var(--1891int-mono); padding:2px 8px; border-radius:99px; background:var(--1891int-paper); border:1px solid var(--1891int-line) }
+  .pill-active { background:#E8F5EC; border-color:#7BC68B; color:#1B5E20 }
+  table.rules { width:100%; border-collapse:collapse; font-size:13.5px }
+  table.rules td { padding:8px 10px; border-bottom:1px solid var(--1891int-line); vertical-align:middle }
+  table.rules td:first-child { color:var(--1891int-fog); width:38%; font-weight:600; font-size:12.5px }
+  table.rules select, table.rules input[type=text], table.rules input[type=number] { padding:5px 9px; border:1px solid var(--1891int-line); border-radius:4px; font-size:13.5px; width:100%; max-width:260px }
+  .roster { width:100%; border-collapse:collapse; font-size:13.5px }
+  .roster th { text-align:left; padding:8px 10px; border-bottom:2px solid var(--1891int-ink); font-size:11px; text-transform:uppercase; letter-spacing:.08em; color:var(--1891int-fog) }
+  .roster td { padding:8px 10px; border-bottom:1px solid var(--1891int-line) }
+  .roster tr:hover { background:var(--1891int-paper) }
+  .small-add { font-size:12.5px; padding:5px 10px }
+</style>
+</head>
+<body>
+<a href="#main" class="skip">Skip to main content</a>
+
+<div class="app-shell">
+  <header class="app-header">
+    <div class="wrap">
+      <a href="/interpreter/app/" class="brand"><img src="/interpreter/assets/img/brand-mark.svg" alt="" width="32" height="32"><span>1891 <span class="brand-sub">Scheduler</span></span></a>
+      <div class="who"><span>Signed in as </span><strong id="who-name">…</strong><button id="signout" type="button">Sign out</button></div>
+    </div>
+  </header>
+
+  <nav class="app-nav" aria-label="App sections">
+    <div class="wrap">
+      <a href="/interpreter/app/">Day-of board</a>
+      <a href="/interpreter/app/interpreters/">Interpreters</a>
+      <a href="/interpreter/app/clients/" aria-current="page">Clients</a>
+      <a href="/interpreter/app/requestors/">Requestors</a>
+      <a href="/interpreter/app/invoices/">Invoices</a>
+    </div>
+  </nav>
+
+  <main id="main" class="app-main">
+    <div class="wrap">
+      <div id="loading" class="empty-state"><span class="spinner"></span> Loading&hellip;</div>
+      <div id="content" style="display:none">
+        <a href="/interpreter/app/clients/" class="back-link" style="font-size:13px;color:var(--1891int-fog);text-decoration:none">&larr; All clients</a>
+        <div class="toolbar" style="margin-top:8px">
+          <div>
+            <h1 id="h-display" style="margin:0;font-size:30px;font-family:'Iowan Old Style',Georgia,serif">…</h1>
+            <div id="h-legal" class="ink-soft" style="font-size:13px;margin-top:4px">…</div>
+          </div>
+          <div class="spacer"></div>
+          <button class="btn btn-primary" type="button" id="add-requestor">+ Add requestor</button>
+        </div>
+
+        <div class="panel" style="margin-top:var(--1891int-s-4)">
+          <aside class="side">
+            <div class="card">
+              <h2 class="mt-0" style="font-size:14px">Billing summary</h2>
+              <div class="side-h">Type</div>
+              <div id="s-type">…</div>
+              <div class="side-h">Net terms</div>
+              <div id="s-terms">…</div>
+              <div class="side-h">Billing email</div>
+              <div id="s-email">—</div>
+              <div class="side-h">Billing phone</div>
+              <div id="s-phone">—</div>
+              <div class="side-h">Billing address</div>
+              <div id="s-addr" style="white-space:pre-line;font-size:13px">—</div>
+              <div class="pill-row" id="s-pills"></div>
+              <button class="btn btn-ghost btn-sm" type="button" id="edit-client" style="margin-top:var(--1891int-s-3);width:100%">Edit client details</button>
+            </div>
+          </aside>
+
+          <div>
+            <section class="card">
+              <div class="toolbar" style="margin-bottom:8px">
+                <h2 class="mt-0" style="font-size:18px">Billing rules</h2>
+              </div>
+              <p class="ink-soft" style="font-size:13px;margin:-4px 0 12px">How jobs roll up into invoices for this client. Frederick-Health-style consolidation rolls every department to one billing office; small clients can be billed per-job.</p>
+              <table class="rules">
+                <tr>
+                  <td>Consolidation mode</td>
+                  <td>
+                    <select id="r-consolidation">
+                      <option value="one_per_client">One invoice per client (default — Frederick Health)</option>
+                      <option value="one_per_requestor">One per requestor (each dept gets its own)</option>
+                      <option value="one_per_location">One per location</option>
+                      <option value="one_per_specialist">One per specialist</option>
+                      <option value="one_per_job">One per job (itemized — small clients)</option>
+                    </select>
+                  </td>
+                </tr>
+                <tr>
+                  <td>Billing cycle</td>
+                  <td><select id="r-cycle"><option value="weekly">Weekly</option><option value="biweekly">Bi-weekly</option><option value="monthly" selected>Monthly</option><option value="on_demand">On-demand</option></select></td>
+                </tr>
+                <tr>
+                  <td>Statement day-of-month</td>
+                  <td><input id="r-stmt-day" type="number" min="1" max="28" value="1"></td>
+                </tr>
+                <tr>
+                  <td>PO number required</td>
+                  <td><label class="check"><input type="checkbox" id="r-po"> <span>Block invoice send without a PO</span></label></td>
+                </tr>
+                <tr>
+                  <td>PO format regex (optional)</td>
+                  <td><input id="r-po-fmt" type="text" placeholder="^PO-\d{6}$"></td>
+                </tr>
+                <tr>
+                  <td>GL template</td>
+                  <td><input id="r-gl" type="text" placeholder="4200-INTERP"></td>
+                </tr>
+                <tr>
+                  <td>Invoice format</td>
+                  <td><select id="r-format"><option value="standard">Standard (initials + specialist)</option><option value="hipaa_safe">HIPAA-safe (initials only)</option><option value="detailed">Detailed (PII — must be contractually opted in)</option></select></td>
+                </tr>
+                <tr>
+                  <td>Show consumer initials</td>
+                  <td><label class="check"><input type="checkbox" id="r-show-init" checked> <span>Initials per line</span></label></td>
+                </tr>
+                <tr>
+                  <td>Show specialist</td>
+                  <td><label class="check"><input type="checkbox" id="r-show-spec" checked> <span>Doctor/specialist on each line</span></label></td>
+                </tr>
+                <tr>
+                  <td>Show interpreter name</td>
+                  <td><label class="check"><input type="checkbox" id="r-show-interp" checked> <span>Who worked the job</span></label></td>
+                </tr>
+                <tr>
+                  <td>Rounding (minutes)</td>
+                  <td><select id="r-round"><option value="15">15 min</option><option value="30">30 min</option><option value="60">60 min</option></select></td>
+                </tr>
+                <tr>
+                  <td>Minimum invoice ($)</td>
+                  <td><input id="r-min" type="number" min="0" step="0.01" placeholder="0.00"></td>
+                </tr>
+              </table>
+              <div style="margin-top:var(--1891int-s-3)">
+                <button class="btn btn-primary btn-sm" type="button" id="save-rules">Save billing rules</button>
+              </div>
+            </section>
+
+            <section class="card">
+              <div class="toolbar" style="margin-bottom:8px">
+                <h2 class="mt-0" style="font-size:18px">Requestors <span id="c-req-count" style="color:var(--1891int-fog);font-size:13.5px;font-weight:400"></span></h2>
+                <div class="spacer"></div>
+                <button class="btn btn-ghost small-add" type="button" id="add-req-2">+ Add</button>
+              </div>
+              <p class="ink-soft" style="font-size:13px;margin:-4px 0 8px">Departments / individual schedulers who book jobs for this client.</p>
+              <table class="roster" id="t-requestors"><thead><tr><th>Name</th><th>Type</th><th>Status</th></tr></thead><tbody></tbody></table>
+            </section>
+
+            <section class="card">
+              <div class="toolbar" style="margin-bottom:8px">
+                <h2 class="mt-0" style="font-size:18px">Locations <span id="c-loc-count" style="color:var(--1891int-fog);font-size:13.5px;font-weight:400"></span></h2>
+              </div>
+              <p class="ink-soft" style="font-size:13px;margin:-4px 0 8px">Physical sites where jobs happen — campuses, clinics, courthouses.</p>
+              <table class="roster" id="t-locations"><thead><tr><th>Name</th><th>City</th><th>Modalities</th></tr></thead><tbody></tbody></table>
+            </section>
+
+            <section class="card">
+              <div class="toolbar" style="margin-bottom:8px">
+                <h2 class="mt-0" style="font-size:18px">Specialists <span id="c-spec-count" style="color:var(--1891int-fog);font-size:13.5px;font-weight:400"></span></h2>
+                <div class="spacer"></div>
+                <button class="btn btn-ghost small-add" type="button" id="add-spec">+ Add</button>
+              </div>
+              <p class="ink-soft" style="font-size:13px;margin:-4px 0 8px">The doctor / specialist a job is "for" — surfaced on invoice lines so AP can match to the right cost center.</p>
+              <table class="roster" id="t-specialists"><thead><tr><th>Name</th><th>Department</th><th>Default location</th></tr></thead><tbody></tbody></table>
+            </section>
+
+            <section class="card">
+              <div class="toolbar" style="margin-bottom:8px">
+                <h2 class="mt-0" style="font-size:18px">Contacts <span id="c-contact-count" style="color:var(--1891int-fog);font-size:13.5px;font-weight:400"></span></h2>
+                <div class="spacer"></div>
+                <button class="btn btn-ghost small-add" type="button" id="add-contact">+ Add</button>
+              </div>
+              <p class="ink-soft" style="font-size:13px;margin:-4px 0 8px">People on the client side — owner, billing AP, scheduler. Add them so notifications go to the right inbox.</p>
+              <table class="roster" id="t-contacts"><thead><tr><th>Name</th><th>Role</th><th>Email</th><th>Phone</th></tr></thead><tbody></tbody></table>
+            </section>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<div class="modal-backdrop" id="m-spec">
+  <div class="modal">
+    <div class="modal-header"><h2>Add specialist</h2><button class="close" type="button" data-close>&times;</button></div>
+    <form id="form-spec" class="modal-body">
+      <input type="hidden" id="sp-id">
+      <div class="field"><label for="sp-name">Display name <span aria-hidden="true">*</span></label><input id="sp-name" required placeholder="Dr. Aisha Patel"></div>
+      <div class="field"><label for="sp-dept">Department</label><input id="sp-dept" placeholder="Cardiology"></div>
+      <div class="field"><label for="sp-code">Specialty code</label><input id="sp-code" placeholder="CARD, ONC, ORTHO…"></div>
+      <div class="field"><label for="sp-npi">NPI</label><input id="sp-npi" placeholder="NPI number (10 digits)"></div>
+      <div class="field"><label for="sp-loc">Default location</label><select id="sp-loc"><option value="">(none)</option></select></div>
+    </form>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" type="button" data-close>Cancel</button>
+      <button class="btn btn-primary" type="button" id="save-spec">Save</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="m-contact">
+  <div class="modal">
+    <div class="modal-header"><h2>Add client contact</h2><button class="close" type="button" data-close>&times;</button></div>
+    <form id="form-contact" class="modal-body">
+      <input type="hidden" id="cc-id">
+      <div class="field"><label for="cc-first">First name</label><input id="cc-first"></div>
+      <div class="field"><label for="cc-last">Last name</label><input id="cc-last"></div>
+      <div class="field"><label for="cc-role">Role on client</label>
+        <select id="cc-role">
+          <option value="owner">Owner / Decision-maker</option>
+          <option value="billing">Billing / AP</option>
+          <option value="scheduler" selected>Scheduler</option>
+          <option value="signatory">Contract signatory</option>
+          <option value="other">Other</option>
+        </select>
+      </div>
+      <div class="field"><label for="cc-title">Title</label><input id="cc-title" placeholder="Director of Interpreter Services"></div>
+      <div class="field"><label for="cc-dept">Department</label><input id="cc-dept"></div>
+      <div class="field"><label for="cc-email">Email</label><input id="cc-email" type="email"></div>
+      <div class="field"><label for="cc-phone">Phone</label><input id="cc-phone" type="tel" placeholder="+13015550100"></div>
+    </form>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" type="button" data-close>Cancel</button>
+      <button class="btn btn-primary" type="button" id="save-contact">Save</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+<script src="/interpreter/assets/js/whitelabel.js" defer></script>
+<script src="/interpreter/assets/js/api.js" defer></script>
+<script>
+(function () {
+  'use strict';
+  function $(id) { return document.getElementById(id); }
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]; }); }
+  function toast(msg, kind) { var t = $('toast'); t.textContent = msg; t.className = 'toast show' + (kind ? ' ' + kind : ''); setTimeout(function () { t.className = 'toast'; }, 3200); }
+  function qs(k) { var m = location.search.match(new RegExp('[?&]' + k + '=([^&]*)')); return m ? decodeURIComponent(m[1]) : ''; }
+
+  var STATE = { client: null, locations: [], specialists: [], requestors: [], contacts: [], rules: null };
+
+  document.addEventListener('DOMContentLoaded', init);
+
+  function init() {
+    if (!IntApi.getSession()) { location.href = '/interpreter/sign-in.html'; return; }
+    IntApi.whoami().then(function (r) {
+      if (!r || !r.ok) { IntApi.clearSession(); location.href = '/interpreter/sign-in.html'; return; }
+      $('who-name').textContent = r.user.display_name || r.user.email;
+      if (window.IntTheme && r.agency) IntTheme.apply(r.agency);
+      load();
+    });
+    $('signout').addEventListener('click', function () { IntApi.clearSession(); location.href = '/interpreter/'; });
+    document.querySelectorAll('[data-close]').forEach(function (b) {
+      b.addEventListener('click', function () { document.querySelectorAll('.modal-backdrop.open').forEach(function (m) { m.classList.remove('open'); }); });
+    });
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') document.querySelectorAll('.modal-backdrop.open').forEach(function (m) { m.classList.remove('open'); });
+    });
+    $('save-rules').addEventListener('click', saveRules);
+    $('add-spec').addEventListener('click', openSpec);
+    $('save-spec').addEventListener('click', saveSpec);
+    $('add-contact').addEventListener('click', openContact);
+    $('save-contact').addEventListener('click', saveContact);
+    $('add-requestor').addEventListener('click', addRequestor);
+    $('add-req-2').addEventListener('click', addRequestor);
+    $('edit-client').addEventListener('click', function () {
+      toast('Edit form — wire next iteration; use the sheet directly for now.', 'ok');
+    });
+  }
+
+  function load() {
+    var clientId = qs('id');
+    if (!clientId) { toast('Missing client id', 'error'); return; }
+    IntApi.getClient(clientId).then(function (r) {
+      $('loading').style.display = 'none';
+      if (!r || !r.ok) { toast(r && r.error || 'Load failed', 'error'); return; }
+      STATE.client = r.client;
+      STATE.locations = r.locations || [];
+      STATE.specialists = r.specialists || [];
+      STATE.requestors = r.requestors || [];
+      STATE.contacts = r.contacts || [];
+      STATE.rules = r.billing_rules || {};
+      render();
+      $('content').style.display = '';
+    });
+  }
+
+  function render() {
+    var c = STATE.client;
+    document.title = (c.display_name || c.legal_name) + ' — 1891 Interpreter';
+    $('h-display').textContent = c.display_name || c.legal_name;
+    $('h-legal').textContent = c.legal_name + (c.industry ? ' · ' + c.industry : '');
+    $('s-type').textContent = (c.client_type || 'business').replace(/_/g,' ');
+    $('s-terms').textContent = c.net_terms || 'NET30';
+    $('s-email').textContent = c.billing_email || '—';
+    $('s-phone').textContent = c.billing_phone || '—';
+    $('s-addr').textContent = c.billing_address || '—';
+    var pills = [];
+    if (c.tax_exempt === true || c.tax_exempt === 'true') pills.push('<span class="pill pill-active">tax-exempt</span>');
+    if (c.status === 'active') pills.push('<span class="pill pill-active">active</span>');
+    $('s-pills').innerHTML = pills.join('');
+    renderRules();
+    renderRequestors();
+    renderLocations();
+    renderSpecialists();
+    renderContacts();
+  }
+
+  function renderRules() {
+    var r = STATE.rules;
+    $('r-consolidation').value = r.consolidation_mode || 'one_per_client';
+    $('r-cycle').value = r.billing_cycle || 'monthly';
+    $('r-stmt-day').value = r.statement_day_of_month || 1;
+    $('r-po').checked = r.requires_po === true || r.requires_po === 'true';
+    $('r-po-fmt').value = r.po_format_regex || '';
+    $('r-gl').value = r.gl_template || '';
+    $('r-format').value = r.invoice_format || 'standard';
+    $('r-show-init').checked = r.show_consumer_initials_on_invoice !== false && r.show_consumer_initials_on_invoice !== 'false';
+    $('r-show-spec').checked = r.show_specialist_on_invoice !== false && r.show_specialist_on_invoice !== 'false';
+    $('r-show-interp').checked = r.show_interpreter_name_on_invoice !== false && r.show_interpreter_name_on_invoice !== 'false';
+    $('r-round').value = r.rounding_minutes || 15;
+    $('r-min').value = r.minimum_invoice_cents ? (Number(r.minimum_invoice_cents) / 100).toFixed(2) : '';
+  }
+
+  function saveRules() {
+    var fields = {
+      client_id: STATE.client.client_id,
+      consolidation_mode: $('r-consolidation').value,
+      billing_cycle: $('r-cycle').value,
+      statement_day_of_month: $('r-stmt-day').value,
+      requires_po: $('r-po').checked ? 'true' : 'false',
+      po_format_regex: $('r-po-fmt').value,
+      gl_template: $('r-gl').value,
+      invoice_format: $('r-format').value,
+      show_consumer_initials_on_invoice: $('r-show-init').checked ? 'true' : 'false',
+      show_specialist_on_invoice: $('r-show-spec').checked ? 'true' : 'false',
+      show_interpreter_name_on_invoice: $('r-show-interp').checked ? 'true' : 'false',
+      rounding_minutes: $('r-round').value,
+      minimum_invoice_cents: Math.round(Number($('r-min').value || 0) * 100)
+    };
+    IntApi.updateClientBillingRules(fields).then(function (r) {
+      if (!r || !r.ok) { toast((r && r.error) || 'Save failed', 'error'); return; }
+      toast('Billing rules saved.', 'ok');
+    });
+  }
+
+  function renderRequestors() {
+    $('c-req-count').textContent = '(' + STATE.requestors.length + ')';
+    var rows = STATE.requestors.map(function (r) {
+      return '<tr><td>' + esc(r.display_name || r.requestor_id) + '</td><td>' + esc((r.type || 'other').replace(/-/g,' ')) + '</td><td>' + esc(r.status || 'active') + '</td></tr>';
+    }).join('');
+    $('t-requestors').querySelector('tbody').innerHTML = rows || '<tr><td colspan="3" class="ink-soft">No requestors under this client yet.</td></tr>';
+  }
+
+  function renderLocations() {
+    $('c-loc-count').textContent = '(' + STATE.locations.length + ')';
+    var rows = STATE.locations.map(function (l) {
+      var mods = '';
+      try { var m = JSON.parse(l.modalities_supported || '[]'); mods = (m || []).join(', '); } catch (_) { mods = l.modalities_supported || ''; }
+      return '<tr><td>' + esc(l.display_name || l.location_id) + '</td><td>' + esc(l.city || '') + (l.state ? ', ' + esc(l.state) : '') + '</td><td>' + esc(mods) + '</td></tr>';
+    }).join('');
+    $('t-locations').querySelector('tbody').innerHTML = rows || '<tr><td colspan="3" class="ink-soft">No locations yet — add via the Requestors page.</td></tr>';
+  }
+
+  function renderSpecialists() {
+    $('c-spec-count').textContent = '(' + STATE.specialists.length + ')';
+    var locById = {}; STATE.locations.forEach(function (l) { locById[l.location_id] = l.display_name || l.location_id; });
+    var rows = STATE.specialists.map(function (sp) {
+      return '<tr><td>' + esc(sp.display_name || sp.specialist_id) + '</td><td>' + esc(sp.department || '') + '</td><td>' + esc(locById[sp.default_location_id] || '') + '</td></tr>';
+    }).join('');
+    $('t-specialists').querySelector('tbody').innerHTML = rows || '<tr><td colspan="3" class="ink-soft">No specialists yet.</td></tr>';
+  }
+
+  function renderContacts() {
+    $('c-contact-count').textContent = '(' + STATE.contacts.length + ')';
+    var rows = STATE.contacts.map(function (cc) {
+      var name = [cc.first, cc.last].filter(Boolean).join(' ') || cc.email || cc.contact_id;
+      return '<tr><td>' + esc(name) + (cc.title ? '<div style="color:var(--1891int-fog);font-size:12px">' + esc(cc.title) + '</div>' : '') + '</td><td>' + esc(cc.role_on_client || '') + '</td><td>' + esc(cc.email || '') + '</td><td>' + esc(cc.phone_e164 || '') + '</td></tr>';
+    }).join('');
+    $('t-contacts').querySelector('tbody').innerHTML = rows || '<tr><td colspan="4" class="ink-soft">No contacts yet — add the billing AP person and the scheduler.</td></tr>';
+  }
+
+  function openSpec() {
+    $('form-spec').reset(); $('sp-id').value = '';
+    var sel = $('sp-loc'); sel.innerHTML = '<option value="">(none)</option>';
+    STATE.locations.forEach(function (l) { var o = document.createElement('option'); o.value = l.location_id; o.textContent = l.display_name; sel.appendChild(o); });
+    $('m-spec').classList.add('open');
+  }
+  function saveSpec() {
+    var fields = {
+      client_id: STATE.client.client_id,
+      specialist_id: $('sp-id').value || '',
+      display_name: $('sp-name').value.trim(),
+      department: $('sp-dept').value.trim(),
+      specialty_code: $('sp-code').value.trim(),
+      npi: $('sp-npi').value.trim(),
+      default_location_id: $('sp-loc').value
+    };
+    if (!fields.display_name) { toast('Display name is required.', 'error'); return; }
+    IntApi.upsertSpecialist(fields).then(function (r) {
+      if (!r || !r.ok) { toast((r && r.error) || 'Save failed', 'error'); return; }
+      toast('Specialist saved.', 'ok');
+      $('m-spec').classList.remove('open');
+      load();
+    });
+  }
+
+  function openContact() {
+    $('form-contact').reset(); $('cc-id').value = '';
+    $('m-contact').classList.add('open');
+  }
+  function saveContact() {
+    var fields = {
+      client_id: STATE.client.client_id,
+      contact_id: $('cc-id').value || '',
+      first: $('cc-first').value.trim(),
+      last: $('cc-last').value.trim(),
+      role_on_client: $('cc-role').value,
+      title: $('cc-title').value.trim(),
+      department: $('cc-dept').value.trim(),
+      email: $('cc-email').value.trim(),
+      phone_e164: $('cc-phone').value.trim()
+    };
+    IntApi.upsertClientContact(fields).then(function (r) {
+      if (!r || !r.ok) { toast((r && r.error) || 'Save failed', 'error'); return; }
+      toast('Contact saved.', 'ok');
+      $('m-contact').classList.remove('open');
+      load();
+    });
+  }
+
+  function addRequestor() {
+    // Send the user to the Requestors page with a hint to attach to this client.
+    location.href = '/interpreter/app/requestors/?client_id=' + encodeURIComponent(STATE.client.client_id);
+  }
+})();
+</script>
+</body>
+</html>

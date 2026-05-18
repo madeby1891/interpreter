@@ -8,17 +8,21 @@
 //
 //  2. Worker → Apps Script (e.g. webhook handler flipping invoice/payout state):
 //     we POST to `${APPS_SCRIPT_URL}?action=<...>&_internal=1` with the same
-//     header. Apps Script verifies the header against the script property and
-//     skips the session-JWT check on those routes.
+//     header AND a short-lived worker-issued session JWT (`session=<jwt>`).
+//     Apps Script can't read inbound HTTP headers, so the bearer token has to
+//     ride in the body or query. The JWT has `iss='worker'` + a `purpose`
+//     claim that pins it to a specific webhook action class, and a 60s TTL.
 //
 // Both directions share one secret. Trade-offs:
 //   - Single secret = one place to rotate; same `/exec?action=_rotate_hmac` route
 //     already exists.
-//   - We DO NOT log this header anywhere. Apps Script's audit log records the
-//     action + record_id, never the secret.
+//   - We DO NOT log the JWT or the legacy header anywhere. Apps Script's audit
+//     log records the action + record_id, never the bearer.
 //   - Constant-time compare on the Worker side to avoid timing-leak shenanigans.
 //
 // If JWT_SECRET is unset, every internal call fails closed with a clear error.
+
+import { signWorkerJwt } from "./jwt";
 
 export interface InternalAuthResult {
   authorized: boolean;
@@ -90,14 +94,33 @@ export function buildAppsScriptCallback(
 /**
  * Convenience: actually run the Apps Script callback. Returns the parsed JSON
  * or `{ ok: false, error: "..." }` if the upstream is unreachable.
+ *
+ * If `purpose` is supplied (e.g., 'stripe_webhook'), we mint a 60s worker JWT
+ * and pass it as the `session` body/query param. Apps Script's webhook-action
+ * handlers (`apiMarkInvoicePaid`, `apiMarkPayoutPaid`, `apiUpdateInterpreter`,
+ * and any other action whitelisted by `_verifyWorkerJwt`) accept this in lieu
+ * of a user session.
  */
 export async function callAppsScript(
   appsScriptUrl: string,
   secret: string,
   action: string,
-  params: Record<string, string>
+  params: Record<string, string>,
+  opts: { purpose?: string; ttlSeconds?: number } = {}
 ): Promise<unknown> {
-  const { url, init } = buildAppsScriptCallback(appsScriptUrl, secret, action, params);
+  const enriched = { ...params };
+  if (opts.purpose) {
+    try {
+      const sess = await signWorkerJwt(
+        { purpose: opts.purpose, sub: opts.purpose, ttlSeconds: opts.ttlSeconds ?? 60 },
+        secret
+      );
+      enriched.session = sess;
+    } catch (err) {
+      return { ok: false, error: "worker_jwt_mint_failed", detail: String(err) };
+    }
+  }
+  const { url, init } = buildAppsScriptCallback(appsScriptUrl, secret, action, enriched);
   try {
     const res = await fetch(url, init);
     const text = await res.text();

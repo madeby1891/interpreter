@@ -89,6 +89,9 @@
   function cancelJob(jobId, reason) {
     return _post('cancel_job', { job_id: jobId, reason: reason || '' });
   }
+  function cancelJobQuote(jobId) {
+    return jsonp({ action: 'cancel_job_quote', job_id: jobId });
+  }
   function smartFill(jobId) {
     return jsonp({ action: 'smart_fill', job_id: jobId, method: 'post_via_jsonp' });
   }
@@ -152,6 +155,15 @@
   function aiIntake(text)     { return jsonp({ action: 'ai_intake', text: text }); }
   function testAnthropic()    { return jsonp({ action: 'test_anthropic' }); }
 
+  // Clients (v18)
+  function listClients(status)      { return jsonp({ action: 'list_clients', status: status || '' }); }
+  function getClient(clientId)      { return jsonp({ action: 'get_client', id: clientId }); }
+  function createClient(fields)     { return _post('create_client', fields); }
+  function updateClient(fields)     { return _post('update_client', fields); }
+  function upsertClientContact(fields)  { return _post('upsert_client_contact', fields); }
+  function upsertSpecialist(fields)     { return _post('upsert_specialist', fields); }
+  function updateClientBillingRules(fields) { return _post('update_client_billing_rules', fields); }
+
   root.IntApi = {
     ENDPOINT: ENDPOINT,
     getSession: getSession,
@@ -165,6 +177,7 @@
     createJob: createJob,
     claimJob: claimJob,
     cancelJob: cancelJob,
+    cancelJobQuote: cancelJobQuote,
     smartFill: smartFill,
     listInterpreters: listInterpreters,
     listRequestors: listRequestors,
@@ -183,6 +196,13 @@
     completeJob: completeJob,
     aiIntake: aiIntake,
     testAnthropic: testAnthropic,
+    listClients: listClients,
+    getClient: getClient,
+    createClient: createClient,
+    updateClient: updateClient,
+    upsertClientContact: upsertClientContact,
+    upsertSpecialist: upsertSpecialist,
+    updateClientBillingRules: updateClientBillingRules,
     jsonp: jsonp
   };
 })(window);

@@ -70,7 +70,12 @@ var T = {
   RateCards: 'Rate_Cards',
   // Comms + team coordination
   NotificationPrefs: 'Notification_Prefs',
-  AssignmentNotes: 'Assignment_Notes'
+  AssignmentNotes: 'Assignment_Notes',
+  // v18 — Client hierarchy + billing
+  Clients: 'Clients',
+  ClientContacts: 'Client_Contacts',
+  Specialists: 'Specialists',
+  ClientBillingRules: 'Client_Billing_Rules'
 };
 
 var AUTH_TOKEN_TTL_MS = 15 * 60 * 1000;        // magic link valid for 15 min
@@ -123,6 +128,7 @@ function doGet(e) {
       // Rate engine + docs + qualifications
       case 'compute_rate_quote': return _safeCall('apiComputeRateQuote', e);
       case 'compute_cancel_quote': return _safeCall('apiComputeCancellationQuote', e);
+      case 'cancel_job_quote':   return apiCancelJobQuote(e);
       case 'list_rate_modifiers':return _safeCall('apiListRateModifiers', e);
       case 'list_rate_cards':    return _safeCall('apiListRateCards', e);
       case 'list_requirements':  return _safeCall('apiListRequirements', e);
@@ -136,6 +142,9 @@ function doGet(e) {
       case 'list_notification_prefs': return _safeCall('apiListNotificationPrefs', e);
       // Metrics
       case 'agency_health':      return _safeCall('apiAgencyHealth', e);
+      // Clients
+      case 'list_clients':       return _safeCall('apiListClients', e);
+      case 'get_client':         return _safeCall('apiGetClient', e);
       case 'switch_tenant':      return _safeCall('apiSwitchTenant', e);  // GET-path enables JSONP response read
       case '_rotate_hmac':       return apiRotateHmac(e);                  // one-shot Worker-secret sync
       case '_mail_debug':        return apiMailDebug(e);                   // diagnostic
@@ -218,6 +227,12 @@ function doPost(e) {
       case 'update_notification_pref':  return _safeCall('apiUpdateNotificationPref', e);
       case 'update_notification_settings': return _safeCall('apiUpdateNotificationSettings', e);
       case '_install_digest_triggers':  return _safeCall('apiInstallDigestTriggers', e);
+      // Clients + billing
+      case 'create_client':             return _safeCall('apiCreateClient', e);
+      case 'update_client':             return _safeCall('apiUpdateClient', e);
+      case 'upsert_client_contact':     return _safeCall('apiUpsertClientContact', e);
+      case 'upsert_specialist':         return _safeCall('apiUpsertSpecialist', e);
+      case 'update_client_billing_rules': return _safeCall('apiUpdateClientBillingRules', e);
       default:                   return _json({ ok:false, error:'Unknown action: ' + action }, 404);
     }
   } catch (err) {
@@ -550,6 +565,76 @@ function _requireSession(e) {
   return _verifySession(token);
 }
 
+// ----------------------------------------------------------------------------
+// Worker-issued machine-to-machine session (Stripe / Track1099 / Twilio
+// webhooks). The Worker has no user context for these inbound webhooks, so
+// after verifying the upstream signature it mints a short-lived JWT with the
+// same HMAC secret. We accept it ONLY for the explicit purposes listed below.
+//
+// Wire format is identical to a user session JWT; the differentiating claims
+// are `iss === 'worker'` and `purpose === <action-class>`. Worker tokens have
+// `tid === '*'` and carry no user identity — handlers that need to scope the
+// write should look up the record's own tenant_id (e.g., via invoice_id) and
+// rely on the audit log to record the action.
+//
+// Allowed purposes — keep this list narrow:
+//   - 'stripe_webhook'     → mark_invoice_paid, mark_payout_paid,
+//                            update_interpreter (account.updated)
+//   - 'track1099_webhook'  → reserved for future Track1099 callbacks
+//   - 'twilio_inbound'     → reserved for future Twilio inbound SMS callback
+// ----------------------------------------------------------------------------
+
+var _WORKER_PURPOSES = {
+  'stripe_webhook': true,
+  'track1099_webhook': true,
+  'twilio_inbound': true
+};
+
+function _verifyWorkerJwt(token, expectedPurpose) {
+  var v = _verifySession(token);
+  if (!v.ok) return v;
+  var p = v.payload || {};
+  if (p.iss !== 'worker') return { ok:false, error:'Not a worker token.' };
+  if (!p.purpose || typeof p.purpose !== 'string') return { ok:false, error:'Missing purpose claim.' };
+  if (!_WORKER_PURPOSES[p.purpose]) return { ok:false, error:'Unknown worker purpose: ' + p.purpose };
+  if (expectedPurpose && p.purpose !== expectedPurpose) {
+    return { ok:false, error:'Worker purpose mismatch: expected ' + expectedPurpose + ', got ' + p.purpose };
+  }
+  // Worker tokens get an artificial uid for audit logs and a '*' tenant.
+  return {
+    ok: true,
+    payload: {
+      uid: 'worker:' + p.purpose,
+      tid: '*',
+      role: 'role_worker',
+      iss: 'worker',
+      purpose: p.purpose,
+      iat: p.iat,
+      exp: p.exp
+    },
+    is_worker: true
+  };
+}
+
+/**
+ * Accept either a user session OR a worker-issued JWT with the named purpose.
+ * Returns the same shape as `_requireSession` plus an `is_worker` flag when
+ * the caller is a Worker, so handlers can branch on tenant-scope behavior.
+ *
+ * Use this in webhook-callback handlers (apiMarkInvoicePaid, apiMarkPayoutPaid,
+ * apiUpdateInterpreter) instead of `_requireSession(e)`.
+ */
+function _requireSessionOrWorker(e, expectedPurpose) {
+  var token = (e.parameter && e.parameter.session) || '';
+  if (!token) return { ok:false, error:'Missing session.' };
+  var v = _verifySession(token);
+  if (!v.ok) return v;
+  if (v.payload && v.payload.iss === 'worker') {
+    return _verifyWorkerJwt(token, expectedPurpose);
+  }
+  return v;
+}
+
 function _hmacB64Url(text) {
   var key = _hmacSecret();
   var raw = Utilities.computeHmacSha256Signature(text, key);
@@ -688,19 +773,40 @@ function _ensureHostOwner(ss) {
 function _seedRoles(ss) {
   var sheet = ss.getSheetByName(T.Roles);
   if (!sheet) return;
-  if (sheet.getLastRow() >= 2) return;
+  // Idempotent: re-seed only the role_ids that aren't there yet
+  var existing = {};
+  if (sheet.getLastRow() >= 2) {
+    var existingRows = sheet.getRange(2, 1, sheet.getLastRow() - 1, 1).getValues();
+    existingRows.forEach(function (r) { if (r[0]) existing[r[0]] = true; });
+  }
+  // Role hierarchy (top -> bottom):
+  //   role_platform_staff (1891 employees, cross-tenant)
+  //   └─ role_owner        (agency owner, all permissions in their tenant)
+  //       └─ role_manager  (operations manager, all except billing & user mgmt)
+  //           ├─ role_scheduler
+  //           ├─ role_interpreter
+  //           ├─ role_client_contact      (top contact at a client org — sees all its requestors)
+  //           ├─ role_requestor_contact   (single requestor — its own jobs only)
+  //           └─ role_billing_contact     (sees invoices for the client they're tied to)
+  //   role_admin (deprecated alias of role_manager; kept for back-compat)
+  //   role_payer_contact, role_consumer_self, role_auditor — unchanged
   var roles = [
-    ['role_owner',            '*', 'Owner',            JSON.stringify(['*']), true,  'full'],
-    ['role_admin',            '*', 'Admin',            JSON.stringify(['agency.*','job.*','interpreter.*','requestor.*','consumer.read.masked','payer.*','invoice.*','payout.*','document.*','user.*','setting.*']), false, 'masked'],
-    ['role_scheduler',        '*', 'Scheduler',        JSON.stringify(['job.read','job.write','job.assign','interpreter.read','requestor.read','requestor.write','consumer.read.masked','communication.send']), false, 'masked'],
-    ['role_interpreter',      '*', 'Interpreter',      JSON.stringify(['job.read.assigned','job.claim','job.decline','availability.write','self.profile','consumer.read.masked.on_assigned_job']), false, 'masked'],
-    ['role_requestor_contact','*', 'Requestor contact',JSON.stringify(['job.read.own','job.create','requestor.read.own']), false, 'none'],
-    ['role_payer_contact',    '*', 'Payer contact',    JSON.stringify(['invoice.read.own','invoice.pay']), false, 'none'],
-    ['role_consumer_self',    '*', 'Consumer (self-service)', JSON.stringify(['self.profile','self.history']), false, 'none'],
-    ['role_auditor',          '*', 'Auditor',          JSON.stringify(['audit.read','consumer.read.masked','job.read']), false, 'masked']
+    ['role_platform_staff',   '*', '1891 platform staff', JSON.stringify(['platform.*','tenant.*','*']),                                                                                                                                                              true,  'full'],
+    ['role_owner',            '*', 'Agency owner',        JSON.stringify(['*']),                                                                                                                                                                                       true,  'full'],
+    ['role_manager',          '*', 'Manager',             JSON.stringify(['agency.read','job.*','interpreter.*','requestor.*','client.*','specialist.*','consumer.read.masked','payer.read','invoice.read','payout.read','document.*','user.read','setting.read']),    false, 'masked'],
+    ['role_admin',            '*', 'Admin (legacy)',      JSON.stringify(['agency.*','job.*','interpreter.*','requestor.*','client.*','specialist.*','consumer.read.masked','payer.*','invoice.*','payout.*','document.*','user.*','setting.*']),                       false, 'masked'],
+    ['role_scheduler',        '*', 'Scheduler',           JSON.stringify(['job.read','job.write','job.assign','interpreter.read','requestor.read','requestor.write','client.read','specialist.read','consumer.read.masked','communication.send']),                      false, 'masked'],
+    ['role_interpreter',      '*', 'Interpreter',         JSON.stringify(['job.read.assigned','job.claim','job.decline','availability.write','self.profile','consumer.read.masked.on_assigned_job']),                                                                   false, 'masked'],
+    ['role_client_contact',   '*', 'Client contact',      JSON.stringify(['job.read.client','job.create.client','client.read.own','requestor.read.client','specialist.read.client','invoice.read.client']),                                                             false, 'none'],
+    ['role_requestor_contact','*', 'Requestor contact',   JSON.stringify(['job.read.own','job.create','requestor.read.own']),                                                                                                                                          false, 'none'],
+    ['role_billing_contact',  '*', 'Billing contact',     JSON.stringify(['invoice.read.client','invoice.pay','payer.read.client','client.read.own']),                                                                                                                  false, 'none'],
+    ['role_payer_contact',    '*', 'Payer contact',       JSON.stringify(['invoice.read.own','invoice.pay']),                                                                                                                                                          false, 'none'],
+    ['role_consumer_self',    '*', 'Consumer (self-service)', JSON.stringify(['self.profile','self.history']),                                                                                                                                                         false, 'none'],
+    ['role_auditor',          '*', 'Auditor',             JSON.stringify(['audit.read','consumer.read.masked','job.read','invoice.read']),                                                                                                                              false, 'masked']
   ];
   var ts = new Date().toISOString();
   roles.forEach(function (r) {
+    if (existing[r[0]]) return;
     sheet.appendRow([r[0], r[1], r[2], r[3], r[4], r[5], ts, ts]);
   });
 }
@@ -860,6 +966,9 @@ function apiCancelJob(e) {
   var jobId = e.parameter.job_id;
   var reason = e.parameter.reason || '';
   if (!jobId) return _json({ ok:false, error:'job_id required' });
+  if (reason && reason.length < 10) {
+    return _json({ ok:false, error:'cancellation_reason must be at least 10 characters' });
+  }
 
   var ss = SpreadsheetApp.openById(SHEET_ID);
   var sh = ss.getSheetByName(T.Jobs);
@@ -869,20 +978,184 @@ function apiCancelJob(e) {
   var iTenant = hdr.indexOf('tenant_id'); var iCanc = hdr.indexOf('cancellation_reason');
   var iCancTs = hdr.indexOf('cancellation_at'); var iUpdated = hdr.indexOf('_updated_at');
   var iRev = hdr.indexOf('_rev');
+  var iCancBill = hdr.indexOf('cancellation_bill_cents');
+  var iCancPay  = hdr.indexOf('cancellation_pay_cents');
+  var iCancTier = hdr.indexOf('cancellation_tier'); // optional
+
   for (var r = 1; r < data.length; r++) {
-    if (String(data[r][iJob]) === jobId && String(data[r][iTenant]) === s.payload.tid) {
-      var prev = String(data[r][iStatus]);
-      sh.getRange(r + 1, iStatus + 1).setValue('CANCELLED_BY_AGENCY');
-      sh.getRange(r + 1, iCanc + 1).setValue(reason);
-      sh.getRange(r + 1, iCancTs + 1).setValue(new Date().toISOString());
-      sh.getRange(r + 1, iUpdated + 1).setValue(new Date().toISOString());
-      sh.getRange(r + 1, iRev + 1).setValue(Number(data[r][iRev] || 0) + 1);
-      _appendJobEvent(ss, jobId, s.payload.uid, 'status_change', prev, 'CANCELLED_BY_AGENCY', JSON.stringify({ reason:reason }));
-      _logAudit('job.cancel', s.payload.tid, s.payload.uid, jobId + ' reason=' + reason);
-      return _json({ ok:true });
+    if (String(data[r][iJob]) !== jobId || String(data[r][iTenant]) !== s.payload.tid) continue;
+    var prev = String(data[r][iStatus]);
+    if (!/^(OPEN|OFFERED|CLAIMED|CONFIRMED|EN_ROUTE|IN_PROGRESS|DRAFT)$/.test(prev)) {
+      return _json({ ok:false, error:'Job is not cancellable (status=' + prev + ')' });
     }
+    var nowIso = new Date().toISOString();
+    var jobObj = _rowToObj(hdr, data[r]);
+
+    // Compute cancellation quote snapshot (best-effort; don't block cancel on rate-engine errors)
+    var snapshot = null;
+    try { snapshot = _computeCancelSnapshot_(ss, s.payload.tid, jobObj); } catch (_) { snapshot = null; }
+
+    sh.getRange(r + 1, iStatus + 1).setValue('CANCELLED_BY_AGENCY');
+    if (iCanc >= 0)    sh.getRange(r + 1, iCanc + 1).setValue(reason);
+    if (iCancTs >= 0)  sh.getRange(r + 1, iCancTs + 1).setValue(nowIso);
+    if (iCancBill >= 0 && snapshot) sh.getRange(r + 1, iCancBill + 1).setValue(snapshot.bill_cents);
+    if (iCancPay  >= 0 && snapshot) sh.getRange(r + 1, iCancPay  + 1).setValue(snapshot.total_pay_cents);
+    if (iCancTier >= 0 && snapshot) sh.getRange(r + 1, iCancTier + 1).setValue(snapshot.tier);
+    sh.getRange(r + 1, iUpdated + 1).setValue(nowIso);
+    sh.getRange(r + 1, iRev + 1).setValue(Number(data[r][iRev] || 0) + 1);
+
+    var payload = { reason: reason };
+    if (snapshot) {
+      payload.cancellation_tier = snapshot.tier;
+      payload.cancellation_bill_cents = snapshot.bill_cents;
+      payload.cancellation_pay_cents = snapshot.total_pay_cents;
+      payload.hours_until_start = snapshot.hours_until_start;
+    }
+    _appendJobEvent(ss, jobId, s.payload.uid, 'cancelled', prev, 'CANCELLED_BY_AGENCY', JSON.stringify(payload));
+    _logAudit('job.cancel', s.payload.tid, s.payload.uid, jobId + ' reason=' + reason);
+
+    // Notify all assigned interpreters (best-effort)
+    try { _notifyAssignedOfCancellation_(ss, s.payload.tid, jobObj, reason, snapshot); } catch (err) { /* swallow */ }
+
+    return _json({
+      ok: true,
+      job_id: jobId,
+      status: 'CANCELLED_BY_AGENCY',
+      cancellation: snapshot || null
+    });
   }
   return _json({ ok:false, error:'Job not found' }, 404);
+}
+
+// JSONP-friendly cancellation quote preview (no write).
+// Returns { ok, tier, hours_until_start, bill_cents, pay_cents_per_interpreter, total_pay_cents, ... }.
+function apiCancelJobQuote(e) {
+  var s = _requireSession(e);
+  if (!s.ok) return _json({ ok:false, error:s.error }, 401);
+  var jobId = e.parameter && e.parameter.job_id;
+  if (!jobId) return _json({ ok:false, error:'job_id required' });
+  var ss = SpreadsheetApp.openById(SHEET_ID);
+  var job = _findJob(ss, s.payload.tid, jobId);
+  if (!job) return _json({ ok:false, error:'Job not found' }, 404);
+  var snap = _computeCancelSnapshot_(ss, s.payload.tid, job);
+  return _json({
+    ok: true,
+    tier: snap.tier,
+    hours_until_start: snap.hours_until_start,
+    bill_cents: snap.bill_cents,
+    pay_cents_per_interpreter: snap.pay_cents_per_interpreter,
+    total_pay_cents: snap.total_pay_cents,
+    assigned_count: snap.assigned_count,
+    bill_pct: snap.bill_pct,
+    pay_pct: snap.pay_pct
+  });
+}
+
+// Shared helper: produce a single cancellation snapshot for the given job.
+// Aggregates pay across currently-assigned interpreters (excluding declined offers).
+function _computeCancelSnapshot_(ss, tenantId, job) {
+  var hoursUntilStart = 0;
+  if (job.scheduled_start) {
+    var ms = new Date(job.scheduled_start).getTime() - Date.now();
+    hoursUntilStart = ms / 3600000;
+  }
+  // Tier — mirrors apiComputeCancellationQuote's structure
+  var billPct = 0, payPct = 0, tier = '';
+  if (hoursUntilStart < 12) {
+    billPct = 100; payPct = 100; tier = '<12h';
+  } else if (hoursUntilStart < 24) {
+    billPct = 100; payPct = 50;  tier = '12-24h';
+  } else if (hoursUntilStart < 48) {
+    billPct = 50;  payPct = 25;  tier = '24-48h';
+  } else {
+    billPct = 0;   payPct = 0;   tier = '>=48h';
+  }
+  // Tenant override via Settings.cancellation_policy.tiers
+  var override = _getSetting(ss, 'cancellation_policy.tiers');
+  if (override) {
+    try {
+      var t = JSON.parse(override);
+      if (t[tier]) {
+        if (typeof t[tier].bill_pct === 'number') billPct = t[tier].bill_pct;
+        if (typeof t[tier].pay_pct  === 'number') payPct  = t[tier].pay_pct;
+      }
+    } catch (_) {}
+  }
+
+  var assigned = _findActiveAssignmentsForJob_(ss, job.job_id);
+  var assignedCount = assigned.length;
+
+  var baseQuote = null;
+  try {
+    if (typeof computeRateQuote_ === 'function') {
+      baseQuote = computeRateQuote_(ss, tenantId, job, assigned[0] && assigned[0].interpreter_id || null);
+    }
+  } catch (err) { baseQuote = null; }
+  var billTotal = baseQuote ? Number(baseQuote.bill.total_cents || 0) : 0;
+  var payTotal  = baseQuote ? Number(baseQuote.pay.total_cents  || 0) : 0;
+
+  var billCharge   = Math.round(billTotal * billPct / 100);
+  var payPerInterp = Math.round(payTotal  * payPct  / 100);
+  var totalPay     = payPerInterp * assignedCount;
+
+  return {
+    tier: tier,
+    hours_until_start: Math.round(hoursUntilStart * 10) / 10,
+    bill_pct: billPct,
+    pay_pct: payPct,
+    bill_cents: billCharge,
+    pay_cents_per_interpreter: payPerInterp,
+    total_pay_cents: totalPay,
+    assigned_count: assignedCount
+  };
+}
+
+function _findActiveAssignmentsForJob_(ss, jobId) {
+  var sh = ss.getSheetByName(T.JobAssignments);
+  if (!sh) return [];
+  var data = sh.getDataRange().getValues();
+  if (data.length < 2) return [];
+  var hdr = data[0];
+  var out = [];
+  for (var i = 1; i < data.length; i++) {
+    var o = _rowToObj(hdr, data[i]);
+    if (o.job_id !== jobId) continue;
+    if (String(o.response).toLowerCase() === 'decline') continue;
+    if (String(o.status).toUpperCase().indexOf('CANCELLED') === 0) continue;
+    out.push(o);
+  }
+  return out;
+}
+
+function _notifyAssignedOfCancellation_(ss, tenantId, job, reason, snapshot) {
+  if (typeof notifyEvent_ !== 'function') return;
+  var assigned = _findActiveAssignmentsForJob_(ss, job.job_id);
+  if (!assigned.length) return;
+  var when = job.scheduled_start ? new Date(job.scheduled_start).toLocaleString('en-US', {
+    timeZone: 'America/New_York', weekday: 'short', month: 'short', day: 'numeric',
+    hour: 'numeric', minute: '2-digit'
+  }) : 'TBD';
+  var subject = 'Job cancelled — ' + (job.service_type || 'job') + ' on ' + when;
+  var payLine = '';
+  if (snapshot && snapshot.pay_cents_per_interpreter > 0) {
+    payLine = '\n\nCancellation pay (' + snapshot.tier + ' tier): $' +
+              (snapshot.pay_cents_per_interpreter / 100).toFixed(2);
+  }
+  var body = 'A job you were assigned to has been cancelled by the scheduling agency.\n\n' +
+             'Job: ' + (job.service_type || '—') + '\n' +
+             'When: ' + when + '\n' +
+             'Reason: ' + (reason || '—') + payLine + '\n\n' +
+             'Sign in to the interpreter app for details.';
+  var smsBody = 'Job cancelled — ' + when + (snapshot && snapshot.pay_cents_per_interpreter > 0 ?
+                ' (cancel pay $' + (snapshot.pay_cents_per_interpreter / 100).toFixed(2) + ')' : '');
+  for (var i = 0; i < assigned.length; i++) {
+    var a = assigned[i];
+    var interp = (typeof _findInterpreterById === 'function') ? _findInterpreterById(ss, a.interpreter_id) : null;
+    if (!interp || !interp.user_id) continue;
+    try {
+      notifyEvent_(ss, tenantId, 'job_cancelled', interp.user_id, subject, body, smsBody, { job_id: job.job_id });
+    } catch (err) { /* per-interpreter failure should not abort */ }
+  }
 }
 
 function _findJob(ss, tenantId, jobId) {
@@ -1060,7 +1333,10 @@ function apiCreateInterpreter(e) {
 }
 
 function apiUpdateInterpreter(e) {
-  var s = _requireSession(e);
+  // Accept either a user session or a worker JWT minted by the Stripe webhook
+  // handler. Worker calls bypass the tenant-scope match (they have tid='*')
+  // and are limited to a whitelist of safe-to-write columns.
+  var s = _requireSessionOrWorker(e, 'stripe_webhook');
   if (!s.ok) return _json({ ok:false, error:s.error }, 401);
   var p = e.parameter || {};
   var id = p.interpreter_id;
@@ -1075,10 +1351,21 @@ function apiUpdateInterpreter(e) {
   var iTenant = hdr.indexOf('tenant_id');
   var iUpdated = hdr.indexOf('_updated_at');
   var iRev = hdr.indexOf('_rev');
+  // User-session writes are scoped to their own tenant. Worker-issued writes
+  // (from the Stripe webhook) match purely on interpreter_id since the inbound
+  // event carries no tenant context — Stripe's `metadata.interpreter_id` is
+  // unique across all tenants.
+  var userAllowed = ['classification','legal_first','legal_last','pronouns','home_city','home_state','home_zip','service_radius_mi','has_vehicle','modalities','languages','certifications','skills','min_call_hours','payment_method','deaf','notes_internal','status'];
+  // Webhook-only columns — never writable from a user session, to keep the
+  // surface tight. Adding a column here means the Worker can flip that field
+  // without UI scope, so think carefully before extending.
+  var workerAllowed = ['stripe_account_id','stripe_charges_enabled','stripe_payouts_enabled','stripe_details_submitted'];
+  var allowed = s.is_worker ? workerAllowed : userAllowed;
   for (var r = 1; r < data.length; r++) {
-    if (String(data[r][iId]) === id && String(data[r][iTenant]) === s.payload.tid) {
-      // Apply allowed updates
-      var allowed = ['classification','legal_first','legal_last','pronouns','home_city','home_state','home_zip','service_radius_mi','has_vehicle','modalities','languages','certifications','skills','min_call_hours','payment_method','deaf','notes_internal','status'];
+    var sameId = String(data[r][iId]) === id;
+    var sameTenant = String(data[r][iTenant]) === s.payload.tid;
+    var match = sameId && (s.is_worker ? true : sameTenant);
+    if (match) {
       allowed.forEach(function (field) {
         if (p[field] === undefined || p[field] === null) return;
         var col = hdr.indexOf(field);
@@ -1086,11 +1373,15 @@ function apiUpdateInterpreter(e) {
         var v = p[field];
         if (field === 'has_vehicle' || field === 'deaf') v = (v === 'true');
         if (field === 'service_radius_mi' || field === 'min_call_hours') v = Number(v);
+        if (field === 'stripe_charges_enabled' || field === 'stripe_payouts_enabled' || field === 'stripe_details_submitted') {
+          v = (v === 'true' || v === true);
+        }
         sh.getRange(r + 1, col + 1).setValue(v);
       });
       sh.getRange(r + 1, iUpdated + 1).setValue(new Date().toISOString());
       sh.getRange(r + 1, iRev + 1).setValue(Number(data[r][iRev] || 0) + 1);
-      _logAudit('interpreter.update', s.payload.tid, s.payload.uid, id);
+      var auditTid = s.is_worker ? String(data[r][iTenant] || '*') : s.payload.tid;
+      _logAudit('interpreter.update', auditTid, s.payload.uid, id);
       return _json({ ok:true, interpreter_id:id });
     }
   }
@@ -1856,17 +2147,21 @@ function _tenantSchema() {
     Assignment_Notes: ['note_id','tenant_id','assignment_id','job_id','author_user_id','author_role','body','visibility','_created_at'],
     Languages: ['language_id','display_name','family','directionalities','dialects','script','rtl','_created_at','_updated_at'],
     Certifications: ['certification_id','body','display_name','applies_to_languages','renewable','ceu_required','_created_at','_updated_at'],
-    Requestors: ['requestor_id','tenant_id','display_name','type','parent_org_id','billing_payer_id','default_location_id','contract_doc_id','po_required','notes','status','_created_at','_updated_at','_rev'],
+    Requestors: ['requestor_id','tenant_id','client_id','display_name','type','parent_org_id','billing_payer_id','default_location_id','default_specialist_id','contract_doc_id','po_required','notes','status','_created_at','_updated_at','_rev'],
     Requestor_Contacts: ['contact_id','requestor_id','tenant_id','user_id','first','last','email','phone_e164','title','preferred_channel','status','_created_at','_updated_at'],
+    Clients: ['client_id','tenant_id','legal_name','display_name','client_type','industry','primary_owner_contact_id','primary_payer_id','billing_address','billing_email','billing_phone','tax_exempt','tax_id_last4','net_terms','contract_doc_id','notes','status','_created_at','_updated_at','_rev'],
+    Client_Contacts: ['contact_id','client_id','tenant_id','user_id','role_on_client','first','last','email','phone_e164','title','department','preferred_channel','status','_created_at','_updated_at'],
+    Specialists: ['specialist_id','client_id','tenant_id','display_name','department','specialty_code','npi','default_location_id','default_modality_pref','notes','status','_created_at','_updated_at'],
+    Client_Billing_Rules: ['rule_id','client_id','tenant_id','consolidation_mode','billing_cycle','statement_day_of_month','requires_po','po_format_regex','gl_template','invoice_format','split_by_location','split_by_specialist','show_consumer_initials_on_invoice','show_specialist_on_invoice','show_interpreter_name_on_invoice','rounding_minutes','minimum_invoice_cents','late_fee_pct','notes','status','_created_at','_updated_at'],
     Payers: ['payer_id','tenant_id','display_name','billing_email','billing_address','net_terms','tax_exempt','stripe_customer_id','qb_customer_id','status','_created_at','_updated_at'],
     Consumers: ['consumer_id','tenant_id','display_initials','legal_first_encrypted','legal_last_encrypted','dob_encrypted','mrn_encrypted','primary_language_id','dialect','communication_prefs','notes_sealed','do_not_contact','consent_recording_default','created_by_user_id','deletion_requested_at','_created_at','_updated_at'],
     Locations: ['location_id','tenant_id','requestor_id','display_name','street','city','state','zip','timezone','parking_notes','accessibility_notes','geo','modalities_supported','_created_at','_updated_at'],
-    Jobs: ['job_id','tenant_id','requestor_id','requestor_contact_id','payer_id','location_id','consumer_id','modality','service_type','source_language_id','target_language_id','team_config','scheduled_start','scheduled_end','actual_start','actual_end','status','on_demand','reference_no','notes_to_interpreter','consent_recording','recording_r2_key','transcript_r2_key','created_via','ai_intake_id','rate_applied','cancellation_reason','cancellation_at','_created_at','_updated_at','_rev'],
+    Jobs: ['job_id','tenant_id','client_id','requestor_id','requestor_contact_id','payer_id','location_id','specialist_id','consumer_id','modality','service_type','source_language_id','target_language_id','team_config','scheduled_start','scheduled_end','actual_start','actual_end','status','on_demand','reference_no','po_number','notes_to_interpreter','consent_recording','recording_r2_key','transcript_r2_key','created_via','ai_intake_id','rate_applied','cancellation_reason','cancellation_at','cancellation_bill_cents','cancellation_pay_cents','invoice_id','_created_at','_updated_at','_rev'],
     Job_Assignments: ['assignment_id','job_id','interpreter_id','role_on_job','offered_at','responded_at','response','pay_rate_snapshot','billable_minutes','status','_created_at','_updated_at','_rev'],
     Job_Events: ['event_id','job_id','actor_user_id','event_type','from_state','to_state','payload','ts'],
     Communications: ['comm_id','tenant_id','channel','direction','template_id','to_user_id','to_address','body_redacted_r2_key','status','provider','provider_msg_id','job_id','_created_at','_updated_at'],
-    Invoices: ['invoice_id','tenant_id','payer_id','period_start','period_end','issued_at','due_at','subtotal_cents','tax_cents','total_cents','status','stripe_invoice_id','pdf_r2_key','_created_at','_updated_at'],
-    Invoice_Lines: ['line_id','invoice_id','job_id','description','quantity','unit','rate_cents','amount_cents','_created_at','_updated_at'],
+    Invoices: ['invoice_id','tenant_id','client_id','payer_id','invoice_number','period_start','period_end','issued_at','due_at','net_terms','subtotal_cents','tax_cents','total_cents','status','po_number','consolidation_mode','split_group_key','statement_descriptor','stripe_invoice_id','pdf_r2_key','sent_at','paid_at','voided_at','notes','_created_at','_updated_at'],
+    Invoice_Lines: ['line_id','invoice_id','job_id','line_kind','client_id','requestor_id','location_id','specialist_id','consumer_initials','interpreter_id','interpreter_name','service_type','modality','scheduled_start','scheduled_end','description','quantity','unit','rate_cents','amount_cents','sort_order','_created_at','_updated_at'],
     Payouts: ['payout_id','tenant_id','interpreter_id','period_start','period_end','issued_at','total_cents','status','stripe_transfer_id','_created_at','_updated_at'],
     Documents: ['document_id','tenant_id','kind','r2_key','mime','sha256','size_bytes','linked_job_id','linked_interpreter_id','linked_consumer_id','uploaded_by_user_id','signed_url_expiry_default','retention_class','_created_at','_updated_at'],
     Settings: ['key','value','category','updated_by_user_id','updated_at','_created_at','_updated_at'],

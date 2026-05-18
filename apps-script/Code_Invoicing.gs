@@ -284,12 +284,25 @@ function apiCreateInvoice(e) {
   var s = _requireSession(e);
   if (!s.ok) return _json({ ok:false, error:s.error }, 401);
   var p = e.parameter || {};
-  if (!p.payer_id) return _json({ ok:false, error:'payer_id required' });
+  if (!p.payer_id && !p.client_id) return _json({ ok:false, error:'payer_id or client_id required' });
   if (!p.period_start || !p.period_end) return _json({ ok:false, error:'period_start and period_end required (YYYY-MM-DD)' });
   var dryRun = String(p.dry_run || '') === 'true' || String(p.dry_run || '') === '1';
 
   var ss = SpreadsheetApp.openById(SHEET_ID);
   var schema = _tenantSchema();
+
+  // Resolve client + billing rules if client_id supplied
+  var rules = null;
+  var clientRow = null;
+  if (p.client_id) {
+    _ensureTab(ss, T.Clients, schema.Clients);
+    _ensureTab(ss, T.ClientBillingRules, schema.Client_Billing_Rules);
+    clientRow = _findRowById_(ss, T.Clients, 'client_id', p.client_id, s.payload.tid);
+    if (!clientRow) return _json({ ok:false, error:'Client not found' }, 404);
+    rules = _filterRows_(ss, T.ClientBillingRules, function (r) {
+      return r.client_id === p.client_id && r.tenant_id === s.payload.tid && r.status === 'active';
+    })[0] || _defaultBillingRules_(p.client_id, s.payload.tid);
+  }
 
   // Decide which jobs are in scope.
   var requestedIds = String(p.job_ids || '').split(',').map(function (x) { return x.trim(); }).filter(Boolean);
@@ -298,8 +311,13 @@ function apiCreateInvoice(e) {
     candidateJobs = [];
     for (var i = 0; i < requestedIds.length; i++) {
       var j = _findJob(ss, s.payload.tid, requestedIds[i]);
-      if (j && String(j.payer_id) === String(p.payer_id) && j.status === 'COMPLETED') candidateJobs.push(j);
+      if (!j || j.status !== 'COMPLETED') continue;
+      if (p.payer_id && String(j.payer_id) !== String(p.payer_id)) continue;
+      if (p.client_id && String(j.client_id) !== String(p.client_id)) continue;
+      candidateJobs.push(j);
     }
+  } else if (p.client_id) {
+    candidateJobs = _invListClientJobsInPeriod_(ss, s.payload.tid, p.client_id, p.period_start, p.period_end);
   } else {
     candidateJobs = _invListJobsInPeriod(ss, s.payload.tid, p.payer_id, p.period_start, p.period_end);
   }
@@ -308,96 +326,277 @@ function apiCreateInvoice(e) {
   var billed = _invAlreadyBilledJobIds(ss);
   var includeJobs = candidateJobs.filter(function (j) { return !billed[String(j.job_id)]; });
 
-  // Build line previews.
-  var subtotalCents = 0;
-  var previewLines = includeJobs.map(function (j) {
-    var asgn = _invClaimedAssignment(ss, j.job_id);
-    var hours = _invBillableHours(ss, j, asgn);
-    var minHours = _invMinHours(ss, j.service_type || 'medical');
-    if (hours < minHours) hours = minHours;
-    hours = _round2(hours);
-    var rateCents = _invRateCents(ss, j.service_type || 'medical', j.modality, j.team_config);
-    var amountCents = Math.round(hours * rateCents);
-    subtotalCents += amountCents;
-    var initials = _invConsumerInitials(ss, s.payload.tid, j.consumer_id);
-    var dateStr = _invShortDate(j.actual_start || j.scheduled_start);
-    var serviceLabel = (j.service_type || 'service').replace(/-/g, ' ');
-    return {
-      job_id: j.job_id,
-      description: serviceLabel + ' · ' + dateStr + ' · ' + (initials || '—'),
-      quantity: hours,
-      unit: 'hour',
-      rate_cents: rateCents,
-      amount_cents: amountCents,
-      // dry-run only metadata — never persisted
-      _modality: j.modality,
-      _team_config: j.team_config
-    };
+  // Split into invoice groups per consolidation rules.
+  var groups = _invSplitByConsolidation_(includeJobs, rules);
+
+  // Build line previews per group.
+  var groupPreviews = groups.map(function (g) {
+    var subtotal = 0;
+    var lines = g.jobs.map(function (j) {
+      var asgn = _invClaimedAssignment(ss, j.job_id);
+      var hours = _invBillableHours(ss, j, asgn);
+      var minHours = _invMinHours(ss, j.service_type || 'medical');
+      if (hours < minHours) hours = minHours;
+      hours = _round2(hours);
+      var rateCents = _invRateCents(ss, j.service_type || 'medical', j.modality, j.team_config);
+      var amountCents = Math.round(hours * rateCents);
+      subtotal += amountCents;
+      var initials = _invConsumerInitials(ss, s.payload.tid, j.consumer_id);
+      var dateStr = _invShortDate(j.actual_start || j.scheduled_start);
+      var serviceLabel = (j.service_type || 'service').replace(/-/g, ' ');
+      var specName = _invSpecialistName_(ss, j.specialist_id);
+      var locName = _invLocationName_(ss, j.location_id);
+      var interpName = asgn ? _invInterpreterDisplayName(ss, s.payload.tid, asgn.interpreter_id) : '';
+      var showInit = !rules || rules.show_consumer_initials_on_invoice;
+      var showSpec = !rules || rules.show_specialist_on_invoice;
+      var showInterp = !rules || rules.show_interpreter_name_on_invoice;
+      var descParts = [serviceLabel, dateStr];
+      if (showSpec && specName) descParts.push(specName);
+      if (locName) descParts.push(locName);
+      if (showInit && initials) descParts.push(initials);
+      if (showInterp && interpName) descParts.push('w/ ' + interpName);
+      return {
+        job_id: j.job_id,
+        line_kind: 'service',
+        client_id: j.client_id || '',
+        requestor_id: j.requestor_id || '',
+        location_id: j.location_id || '',
+        location_name: locName,
+        specialist_id: j.specialist_id || '',
+        specialist_name: specName,
+        consumer_initials: showInit ? initials : '',
+        interpreter_id: asgn ? asgn.interpreter_id : '',
+        interpreter_name: showInterp ? interpName : '',
+        service_type: j.service_type || '',
+        modality: j.modality || '',
+        scheduled_start: j.scheduled_start || '',
+        scheduled_end: j.scheduled_end || '',
+        description: descParts.join(' · '),
+        quantity: hours,
+        unit: 'hour',
+        rate_cents: rateCents,
+        amount_cents: amountCents
+      };
+    });
+    return { group_key: g.key, payer_id: g.payer_id, subtotal_cents: subtotal, lines: lines };
   });
 
   if (dryRun) {
     return _json({
       ok: true,
       dry_run: true,
-      payer_id: p.payer_id,
+      client_id: p.client_id || '',
+      payer_id: p.payer_id || '',
       period_start: p.period_start,
       period_end: p.period_end,
-      lines: previewLines,
-      subtotal_cents: subtotalCents,
-      total_cents: subtotalCents,
-      job_count: previewLines.length
+      consolidation_mode: rules ? rules.consolidation_mode : 'one_per_payer',
+      groups: groupPreviews,
+      total_invoices: groupPreviews.length,
+      total_jobs: groupPreviews.reduce(function (n, g) { return n + g.lines.length; }, 0),
+      total_cents: groupPreviews.reduce(function (n, g) { return n + g.subtotal_cents; }, 0)
     });
   }
 
-  if (!previewLines.length) return _json({ ok:false, error:'No billable jobs for that payer + period.' });
+  var totalJobs = groupPreviews.reduce(function (n, g) { return n + g.lines.length; }, 0);
+  if (!totalJobs) return _json({ ok:false, error:'No billable jobs in scope.' });
 
-  // Persist invoice header.
-  var invRows = _invDataRows(ss, T.Invoices, schema.Invoices);
-  var invHdr = schema.Invoices;
-  var invoiceId = _ulid('inv');
+  // Persist each group as its own invoice.
+  var invoices = [];
   var now = new Date().toISOString();
-  var invObj = {
-    invoice_id: invoiceId,
-    tenant_id: s.payload.tid,
-    payer_id: p.payer_id,
-    period_start: p.period_start,
-    period_end: p.period_end,
-    issued_at: now,
-    due_at: p.due_at || '',
-    subtotal_cents: subtotalCents,
-    tax_cents: 0,
-    total_cents: subtotalCents,
-    status: 'draft',
-    stripe_invoice_id: '',
-    pdf_r2_key: '',
-    _created_at: now,
-    _updated_at: now
-  };
-  var invRow = invHdr.map(function (h) { return invObj[h] !== undefined ? invObj[h] : ''; });
-  invRows.sh.appendRow(invRow);
-
-  // Persist lines.
+  var invRows = _invDataRows(ss, T.Invoices, schema.Invoices);
   var linesRows = _invDataRows(ss, T.InvoiceLines, schema.Invoice_Lines);
+  var invHdr = schema.Invoices;
   var lineHdr = schema.Invoice_Lines;
-  previewLines.forEach(function (ln) {
-    var rowObj = {
-      line_id: _ulid('il'),
+
+  groupPreviews.forEach(function (g) {
+    if (!g.lines.length) return;
+    var invoiceId = _ulid('inv');
+    var invNumber = _invNextNumber_(ss, s.payload.tid);
+    var invObj = {
       invoice_id: invoiceId,
-      job_id: ln.job_id,
-      description: ln.description,
-      quantity: ln.quantity,
-      unit: ln.unit,
-      rate_cents: ln.rate_cents,
-      amount_cents: ln.amount_cents,
+      tenant_id: s.payload.tid,
+      client_id: p.client_id || (g.lines[0] && g.lines[0].client_id) || '',
+      payer_id: g.payer_id || p.payer_id || '',
+      invoice_number: invNumber,
+      period_start: p.period_start,
+      period_end: p.period_end,
+      issued_at: now,
+      due_at: p.due_at || '',
+      net_terms: (clientRow && clientRow.net_terms) || p.net_terms || 'NET30',
+      subtotal_cents: g.subtotal_cents,
+      tax_cents: 0,
+      total_cents: g.subtotal_cents,
+      status: 'draft',
+      po_number: p.po_number || '',
+      consolidation_mode: rules ? rules.consolidation_mode : 'one_per_payer',
+      split_group_key: g.key,
+      statement_descriptor: clientRow ? (clientRow.display_name || clientRow.legal_name) : '',
+      stripe_invoice_id: '',
+      pdf_r2_key: '',
+      sent_at: '',
+      paid_at: '',
+      voided_at: '',
+      notes: p.notes || '',
       _created_at: now,
       _updated_at: now
     };
-    var row = lineHdr.map(function (h) { return rowObj[h] !== undefined ? rowObj[h] : ''; });
-    linesRows.sh.appendRow(row);
+    invRows.sh.appendRow(invHdr.map(function (h) { return invObj[h] !== undefined ? invObj[h] : ''; }));
+
+    g.lines.forEach(function (ln, idx) {
+      var rowObj = {
+        line_id: _ulid('il'),
+        invoice_id: invoiceId,
+        job_id: ln.job_id,
+        line_kind: ln.line_kind || 'service',
+        client_id: ln.client_id || '',
+        requestor_id: ln.requestor_id || '',
+        location_id: ln.location_id || '',
+        specialist_id: ln.specialist_id || '',
+        consumer_initials: ln.consumer_initials || '',
+        interpreter_id: ln.interpreter_id || '',
+        interpreter_name: ln.interpreter_name || '',
+        service_type: ln.service_type || '',
+        modality: ln.modality || '',
+        scheduled_start: ln.scheduled_start || '',
+        scheduled_end: ln.scheduled_end || '',
+        description: ln.description,
+        quantity: ln.quantity,
+        unit: ln.unit,
+        rate_cents: ln.rate_cents,
+        amount_cents: ln.amount_cents,
+        sort_order: idx + 1,
+        _created_at: now,
+        _updated_at: now
+      };
+      linesRows.sh.appendRow(lineHdr.map(function (h) { return rowObj[h] !== undefined ? rowObj[h] : ''; }));
+    });
+    invoices.push({
+      invoice_id: invoiceId,
+      invoice_number: invNumber,
+      total_cents: g.subtotal_cents,
+      line_count: g.lines.length,
+      payer_id: invObj.payer_id,
+      split_group_key: g.key
+    });
   });
 
-  _logAudit('invoice.create', s.payload.tid, s.payload.uid, invoiceId + ' jobs=' + previewLines.length);
-  return _json({ ok:true, invoice_id: invoiceId, subtotal_cents: subtotalCents, total_cents: subtotalCents, line_count: previewLines.length });
+  _logAudit('invoice.create', s.payload.tid, s.payload.uid,
+    invoices.map(function (i) { return i.invoice_id; }).join(',') + ' jobs=' + totalJobs);
+  return _json({
+    ok: true,
+    invoices: invoices,
+    total_invoices: invoices.length,
+    total_jobs: totalJobs,
+    total_cents: invoices.reduce(function (n, i) { return n + i.total_cents; }, 0)
+  });
+}
+
+// Split helpers — invoice consolidation by client billing rules.
+
+function _invSplitByConsolidation_(jobs, rules) {
+  if (!rules || rules.consolidation_mode === 'one_per_client') {
+    var byPayer = {};
+    jobs.forEach(function (j) {
+      var k = String(j.payer_id || 'unspecified');
+      if (!byPayer[k]) byPayer[k] = { key: 'client:' + k, payer_id: j.payer_id, jobs: [] };
+      byPayer[k].jobs.push(j);
+    });
+    return Object.keys(byPayer).map(function (k) { return byPayer[k]; });
+  }
+  var mode = rules.consolidation_mode;
+  var groups = {};
+  jobs.forEach(function (j) {
+    var k;
+    if      (mode === 'one_per_requestor')   k = 'req:'  + (j.requestor_id || 'none');
+    else if (mode === 'one_per_location')    k = 'loc:'  + (j.location_id  || 'none');
+    else if (mode === 'one_per_specialist')  k = 'spec:' + (j.specialist_id || 'none');
+    else if (mode === 'one_per_job')         k = 'job:'  + j.job_id;
+    else                                     k = 'payer:'+ (j.payer_id || 'none');
+    if (!groups[k]) groups[k] = { key: k, payer_id: j.payer_id, jobs: [] };
+    groups[k].jobs.push(j);
+  });
+  return Object.keys(groups).map(function (k) { return groups[k]; });
+}
+
+function _invListClientJobsInPeriod_(ss, tenantId, clientId, periodStart, periodEnd) {
+  var sh = ss.getSheetByName(T.Jobs);
+  if (!sh) return [];
+  var data = sh.getDataRange().getValues();
+  if (data.length < 2) return [];
+  var hdr = data[0];
+  var startT = new Date(periodStart + 'T00:00:00Z').getTime();
+  var endT = new Date(periodEnd + 'T23:59:59Z').getTime();
+  var out = [];
+  for (var i = 1; i < data.length; i++) {
+    var o = _rowToObj(hdr, data[i]);
+    if (String(o.tenant_id) !== String(tenantId)) continue;
+    if (String(o.client_id) !== String(clientId)) continue;
+    if (String(o.status) !== 'COMPLETED') continue;
+    var refIso = o.actual_end || o.scheduled_end || o.scheduled_start;
+    if (!refIso) continue;
+    var t = new Date(refIso).getTime();
+    if (isNaN(t)) continue;
+    if (t < startT || t > endT) continue;
+    out.push(o);
+  }
+  return out;
+}
+
+function _invSpecialistName_(ss, specialistId) {
+  if (!specialistId) return '';
+  var sh = ss.getSheetByName(T.Specialists);
+  if (!sh) return '';
+  var data = sh.getDataRange().getValues();
+  if (data.length < 2) return '';
+  var hdr = data[0];
+  var iId = hdr.indexOf('specialist_id');
+  var iName = hdr.indexOf('display_name');
+  if (iId < 0 || iName < 0) return '';
+  for (var i = 1; i < data.length; i++) {
+    if (String(data[i][iId]) === String(specialistId)) return String(data[i][iName] || '');
+  }
+  return '';
+}
+
+function _invLocationName_(ss, locationId) {
+  if (!locationId) return '';
+  var sh = ss.getSheetByName(T.Locations);
+  if (!sh) return '';
+  var data = sh.getDataRange().getValues();
+  if (data.length < 2) return '';
+  var hdr = data[0];
+  var iId = hdr.indexOf('location_id');
+  var iName = hdr.indexOf('display_name');
+  if (iId < 0 || iName < 0) return '';
+  for (var i = 1; i < data.length; i++) {
+    if (String(data[i][iId]) === String(locationId)) return String(data[i][iName] || '');
+  }
+  return '';
+}
+
+function _invNextNumber_(ss, tenantId) {
+  // Per-tenant per-year monotonic counter: INV-2026-0001
+  var year = new Date().getFullYear();
+  var sh = ss.getSheetByName(T.Invoices);
+  if (!sh) return 'INV-' + year + '-0001';
+  var data = sh.getDataRange().getValues();
+  if (data.length < 2) return 'INV-' + year + '-0001';
+  var hdr = data[0];
+  var iNum = hdr.indexOf('invoice_number');
+  var iTen = hdr.indexOf('tenant_id');
+  if (iNum < 0) return 'INV-' + year + '-0001';
+  var max = 0;
+  var prefix = 'INV-' + year + '-';
+  for (var i = 1; i < data.length; i++) {
+    if (iTen >= 0 && String(data[i][iTen]) !== String(tenantId)) continue;
+    var sV = String(data[i][iNum] || '');
+    if (sV.indexOf(prefix) !== 0) continue;
+    var n = parseInt(sV.substr(prefix.length), 10);
+    if (!isNaN(n) && n > max) max = n;
+  }
+  var next = String(max + 1);
+  while (next.length < 4) next = '0' + next;
+  return prefix + next;
 }
 
 function apiUpdateInvoice(e) {
@@ -431,7 +630,10 @@ function apiUpdateInvoice(e) {
 }
 
 function apiMarkInvoicePaid(e) {
-  var s = _requireSession(e);
+  // Accept either a user session or a worker JWT (Stripe webhook). Worker
+  // calls have tid='*' — we match by invoice_id only and use the row's own
+  // tenant_id for the audit log.
+  var s = _requireSessionOrWorker(e, 'stripe_webhook');
   if (!s.ok) return _json({ ok:false, error:s.error }, 401);
   var p = e.parameter || {};
   if (!p.invoice_id) return _json({ ok:false, error:'invoice_id required' });
@@ -446,9 +648,13 @@ function apiMarkInvoicePaid(e) {
   var iUpdated = hdr.indexOf('_updated_at');
   var paidAt = p.paid_at || new Date().toISOString();
   for (var r = 1; r < data.length; r++) {
-    if (String(data[r][iId]) === p.invoice_id && String(data[r][iTenant]) === String(s.payload.tid)) {
+    var sameId = String(data[r][iId]) === p.invoice_id;
+    var sameTenant = String(data[r][iTenant]) === String(s.payload.tid);
+    var match = sameId && (s.is_worker ? true : sameTenant);
+    if (match) {
       if (iStatus >= 0) sh.getRange(r + 1, iStatus + 1).setValue('paid');
       if (iUpdated >= 0) sh.getRange(r + 1, iUpdated + 1).setValue(paidAt);
+      var rowTenant = String(data[r][iTenant] || '');
       // Emit Job_Events 'invoice_paid' for every linked job.
       var linesSh = ss.getSheetByName(T.InvoiceLines);
       if (linesSh) {
@@ -463,7 +669,8 @@ function apiMarkInvoicePaid(e) {
           }
         }
       }
-      _logAudit('invoice.mark_paid', s.payload.tid, s.payload.uid, p.invoice_id);
+      var auditTid = s.is_worker ? rowTenant : s.payload.tid;
+      _logAudit('invoice.mark_paid', auditTid, s.payload.uid, p.invoice_id);
       return _json({ ok:true, invoice_id: p.invoice_id, status: 'paid', paid_at: paidAt });
     }
   }
@@ -712,7 +919,10 @@ function apiCreatePayout(e) {
 }
 
 function apiMarkPayoutPaid(e) {
-  var s = _requireSession(e);
+  // Accept either a user session or a worker JWT (Stripe webhook). Worker
+  // calls have tid='*' — we match by payout_id only and use the row's own
+  // tenant_id for the audit log.
+  var s = _requireSessionOrWorker(e, 'stripe_webhook');
   if (!s.ok) return _json({ ok:false, error:s.error }, 401);
   var p = e.parameter || {};
   if (!p.payout_id) return _json({ ok:false, error:'payout_id required' });
@@ -729,12 +939,16 @@ function apiMarkPayoutPaid(e) {
   var iUpdated = hdr.indexOf('_updated_at');
   var paidAt = p.paid_at || new Date().toISOString();
   for (var r = 1; r < data.length; r++) {
-    if (String(data[r][iId]) === p.payout_id && String(data[r][iTenant]) === String(s.payload.tid)) {
+    var sameId = String(data[r][iId]) === p.payout_id;
+    var sameTenant = String(data[r][iTenant]) === String(s.payload.tid);
+    var match = sameId && (s.is_worker ? true : sameTenant);
+    if (match) {
       if (iStatus >= 0) sh.getRange(r + 1, iStatus + 1).setValue('paid');
       if (p.stripe_transfer_id && iStripe >= 0) sh.getRange(r + 1, iStripe + 1).setValue(p.stripe_transfer_id);
       if (iIssued >= 0 && !data[r][iIssued]) sh.getRange(r + 1, iIssued + 1).setValue(paidAt);
       if (iUpdated >= 0) sh.getRange(r + 1, iUpdated + 1).setValue(paidAt);
-      _logAudit('payout.mark_paid', s.payload.tid, s.payload.uid, p.payout_id);
+      var auditTid = s.is_worker ? String(data[r][iTenant] || '*') : s.payload.tid;
+      _logAudit('payout.mark_paid', auditTid, s.payload.uid, p.payout_id);
       return _json({ ok:true, payout_id: p.payout_id, status: 'paid', paid_at: paidAt });
     }
   }
@@ -760,10 +974,19 @@ function apiInvoicePdf(e) {
   var invoice = _findInvoice(ss, s.payload.tid, invoiceId);
   if (!invoice) return _serveText('Invoice not found', 404);
   var lines = _findInvoiceLines(ss, invoiceId);
+  // Sort lines: by location, then specialist, then scheduled_start
+  lines.sort(function (a, b) {
+    var loc = String(a.location_id || '').localeCompare(String(b.location_id || ''));
+    if (loc !== 0) return loc;
+    var spec = String(a.specialist_id || '').localeCompare(String(b.specialist_id || ''));
+    if (spec !== 0) return spec;
+    return String(a.scheduled_start || '').localeCompare(String(b.scheduled_start || ''));
+  });
   var agency = _findAgency(ss, s.payload.tid);
   var payer = _findPayerOrRequestor(ss, s.payload.tid, invoice.payer_id);
+  var client = invoice.client_id ? _findRowById_(ss, T.Clients, 'client_id', invoice.client_id, s.payload.tid) : null;
 
-  var html = _renderInvoiceHtml(agency, invoice, lines, payer);
+  var html = _renderInvoiceHtml(agency, invoice, lines, payer, client);
   var pdfBlob = Utilities.newBlob(html, 'text/html', 'invoice-' + invoiceId + '.html').getAs('application/pdf');
   pdfBlob.setName(invoiceId + '.pdf');
   _logAudit('invoice.pdf_generated', s.payload.tid, s.payload.uid, invoiceId);
@@ -970,17 +1193,71 @@ function _pdfCss(brandColor) {
   ].join('');
 }
 
-function _renderInvoiceHtml(agency, invoice, lines, payer) {
+function _renderInvoiceHtml(agency, invoice, lines, payer, client) {
   var styles = _pdfCss(agency.brand_color);
+  // Decide which columns to display based on whether any line carries that field.
+  var hasLoc = lines.some(function (l) { return l.location_id; });
+  var hasSpec = lines.some(function (l) { return l.specialist_id; });
+  var hasInit = lines.some(function (l) { return l.consumer_initials; });
+  var hasInterp = lines.some(function (l) { return l.interpreter_name; });
+
+  // Cache lookups so we don't refetch per row.
+  var ss = SpreadsheetApp.openById(SHEET_ID);
+  var locCache = {}, specCache = {};
+  function locName(id) {
+    if (!id) return '';
+    if (locCache[id] !== undefined) return locCache[id];
+    locCache[id] = _invLocationName_(ss, id);
+    return locCache[id];
+  }
+  function specName(id) {
+    if (!id) return '';
+    if (specCache[id] !== undefined) return specCache[id];
+    specCache[id] = _invSpecialistName_(ss, id);
+    return specCache[id];
+  }
+
+  var thead = '<tr>' +
+    '<th>Date</th>' +
+    '<th>Service</th>' +
+    (hasLoc  ? '<th>Location</th>'  : '') +
+    (hasSpec ? '<th>Specialist</th>': '') +
+    (hasInit ? '<th>Consumer</th>'  : '') +
+    (hasInterp ? '<th>Interpreter</th>' : '') +
+    '<th class="right">Qty</th>' +
+    '<th>Unit</th>' +
+    '<th class="right">Rate</th>' +
+    '<th class="right">Amount</th>' +
+  '</tr>';
+
   var rows = lines.map(function (l) {
+    var date = _fmtDate(l.scheduled_start) || '—';
+    var serviceLabel = (l.service_type || '').replace(/-/g, ' ');
+    if (l.modality) serviceLabel = serviceLabel + ' (' + (l.modality || '') + ')';
     return '<tr>' +
-      '<td>' + _esc(l.description || '—') + '</td>' +
+      '<td>' + _esc(date) + '</td>' +
+      '<td>' + _esc(serviceLabel || l.description || '—') + '</td>' +
+      (hasLoc  ? '<td>' + _esc(locName(l.location_id))   + '</td>' : '') +
+      (hasSpec ? '<td>' + _esc(specName(l.specialist_id)) + '</td>' : '') +
+      (hasInit ? '<td>' + _esc(l.consumer_initials || '') + '</td>' : '') +
+      (hasInterp ? '<td>' + _esc(l.interpreter_name || '') + '</td>' : '') +
       '<td class="right">' + _esc(l.quantity || '') + '</td>' +
       '<td>' + _esc(l.unit || '') + '</td>' +
       '<td class="right">' + _fmtMoney(l.rate_cents) + '</td>' +
       '<td class="right">' + _fmtMoney(l.amount_cents) + '</td>' +
     '</tr>';
   }).join('');
+
+  // "Bill to" block prefers client over payer; falls back to payer/requestor if no client.
+  var billToName = (client && (client.display_name || client.legal_name)) || payer.display_name || '(no payer)';
+  var billToEmail = (client && client.billing_email) || payer.billing_email || '';
+  var billToAddr = (client && client.billing_address) || payer.billing_address || '';
+  var billToPhone = (client && client.billing_phone) || '';
+
+  var consolidationLabel = invoice.consolidation_mode
+    ? invoice.consolidation_mode.replace(/_/g, ' ').replace(/\bone per\b/, '1 per')
+    : '';
+
   return [
     '<!doctype html><html><head><meta charset="utf-8"><style>' + styles + '</style></head><body>',
     '<header>',
@@ -990,20 +1267,26 @@ function _renderInvoiceHtml(agency, invoice, lines, payer) {
     '  </div>',
     '  <div class="doc-meta">',
     '    <h1>Invoice</h1>',
-    '    <div class="id">' + _esc(invoice.invoice_id) + '</div>',
+    '    <div class="id">' + _esc(invoice.invoice_number || invoice.invoice_id) + '</div>',
     '    <div style="margin-top:8px"><strong>Issued:</strong> ' + _fmtDate(invoice.issued_at) + '</div>',
     '    <div><strong>Due:</strong> ' + _fmtDate(invoice.due_at) + '</div>',
     '    <div><strong>Status:</strong> ' + _esc(invoice.status || 'draft') + '</div>',
+    (invoice.po_number ? '    <div><strong>PO:</strong> ' + _esc(invoice.po_number) + '</div>' : ''),
     '  </div>',
     '</header>',
     '<section class="party">',
     '  <div><h2>From</h2><div class="name">' + _esc(agency.legal_name || '1891 Interpreter') + '</div></div>',
-    '  <div><h2>Bill to</h2><div class="name">' + _esc(payer.display_name || '(no payer)') + '</div>' +
-    (payer.billing_email ? '<div style="font-size:12px;color:#5C6670;margin-top:2px">' + _esc(payer.billing_email) + '</div>' : '') + '</div>',
+    '  <div><h2>Bill to</h2><div class="name">' + _esc(billToName) + '</div>' +
+    (client && payer.display_name && payer.display_name !== billToName ? '<div style="font-size:12px;color:#5C6670;margin-top:2px">via ' + _esc(payer.display_name) + '</div>' : '') +
+    (billToEmail ? '<div style="font-size:12px;color:#5C6670;margin-top:2px">' + _esc(billToEmail) + '</div>' : '') +
+    (billToPhone ? '<div style="font-size:12px;color:#5C6670">' + _esc(billToPhone) + '</div>' : '') +
+    (billToAddr ? '<div style="font-size:12px;color:#5C6670;margin-top:2px;white-space:pre-line">' + _esc(billToAddr) + '</div>' : '') +
+    '</div>',
     '</section>',
-    '<div><strong>Service period:</strong> ' + _fmtDate(invoice.period_start) + ' &mdash; ' + _fmtDate(invoice.period_end) + '</div>',
+    '<div><strong>Service period:</strong> ' + _fmtDate(invoice.period_start) + ' &mdash; ' + _fmtDate(invoice.period_end) +
+    (consolidationLabel ? ' &middot; <span style="color:#5C6670">consolidation: ' + _esc(consolidationLabel) + '</span>' : '') + '</div>',
     '<table>',
-    '  <thead><tr><th>Description</th><th class="right">Qty</th><th>Unit</th><th class="right">Rate</th><th class="right">Amount</th></tr></thead>',
+    '  <thead>' + thead + '</thead>',
     '  <tbody>' + rows + '</tbody>',
     '</table>',
     '<table class="totals">',
@@ -1012,7 +1295,7 @@ function _renderInvoiceHtml(agency, invoice, lines, payer) {
     '  <tr class="total"><td>Total due</td><td class="right">' + _fmtMoney(invoice.total_cents) + '</td></tr>',
     '</table>',
     '<div class="terms">',
-    '  Net 30 from issue date unless otherwise agreed. Late payments after the due date may incur fees per the master services agreement. Consumer identifiers on this invoice are redacted per HIPAA minimum-necessary rules.',
+    '  ' + _esc(invoice.net_terms || 'Net 30') + ' from issue date unless otherwise agreed. Late payments after the due date may incur fees per the master services agreement. Consumer identifiers on this invoice are redacted per HIPAA minimum-necessary rules.',
     '</div>',
     '<footer>',
     '  <div>Generated ' + _fmtDate(new Date().toISOString()) + '</div>',

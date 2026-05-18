@@ -18,6 +18,23 @@ export interface JwtPayload {
   [key: string]: unknown;
 }
 
+/**
+ * Internal worker-issued JWT payload. Used to authenticate Worker → Apps Script
+ * webhook callbacks (Stripe/Track1099/Twilio) where there is no human session.
+ * Same wire format as JwtPayload (base64url(JSON).base64url(HMAC)), but the
+ * `iss='worker'` and `purpose` claims tell Apps Script to skip the tenant
+ * scope check — the webhook payload itself carries the tenant inference.
+ */
+export interface WorkerJwtPayload {
+  iss: "worker";
+  sub: string;
+  tid: string;
+  purpose: string;
+  iat: number;
+  exp: number;
+  [key: string]: unknown;
+}
+
 function b64urlEncodeBytes(bytes: ArrayBuffer | Uint8Array): string {
   const arr = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
   let bin = "";
@@ -69,6 +86,45 @@ export async function signToken(
     iat: payload.iat ?? Date.now(),
     ...payload,
   } as JwtPayload;
+  const json = JSON.stringify(full);
+  const payloadB64 = b64urlEncodeBytes(new TextEncoder().encode(json));
+  const sig = await hmacSha256(secret, payloadB64);
+  return payloadB64 + "." + b64urlEncodeBytes(sig);
+}
+
+/**
+ * Mint a short-lived worker JWT for Worker → Apps Script webhook callbacks.
+ *
+ * The Worker has no user session for Stripe / Track1099 / Twilio webhooks —
+ * they are machine-to-machine. After verifying the upstream signature (e.g.,
+ * Stripe-Signature), we mint a token like:
+ *
+ *   { iss: "worker", sub: "stripe_webhook", tid: "*",
+ *     purpose: "stripe_webhook", iat: <now>, exp: <now+60s> }
+ *
+ * Apps Script's `_verifyWorkerJwt` accepts this for the listed webhook actions
+ * (mark_invoice_paid, mark_payout_paid, update_interpreter, etc.) and skips
+ * the tenant-scope check on those actions. Same HMAC format as `signToken`.
+ */
+export async function signWorkerJwt(
+  payload: {
+    purpose: string;
+    sub?: string;
+    tid?: string;
+    ttlSeconds?: number;
+  },
+  secret: string
+): Promise<string> {
+  const now = Date.now();
+  const ttlMs = Math.max(1, payload.ttlSeconds ?? 60) * 1000;
+  const full: WorkerJwtPayload = {
+    iss: "worker",
+    sub: payload.sub ?? payload.purpose,
+    tid: payload.tid ?? "*",
+    purpose: payload.purpose,
+    iat: now,
+    exp: now + ttlMs,
+  };
   const json = JSON.stringify(full);
   const payloadB64 = b64urlEncodeBytes(new TextEncoder().encode(json));
   const sig = await hmacSha256(secret, payloadB64);

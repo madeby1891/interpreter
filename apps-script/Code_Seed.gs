@@ -12,6 +12,21 @@
  * personas. Place names use semi-fictional Maryland-flavored organizations
  * (Catoctin Regional, Liberty Hill CC, etc.) to evoke the Frederick context
  * without referencing real organizations.
+ *
+ * Seed interpreter login emails (for QA magic-link sign-in):
+ *   Every seeded interpreter also gets a row in the `Users` tab with email
+ *   shaped as `<firstname>.<lastname>@seed.example` (lowercase, no spaces).
+ *   Examples:
+ *     - maria.rivera@seed.example      → Maria Rivera (medical/mental-health)
+ *     - marcus.thompson@seed.example   → Marcus Thompson (CDI, Deaf)
+ *     - elena.vasquez@seed.example     → Elena Vasquez (Spanish trilingual)
+ *     - jordan.hayes@seed.example      → Jordan Hayes (legal, NIC Master)
+ *   To magic-link in as a seeded interpreter, POST `auth_request` with that
+ *   email; the link will land in the host owner's MailApp outbox/log (the
+ *   `@seed.example` domain is reserved and undeliverable, which is fine —
+ *   QA pulls the token from the Auth_Tokens sheet or the Apps Script log).
+ *   The synthetic Users rows are wiped together with the rest of the seed
+ *   via `apiWipeSeed` (they are matched by their `@seed.example` domain).
  */
 
 // ============================================================================
@@ -46,9 +61,13 @@ function seedHostTenant() {
   try { bootstrapHostTenant(); } catch (_) {}
 
   report.interpreters = seedInterpreters_(ss, TID);
-  report.requestors = seedRequestors_(ss, TID);
-  report.requestor_contacts = seedRequestorContacts_(ss, TID, report.requestors);
   report.payers = seedPayers_(ss, TID);
+  report.clients = seedClients_(ss, TID, report.payers);
+  report.client_contacts = seedClientContacts_(ss, TID, report.clients);
+  report.client_billing_rules = seedClientBillingRules_(ss, TID, report.clients);
+  report.specialists = seedSpecialists_(ss, TID, report.clients);
+  report.requestors = seedRequestors_(ss, TID, report.clients, report.payers);
+  report.requestor_contacts = seedRequestorContacts_(ss, TID, report.requestors);
   report.locations = seedLocations_(ss, TID, report.requestors);
   report.consumers = seedConsumers_(ss, TID);
   // New: rate engine + docs
@@ -58,6 +77,8 @@ function seedHostTenant() {
   report.interpreter_docs = seedInterpreterDocs_(ss, TID, report.interpreters);
   report.jobs = seedJobs_(ss, TID, {
     interpreters: report.interpreters,
+    clients: report.clients,
+    specialists: report.specialists,
     requestors: report.requestors,
     payers: report.payers,
     locations: report.locations,
@@ -70,6 +91,7 @@ function seedHostTenant() {
 
   _logAudit('seed.host_data', TID, 'system', JSON.stringify({
     interpreters: report.interpreters.length,
+    clients: report.clients.length,
     jobs: report.jobs.length,
     invoices: report.invoices.length,
     payouts: report.payouts.length
@@ -77,6 +99,10 @@ function seedHostTenant() {
 
   return {
     interpreters: report.interpreters.length,
+    clients: report.clients.length,
+    client_contacts: report.client_contacts.length,
+    client_billing_rules: report.client_billing_rules.length,
+    specialists: report.specialists.length,
     requestors: report.requestors.length,
     requestor_contacts: report.requestor_contacts.length,
     payers: report.payers.length,
@@ -91,6 +117,182 @@ function seedHostTenant() {
     invoices: report.invoices.length,
     payouts: report.payouts.length
   };
+}
+
+// ----- CLIENTS / SPECIALISTS / BILLING RULES (v18) ------------------------
+
+function seedClients_(ss, tid, payers) {
+  var sh = _ensureTab(ss, T.Clients, _tenantSchema().Clients);
+  var existing = _existingByCol_(sh, 'legal_name');
+  var hdr = _tenantSchema().Clients;
+  var now = new Date().toISOString();
+
+  // Map payers by display_name → payer_id for the cross-reference below.
+  var payerByName = {};
+  payers.forEach(function (p) { payerByName[p.display_name] = p.payer_id; });
+
+  // Five clients spanning the four big interpreting buyers (hospital system,
+  // school district, courts, mental-health), plus a small private practice that
+  // bills per-job so we can prove that mode works too.
+  var list = [
+    { legal:'Frederick Health System, Inc.',         display:'Frederick Health',          type:'healthcare', industry:'Hospital system',
+      addr:'400 W 7th St\nFrederick, MD 21701', email:'ap@fredhealth.example', phone:'+13016987000',
+      payer_name:'Catoctin Regional Medical — Central Billing', terms:'NET30', notes:'[SEED] 18 locations roll up to one billing office. Pilot client.' },
+    { legal:'Frederick County Public Schools (demo)',display:'Frederick County Schools',  type:'education',  industry:'K-12 district',
+      addr:'191 S East St\nFrederick, MD 21701', email:'ap-interp@fcps.example', phone:'+13016936000',
+      payer_name:'Frederick County Public Schools — AP', terms:'NET30', notes:'[SEED] PO required. Per-school job assignment but one consolidated invoice.' },
+    { legal:'Catoctin County Government',            display:'Catoctin County Govt',     type:'gov',        industry:'Court + agencies',
+      addr:'12 E Church St\nFrederick, MD 21701', email:'finance@catoctin.example', phone:'+13016001212',
+      payer_name:'Catoctin County Court — Fiscal Office', terms:'NET45', notes:'[SEED] Court interpreting + agency hearings. State-funded.' },
+    { legal:'Midstate Behavioral Health Network',    display:'Midstate Behavioral',      type:'healthcare', industry:'Behavioral health',
+      addr:'2200 Research Blvd\nRockville, MD 20850', email:'billing@midstate.example', phone:'+13017701234',
+      payer_name:'Midstate Behavioral Health — Billing', terms:'NET30', notes:'[SEED] Strict PHI mode. Initials-only on invoices.' },
+    { legal:'Liberty Hill Community College',        display:'Liberty Hill CC',          type:'education',  industry:'Higher education',
+      addr:'7600 Liberty Hill Dr\nFrederick, MD 21704', email:'bursar@libertyhill.example', phone:'+13016944000',
+      payer_name:'Liberty Hill Community College — Bursar', terms:'NET30', notes:'[SEED] Semester-based consolidated invoicing.' },
+    { legal:'Riverside Family Practice, P.A.',       display:'Riverside Family Practice',type:'healthcare', industry:'Private practice',
+      addr:'1410 Key Pkwy\nFrederick, MD 21702', email:'office@riverside.example', phone:'+13016624400',
+      payer_name:'Riverside Family Practice — Office', terms:'DUE_ON_RECEIPT', notes:'[SEED] Per-job invoicing — small practice.' }
+  ];
+  var out = [];
+  list.forEach(function (c) {
+    var k = c.legal.toLowerCase();
+    if (existing[k]) { out.push({ client_id: existing[k], legal_name: c.legal, display_name: c.display, _existed: true }); return; }
+    var id = _ulid('cl');
+    var row = {
+      client_id: id, tenant_id: tid,
+      legal_name: c.legal, display_name: c.display,
+      client_type: c.type, industry: c.industry,
+      primary_owner_contact_id: '', primary_payer_id: payerByName[c.payer_name] || '',
+      billing_address: c.addr, billing_email: c.email, billing_phone: c.phone,
+      tax_exempt: c.type === 'gov' || c.type === 'education',
+      tax_id_last4: '', net_terms: c.terms,
+      contract_doc_id: '', notes: c.notes, status: 'active',
+      _created_at: now, _updated_at: now, _rev: 1
+    };
+    sh.appendRow(hdr.map(function (col) { return row[col] !== undefined ? row[col] : ''; }));
+    out.push({ client_id: id, legal_name: c.legal, display_name: c.display, payer_id: row.primary_payer_id });
+  });
+  return out;
+}
+
+function seedClientContacts_(ss, tid, clients) {
+  var sh = _ensureTab(ss, T.ClientContacts, _tenantSchema().Client_Contacts);
+  var existing = _existingByCol_(sh, 'first', 'last');
+  var hdr = _tenantSchema().Client_Contacts;
+  var now = new Date().toISOString();
+  // Per client: an AP/billing person + an interpreter-services scheduler. That's
+  // the minimum to make notifications and PO collection work in the demo.
+  var byClient = {
+    'Frederick Health':           [{role:'billing', first:'Janet',  last:'Whitford', title:'AP Manager',                  email:'janet.whitford@fredhealth.example', phone:'+13016987100'},
+                                   {role:'scheduler', first:'Devin', last:'Boyer',  title:'Interpreter Services Manager', email:'devin.boyer@fredhealth.example',     phone:'+13016987200'}],
+    'Frederick County Schools':   [{role:'billing', first:'Amir',   last:'Hassan',   title:'Accounts Payable',           email:'amir.hassan@fcps.example',          phone:'+13016936100'},
+                                   {role:'scheduler', first:'Yvette',last:'Coleman', title:'504 Coordinator',            email:'yvette.coleman@fcps.example',       phone:'+13016936200'}],
+    'Catoctin County Govt':       [{role:'billing', first:'Howard', last:'Drake',    title:'Court Operations',           email:'howard.drake@catoctin.example',     phone:'+13016001300'}],
+    'Midstate Behavioral':        [{role:'billing', first:'Casey',  last:'Fernandez',title:'Office Manager',             email:'billing@midstate.example',          phone:'+13017701300'}],
+    'Liberty Hill CC':            [{role:'billing', first:'Indira', last:'Singh',    title:'Disability Services',        email:'indira.singh@libertyhill.example',  phone:'+13016944100'}],
+    'Riverside Family Practice':  [{role:'billing', first:'Brigette',last:'Owens',   title:'Practice Manager',           email:'brigette.owens@riverside.example',  phone:'+13016624500'}]
+  };
+  var out = [];
+  clients.forEach(function (c) {
+    var batch = byClient[c.display_name] || [];
+    batch.forEach(function (cc) {
+      var k = (cc.first + '|' + cc.last).toLowerCase();
+      if (existing[k]) { out.push({ contact_id: existing[k], client_id: c.client_id, _existed: true }); return; }
+      var id = _ulid('cc');
+      var row = {
+        contact_id: id, client_id: c.client_id, tenant_id: tid, user_id: '',
+        role_on_client: cc.role, first: cc.first, last: cc.last,
+        email: cc.email, phone_e164: cc.phone, title: cc.title, department: '',
+        preferred_channel: 'email', status: 'active',
+        _created_at: now, _updated_at: now
+      };
+      sh.appendRow(hdr.map(function (col) { return row[col] !== undefined ? row[col] : ''; }));
+      out.push({ contact_id: id, client_id: c.client_id });
+    });
+  });
+  return out;
+}
+
+function seedClientBillingRules_(ss, tid, clients) {
+  var sh = _ensureTab(ss, T.ClientBillingRules, _tenantSchema().Client_Billing_Rules);
+  var existing = _existingByCol_(sh, 'client_id');
+  var hdr = _tenantSchema().Client_Billing_Rules;
+  var now = new Date().toISOString();
+  // The Frederick-Health pattern: one_per_client. Small practice: one_per_job.
+  // Govt: PO required + GL template. Behavioral: HIPAA-safe (initials only, no
+  // specialist on invoice).
+  var byClient = {
+    'Frederick Health':           { mode:'one_per_client',   cycle:'monthly',  po:false, gl:'4200-INTERP',         fmt:'standard',   showInit:true,  showSpec:true,  showInterp:true,  round:15, min:0 },
+    'Frederick County Schools':   { mode:'one_per_client',   cycle:'monthly',  po:true,  gl:'4200-RELATED-SVCS',   fmt:'standard',   showInit:true,  showSpec:false, showInterp:true,  round:15, min:0,    poFmt:'^PO-\\d{6}$' },
+    'Catoctin County Govt':       { mode:'one_per_requestor',cycle:'monthly',  po:true,  gl:'STATE-AGENCY-INT',    fmt:'standard',   showInit:true,  showSpec:true,  showInterp:true,  round:30, min:0,    poFmt:'^[A-Z]{2,4}-\\d{6,8}$' },
+    'Midstate Behavioral':        { mode:'one_per_client',   cycle:'biweekly', po:false, gl:'BHN-INT',             fmt:'hipaa_safe', showInit:true,  showSpec:false, showInterp:false, round:15, min:0 },
+    'Liberty Hill CC':            { mode:'one_per_location', cycle:'monthly',  po:false, gl:'ADS-INTERP',          fmt:'standard',   showInit:false, showSpec:false, showInterp:true,  round:15, min:0 },
+    'Riverside Family Practice':  { mode:'one_per_job',      cycle:'on_demand',po:false, gl:'',                    fmt:'standard',   showInit:true,  showSpec:true,  showInterp:true,  round:15, min:0 }
+  };
+  var out = [];
+  clients.forEach(function (c) {
+    if (existing[c.client_id]) { out.push({ rule_id: existing[c.client_id], client_id: c.client_id, _existed: true }); return; }
+    var b = byClient[c.display_name] || { mode:'one_per_client', cycle:'monthly', po:false, gl:'', fmt:'standard', showInit:true, showSpec:true, showInterp:true, round:15, min:0 };
+    var id = _ulid('br');
+    var row = {
+      rule_id: id, client_id: c.client_id, tenant_id: tid,
+      consolidation_mode: b.mode, billing_cycle: b.cycle, statement_day_of_month: 1,
+      requires_po: b.po, po_format_regex: b.poFmt || '',
+      gl_template: b.gl, invoice_format: b.fmt,
+      split_by_location: b.mode === 'one_per_client',
+      split_by_specialist: false,
+      show_consumer_initials_on_invoice: b.showInit,
+      show_specialist_on_invoice: b.showSpec,
+      show_interpreter_name_on_invoice: b.showInterp,
+      rounding_minutes: b.round, minimum_invoice_cents: b.min,
+      late_fee_pct: 0, notes: '[SEED]', status: 'active',
+      _created_at: now, _updated_at: now
+    };
+    sh.appendRow(hdr.map(function (col) { return row[col] !== undefined ? row[col] : ''; }));
+    out.push({ rule_id: id, client_id: c.client_id, consolidation_mode: b.mode });
+  });
+  return out;
+}
+
+function seedSpecialists_(ss, tid, clients) {
+  var sh = _ensureTab(ss, T.Specialists, _tenantSchema().Specialists);
+  var existing = _existingByCol_(sh, 'display_name');
+  var hdr = _tenantSchema().Specialists;
+  var now = new Date().toISOString();
+  // Mostly Frederick Health specialists (the showcase client). Two more on
+  // Midstate so we can show specialty rollups in the demo.
+  var byClient = {
+    'Frederick Health':   [
+      {name:'Dr. Aisha Patel',   dept:'Cardiology',     code:'CARD',  npi:'1234567890'},
+      {name:'Dr. James Okafor',  dept:'Oncology',       code:'ONC',   npi:'1234567891'},
+      {name:'Dr. Lena Park',     dept:'Pediatrics',     code:'PED',   npi:'1234567892'},
+      {name:'Dr. Marco Rossi',   dept:'Emergency Dept', code:'ED',    npi:'1234567893'},
+      {name:'Dr. Hannah Cole',   dept:'OB-GYN',         code:'OBGYN', npi:'1234567894'}
+    ],
+    'Midstate Behavioral':[
+      {name:'Dr. Rachel Stone',  dept:'Adult Psychiatry',    code:'PSY-A', npi:'2234567890'},
+      {name:'Dr. Tom Nakagawa',  dept:'Child & Adolescent',  code:'PSY-C', npi:'2234567891'}
+    ]
+  };
+  var out = [];
+  clients.forEach(function (c) {
+    var batch = byClient[c.display_name] || [];
+    batch.forEach(function (sp) {
+      var k = sp.name.toLowerCase();
+      if (existing[k]) { out.push({ specialist_id: existing[k], client_id: c.client_id, _existed: true }); return; }
+      var id = _ulid('sp');
+      var row = {
+        specialist_id: id, client_id: c.client_id, tenant_id: tid,
+        display_name: sp.name, department: sp.dept, specialty_code: sp.code, npi: sp.npi,
+        default_location_id: '', default_modality_pref: '', notes: '[SEED]', status: 'active',
+        _created_at: now, _updated_at: now
+      };
+      sh.appendRow(hdr.map(function (col) { return row[col] !== undefined ? row[col] : ''; }));
+      out.push({ specialist_id: id, client_id: c.client_id, display_name: sp.name });
+    });
+  });
+  return out;
 }
 
 // ----- INTERPRETERS --------------------------------------------------------
@@ -194,9 +396,19 @@ function seedInterpreters_(ss, tid) {
   ];
   var hdr = _tenantSchema().Interpreters;
   var now = new Date().toISOString();
+  // Make sure the Users tab exists so we can back-fill linked-user rows for
+  // every seeded interpreter (so `/app/me/` can resolve a signed-in user back
+  // to their interpreter_id and show their offers).
+  _ensureTab(ss, T.Users, _tenantSchema().Users);
   roster.forEach(function (p) {
     var key = (p.first + '|' + p.last).toLowerCase();
-    if (existing[key]) { out.push({ interpreter_id: existing[key], ...p, _existed: true }); return; }
+    if (existing[key]) {
+      // Interpreter row already exists from a prior seed run. Still ensure a
+      // linked Users row + back-fill the interpreter's user_id column.
+      _seedUserForInterpreter_(ss, tid, sh, hdr, existing[key], p);
+      out.push({ interpreter_id: existing[key], ...p, _existed: true });
+      return;
+    }
     var id = _ulid('i');
     var row = {
       interpreter_id: id, tenant_id: tid, user_id: '',
@@ -232,40 +444,124 @@ function seedInterpreters_(ss, tid) {
       _created_at: now, _updated_at: now, _rev: 1
     };
     sh.appendRow(hdr.map(function (c) { return row[c] !== undefined ? row[c] : ''; }));
+    _seedUserForInterpreter_(ss, tid, sh, hdr, id, p);
     out.push({ interpreter_id: id, first: p.first, last: p.last, deaf: p.deaf, mods: p.mods, langs: p.langs, endorsements: p.endorsements });
   });
   return out;
 }
 
+// Ensures a Users row exists for the given seeded interpreter and back-fills
+// the Interpreter row's `user_id` column. Idempotent: a second call with the
+// same interpreter is a no-op (looks the user up by the synthetic email).
+//
+// Args:
+//   ss       — Spreadsheet handle
+//   tid      — tenant_id (e.g. 'host')
+//   sh       — Interpreters sheet (so we can back-fill user_id in place)
+//   hdr      — Interpreters column order (matches _tenantSchema().Interpreters)
+//   interpId — interpreter_id of the row to link
+//   p        — roster persona ({ first, last, ... })
+// Returns the user_id (existing or freshly created).
+function _seedUserForInterpreter_(ss, tid, sh, hdr, interpId, p) {
+  var email = (p.first + '.' + p.last + '@seed.example').toLowerCase().replace(/\s+/g, '');
+  var usersSh = ss.getSheetByName(T.Users);
+  var usersHdr = _tenantSchema().Users;
+
+  // Look up by email (single source of truth for "is this user already seeded?")
+  var existingUser = _lookupUserByEmail(ss, email);
+  var userId;
+  if (existingUser) {
+    userId = existingUser.user_id;
+  } else {
+    userId = _ulid('u');
+    var now = new Date().toISOString();
+    var userRow = {
+      user_id: userId,
+      tenant_id: tid,
+      email: email,
+      phone_e164: '',
+      display_name: p.first + ' ' + p.last,
+      role_id: 'role_interpreter',
+      interpreter_id: interpId,
+      status: 'active',
+      mfa_enabled: false,
+      webauthn_credential_ids: '[]',
+      last_login_at: '',
+      pii_scope: 'masked',
+      failed_login_count: 0,
+      sso_subject: '',
+      _created_at: now,
+      _updated_at: now
+    };
+    usersSh.appendRow(usersHdr.map(function (c) { return userRow[c] !== undefined ? userRow[c] : ''; }));
+  }
+
+  // Back-fill the Interpreter row's user_id column if not already set to this user.
+  var iUserCol = hdr.indexOf('user_id');
+  var iIdCol = hdr.indexOf('interpreter_id');
+  if (iUserCol < 0 || iIdCol < 0) return userId;
+  var data = sh.getDataRange().getValues();
+  for (var r = 1; r < data.length; r++) {
+    if (String(data[r][iIdCol]) === interpId) {
+      if (String(data[r][iUserCol] || '') !== userId) {
+        sh.getRange(r + 1, iUserCol + 1).setValue(userId);
+      }
+      break;
+    }
+  }
+  return userId;
+}
+
 // ----- REQUESTORS ---------------------------------------------------------
 
-function seedRequestors_(ss, tid) {
+function seedRequestors_(ss, tid, clients, payers) {
   var sh = _ensureTab(ss, T.Requestors, _tenantSchema().Requestors);
   var existing = _existingByCol_(sh, 'display_name');
   var hdr = _tenantSchema().Requestors;
   var now = new Date().toISOString();
+  // Map client display_name → client_id (+ its payer) so we can attach each
+  // requestor to the right parent client. Frederick Health is the showcase:
+  // 4 departments roll up to one billing office.
+  var clientByName = {};
+  (clients || []).forEach(function (c) { clientByName[c.display_name] = c; });
+
   var list = [
-    { name:'Catoctin Regional Medical Center', type:'medical',       po_required:false, notes:'[SEED] Primary hospital partner. Net-30 standard.' },
-    { name:'Lakeside Mental Health Group',     type:'mental-health', po_required:false, notes:'[SEED] Outpatient mental-health practice. Bills monthly consolidated.' },
-    { name:'Frederick County Schools (demo)',  type:'education',     po_required:true,  notes:'[SEED] K-12 with strong ASL caseload. PO required on every invoice.' },
-    { name:'Catoctin County Circuit Court',    type:'legal',         po_required:true,  notes:'[SEED] Court interpreting; requires SC:L credential for jury matters.' },
-    { name:'Liberty Hill Community College',   type:'education',     po_required:false, notes:'[SEED] Higher ed; semester-based consolidated invoicing.' },
-    { name:'Midstate Behavioral Health',       type:'mental-health', po_required:false, notes:'[SEED] Inpatient + outpatient psychiatric. Strict PHI scrubbing.' },
-    { name:'Riverside Family Practice',        type:'medical',       po_required:false, notes:'[SEED] Small family practice; multilingual community.' }
+    // Frederick Health — 4 departments under one client / one payer
+    { name:'Frederick Health Cardiology',         type:'medical',       parent:'Frederick Health',          po_required:false, notes:'[SEED] FH dept; rolls up to Frederick Health AP.' },
+    { name:'Frederick Health Emergency Dept',     type:'medical',       parent:'Frederick Health',          po_required:false, notes:'[SEED] FH dept; rush + last-minute bookings frequent.' },
+    { name:'Frederick Health Pediatrics',         type:'medical',       parent:'Frederick Health',          po_required:false, notes:'[SEED] FH dept; consents trickier (minors).' },
+    { name:'Frederick Health Oncology Center',    type:'medical',       parent:'Frederick Health',          po_required:false, notes:'[SEED] FH dept; long appointments, CDI often preferred.' },
+    // Midstate — 2 departments under one client
+    { name:'Midstate Adult Outpatient',           type:'mental-health', parent:'Midstate Behavioral',       po_required:false, notes:'[SEED] Outpatient adult psych. PHI mode initials-only.' },
+    { name:'Midstate Child & Adolescent',         type:'mental-health', parent:'Midstate Behavioral',       po_required:false, notes:'[SEED] Child psych. Parent + minor consent required.' },
+    // School district — single requestor for now
+    { name:'FCPS Special Education Office',       type:'education',     parent:'Frederick County Schools',  po_required:true,  notes:'[SEED] K-12 ASL caseload. PO required on every invoice.' },
+    // Court system
+    { name:'Catoctin County Circuit Court',       type:'legal',         parent:'Catoctin County Govt',      po_required:true,  notes:'[SEED] Court interpreting; SC:L required for jury matters.' },
+    // Higher ed
+    { name:'Liberty Hill Disability Services',    type:'education',     parent:'Liberty Hill CC',           po_required:false, notes:'[SEED] Higher ed; semester consolidated invoicing.' },
+    // Small private practice
+    { name:'Riverside Family Practice',           type:'medical',       parent:'Riverside Family Practice', po_required:false, notes:'[SEED] Small family practice; multilingual community.' }
   ];
   var out = [];
   list.forEach(function (r) {
     var k = r.name.toLowerCase();
     if (existing[k]) { out.push({ requestor_id: existing[k], display_name: r.name, type: r.type, _existed: true }); return; }
     var id = _ulid('r');
+    var client = clientByName[r.parent];
     var row = {
-      requestor_id: id, tenant_id: tid, display_name: r.name, type: r.type,
-      parent_org_id: '', billing_payer_id: '', default_location_id: '', contract_doc_id: '',
+      requestor_id: id, tenant_id: tid,
+      client_id: client ? client.client_id : '',
+      display_name: r.name, type: r.type,
+      parent_org_id: '',
+      billing_payer_id: client ? (client.payer_id || '') : '',
+      default_location_id: '', default_specialist_id: '',
+      contract_doc_id: '',
       po_required: r.po_required, notes: r.notes, status: 'active',
       _created_at: now, _updated_at: now, _rev: 1
     };
     sh.appendRow(hdr.map(function (c) { return row[c] !== undefined ? row[c] : ''; }));
-    out.push({ requestor_id: id, display_name: r.name, type: r.type });
+    out.push({ requestor_id: id, display_name: r.name, type: r.type, client_id: row.client_id, billing_payer_id: row.billing_payer_id });
   });
   return out;
 }
@@ -277,13 +573,16 @@ function seedRequestorContacts_(ss, tid, requestors) {
   var now = new Date().toISOString();
   // One contact per requestor — front-desk staff who book on behalf of the org.
   var contactsByOrg = {
-    'Catoctin Regional Medical Center': { first:'Renee',   last:'Park',     title:'Patient Access Coordinator',  pref:'email' },
-    'Lakeside Mental Health Group':     { first:'Tomas',   last:'Bell',     title:'Office Manager',              pref:'email' },
-    'Frederick County Schools (demo)':  { first:'Yvette',  last:'Coleman',  title:'504 Coordinator',             pref:'email' },
-    'Catoctin County Circuit Court':    { first:'Howard',  last:'Drake',    title:'Court Operations',            pref:'email' },
-    'Liberty Hill Community College':   { first:'Indira',  last:'Singh',    title:'Disability Services',         pref:'email' },
-    'Midstate Behavioral Health':       { first:'Casey',   last:'Fernandez',title:'Front Desk Lead',             pref:'email' },
-    'Riverside Family Practice':        { first:'Brigette',last:'Owens',    title:'Practice Manager',            pref:'sms'   }
+    'Frederick Health Cardiology':       { first:'Renee',   last:'Park',     title:'Patient Access Coordinator',  pref:'email' },
+    'Frederick Health Emergency Dept':   { first:'Greg',    last:'Schwartz', title:'ED Charge Nurse',             pref:'sms'   },
+    'Frederick Health Pediatrics':       { first:'Maya',    last:'Lin',      title:'Family Services Coordinator', pref:'email' },
+    'Frederick Health Oncology Center':  { first:'Tomas',   last:'Bell',     title:'Practice Manager',            pref:'email' },
+    'Midstate Adult Outpatient':         { first:'Casey',   last:'Fernandez',title:'Front Desk Lead',             pref:'email' },
+    'Midstate Child & Adolescent':       { first:'Aria',    last:'Mendez',   title:'Family Liaison',              pref:'email' },
+    'FCPS Special Education Office':     { first:'Yvette',  last:'Coleman',  title:'504 Coordinator',             pref:'email' },
+    'Catoctin County Circuit Court':     { first:'Howard',  last:'Drake',    title:'Court Operations',            pref:'email' },
+    'Liberty Hill Disability Services':  { first:'Indira',  last:'Singh',    title:'Disability Services',         pref:'email' },
+    'Riverside Family Practice':         { first:'Brigette',last:'Owens',    title:'Practice Manager',            pref:'sms'   }
   };
   var out = [];
   requestors.forEach(function (r) {
@@ -313,12 +612,13 @@ function seedPayers_(ss, tid) {
   var hdr = _tenantSchema().Payers;
   var now = new Date().toISOString();
   var list = [
-    { name:'Catoctin Regional Medical — Central Billing', net:30, tax_exempt:false },
-    { name:'Frederick County Government — AP',            net:45, tax_exempt:true  },
-    { name:'Lakeside Mental Health Group (self-pay)',     net:30, tax_exempt:false },
-    { name:'Catoctin County Treasury',                    net:60, tax_exempt:true  },
-    { name:'Midstate Behavioral Health',                  net:30, tax_exempt:false },
-    { name:'Liberty Hill CC — Bursar',                    net:30, tax_exempt:true  }
+    // v18: one payer per client (the billing office). Clients reference these by display_name.
+    { name:'Catoctin Regional Medical — Central Billing',        net:30, tax_exempt:false },
+    { name:'Frederick County Public Schools — AP',               net:30, tax_exempt:true  },
+    { name:'Catoctin County Court — Fiscal Office',              net:45, tax_exempt:true  },
+    { name:'Midstate Behavioral Health — Billing',               net:30, tax_exempt:false },
+    { name:'Liberty Hill Community College — Bursar',            net:30, tax_exempt:true  },
+    { name:'Riverside Family Practice — Office',                 net:0,  tax_exempt:false }
   ];
   var out = [];
   list.forEach(function (p) {
@@ -348,12 +648,24 @@ function seedLocations_(ss, tid, requestors) {
   var byReqName = {};
   requestors.forEach(function (r) { byReqName[r.display_name] = r.requestor_id; });
   var list = [
-    { req:'Catoctin Regional Medical Center', name:'CRM Main Campus',        street:'400 Hospital Way', city:'Frederick', state:'MD', zip:'21701', mods:['on-site','VRI'], notes:'Park in Garage B; check in at Patient Access desk first.' },
-    { req:'Catoctin Regional Medical Center', name:'CRM Pediatrics Annex',   street:'420 Hospital Way', city:'Frederick', state:'MD', zip:'21701', mods:['on-site'],        notes:'Pediatric wing; quiet environment; please silence phones.' },
-    { req:'Catoctin County Circuit Court',    name:'Catoctin County Courthouse', street:'100 W Patrick St', city:'Frederick', state:'MD', zip:'21701', mods:['on-site'],   notes:'Security screening at main entrance; allow 10 min.' },
-    { req:'Liberty Hill Community College',   name:'Liberty Hill — Student Services', street:'1500 Opossumtown Pike', city:'Frederick', state:'MD', zip:'21702', mods:['on-site','VRI'], notes:'Bldg 4, Room 220. Free parking after 4pm.' },
-    { req:'Midstate Behavioral Health',       name:'Midstate Outpatient Wing', street:'901 Toll House Ave', city:'Frederick', state:'MD', zip:'21701', mods:['on-site','VRI'], notes:'Confidentiality essential; do not discuss in waiting area.' },
-    { req:'Riverside Family Practice',        name:'Riverside MOB-2',          street:'2200 Riverside Pkwy', city:'Frederick', state:'MD', zip:'21701', mods:['on-site'], notes:'Small practice, family-style waiting room.' }
+    // Frederick Health — multiple locations under one billing office (the showcase pattern)
+    { req:'Frederick Health Cardiology',      name:'FH Cardiology — Main Hospital',  street:'400 W 7th St',     city:'Frederick',    state:'MD', zip:'21701', mods:['on-site','VRI'], notes:'Park in Garage B; check in at Patient Access first.' },
+    { req:'Frederick Health Cardiology',      name:'FH Cardiology — Urbana Clinic',  street:'3430 Worthington Blvd', city:'Urbana',  state:'MD', zip:'21704', mods:['on-site','VRI'], notes:'Satellite cardiology clinic; smaller waiting area.' },
+    { req:'Frederick Health Emergency Dept',  name:'FH Emergency Dept',              street:'400 W 7th St',     city:'Frederick',    state:'MD', zip:'21701', mods:['on-site','VRI'], notes:'ED triage entrance; expect rush + last-min bookings.' },
+    { req:'Frederick Health Pediatrics',      name:'FH Pediatrics — Mt Airy',        street:'705 E Ridgeville Blvd', city:'Mount Airy', state:'MD', zip:'21771', mods:['on-site','VRI'], notes:'Pediatric wing; quiet environment.' },
+    { req:'Frederick Health Pediatrics',      name:'FH Pediatrics — Brunswick',      street:'1700 Souder Rd',   city:'Brunswick',    state:'MD', zip:'21716', mods:['on-site'],       notes:'Family-style; minors present.' },
+    { req:'Frederick Health Oncology Center', name:'FH James M Stockman Cancer Inst.', street:'404 W 7th St', city:'Frederick',     state:'MD', zip:'21701', mods:['on-site','VRI'], notes:'Long appointments; CDI often preferred.' },
+    // Court
+    { req:'Catoctin County Circuit Court',    name:'Catoctin County Courthouse',     street:'100 W Patrick St', city:'Frederick',    state:'MD', zip:'21701', mods:['on-site'],       notes:'Security screening at main entrance; allow 10 min.' },
+    // Higher ed
+    { req:'Liberty Hill Disability Services', name:'Liberty Hill — Student Services',street:'7600 Liberty Hill Dr', city:'Frederick',state:'MD', zip:'21704', mods:['on-site','VRI'], notes:'Bldg 4, Room 220. Free parking after 4pm.' },
+    // Behavioral health
+    { req:'Midstate Adult Outpatient',        name:'Midstate Outpatient — Rockville',street:'2200 Research Blvd', city:'Rockville',  state:'MD', zip:'20850', mods:['on-site','VRI'], notes:'Confidentiality essential; do not discuss in waiting area.' },
+    { req:'Midstate Child & Adolescent',      name:'Midstate Child — Gaithersburg',  street:'9600 Gudelsky Dr', city:'Gaithersburg', state:'MD', zip:'20878', mods:['on-site','VRI'], notes:'Family-friendly; minor + parent intake.' },
+    // K-12 (single office, mobile sites)
+    { req:'FCPS Special Education Office',    name:'FCPS Central Office',            street:'191 S East St',    city:'Frederick',    state:'MD', zip:'21701', mods:['on-site'],       notes:'Interpreters travel to assigned school of day.' },
+    // Small practice
+    { req:'Riverside Family Practice',        name:'Riverside MOB-2',                street:'1410 Key Pkwy',    city:'Frederick',    state:'MD', zip:'21702', mods:['on-site'],       notes:'Small practice, family-style waiting room.' }
   ];
   var out = [];
   list.forEach(function (l) {
@@ -430,6 +742,8 @@ function seedJobs_(ss, tid, refs) {
   var byLoc = {};      refs.locations.forEach(function (l) { byLoc[l.display_name] = l; });
   var byCons = {};     refs.consumers.forEach(function (c) { byCons[c.initials] = c; });
   var byContact = {};  refs.contacts.forEach(function (c) { byContact[c.requestor_id] = c; });
+  // v18 — specialist lookup by display_name (for jobs that want to attribute to a doctor)
+  var bySpec = {};     (refs.specialists || []).forEach(function (s) { bySpec[s.display_name] = s; });
 
   // Only seed if Jobs is empty enough — count rows tagged [SEED] to avoid double-seeding
   var data = sh.getDataRange().getValues();
@@ -454,88 +768,99 @@ function seedJobs_(ss, tid, refs) {
   function shiftHours(h) { return new Date(now.getTime() + h * 60 * 60 * 1000).toISOString(); }
   function shiftDays(d, h) { return new Date(now.getTime() + d * 86400000 + (h || 0) * 3600000).toISOString(); }
 
+  // v18 — every job carries: requestor (department), client (parent org),
+  // payer (billing office — derived from client), location, specialist (when
+  // the client has them), consumer. The Frederick Health jobs roll up to one
+  // invoice; Riverside (one_per_job mode) gets per-job invoices.
+  var FH_PAY = 'Catoctin Regional Medical — Central Billing';
+  var BHN_PAY = 'Midstate Behavioral Health — Billing';
+  var SCH_PAY = 'Frederick County Public Schools — AP';
+  var CRT_PAY = 'Catoctin County Court — Fiscal Office';
+  var LHCC_PAY = 'Liberty Hill Community College — Bursar';
+  var RV_PAY = 'Riverside Family Practice — Office';
+
   var jobs = [
     // ---- OPEN: 4 jobs needing interpreters ----
     { svc:'medical',       mod:'on-site', src:'en-US', tgt:'ASL',   team:'solo', start: shiftHours(28), end: shiftHours(29.5),
-      req:'Catoctin Regional Medical Center', loc:'CRM Main Campus', payer:'Catoctin Regional Medical — Central Billing', consumer:'J.M.',
-      status:'OPEN', notes:'[SEED] 90-min outpatient follow-up. Routine.' },
+      req:'Frederick Health Cardiology', loc:'FH Cardiology — Main Hospital', payer:FH_PAY, specialist:'Dr. Aisha Patel', consumer:'J.M.',
+      status:'OPEN', notes:'[SEED] 90-min cardiology follow-up. Routine.' },
     { svc:'mental-health', mod:'on-site', src:'en-US', tgt:'es-419',team:'solo', start: shiftHours(48), end: shiftHours(49),
-      req:'Lakeside Mental Health Group', loc:'Midstate Outpatient Wing', payer:'Lakeside Mental Health Group (self-pay)', consumer:'S.R.',
+      req:'Midstate Adult Outpatient', loc:'Midstate Outpatient — Rockville', payer:BHN_PAY, specialist:'Dr. Rachel Stone', consumer:'S.R.',
       status:'OPEN', notes:'[SEED] Therapy session. Strict confidentiality. No notes shared with interpreter.' },
     { svc:'education',     mod:'on-site', src:'en-US', tgt:'ASL',   team:'solo', start: shiftHours(72), end: shiftHours(74),
-      req:'Frederick County Schools (demo)', loc:'', payer:'Frederick County Government — AP', consumer:'E.W.',
+      req:'FCPS Special Education Office', loc:'FCPS Central Office', payer:SCH_PAY, consumer:'E.W.',
       status:'OPEN', notes:'[SEED] IEP annual review meeting. Same interpreter preference noted.' },
     { svc:'legal',         mod:'on-site', src:'en-US', tgt:'ASL',   team:'team-of-2', start: shiftHours(96), end: shiftHours(100),
-      req:'Catoctin County Circuit Court', loc:'Catoctin County Courthouse', payer:'Catoctin County Treasury', consumer:'V.O.',
+      req:'Catoctin County Circuit Court', loc:'Catoctin County Courthouse', payer:CRT_PAY, consumer:'V.O.',
       status:'OPEN', notes:'[SEED] Civil hearing. Team-of-2 required (4-hr session). SC:L preferred.' },
 
     // ---- OFFERED: 3 jobs out for claim ----
     { svc:'medical',       mod:'on-site', src:'en-US', tgt:'cmn-CN',team:'solo', start: shiftHours(24), end: shiftHours(25.5),
-      req:'Riverside Family Practice', loc:'Riverside MOB-2', payer:'Riverside Family Practice', consumer:'M.C.',
+      req:'Riverside Family Practice', loc:'Riverside MOB-2', payer:RV_PAY, consumer:'M.C.',
       status:'OFFERED', notes:'[SEED] New-patient intake. 90 min budgeted.' },
     { svc:'medical',       mod:'VRI',     src:'en-US', tgt:'ar-MSA',team:'solo', start: shiftHours(12), end: shiftHours(13),
-      req:'Catoctin Regional Medical Center', loc:'CRM Main Campus', payer:'Catoctin Regional Medical — Central Billing', consumer:'R.G.',
+      req:'Frederick Health Emergency Dept', loc:'FH Emergency Dept', payer:FH_PAY, specialist:'Dr. Marco Rossi', consumer:'R.G.',
       status:'OFFERED', notes:'[SEED] VRI from ED. Egyptian Arabic dialect preferred.' },
     { svc:'medical',       mod:'on-site', src:'en-US', tgt:'ht',    team:'solo', start: shiftHours(36), end: shiftHours(37.5),
-      req:'Riverside Family Practice', loc:'Riverside MOB-2', payer:'Riverside Family Practice', consumer:'P.S.',
+      req:'Riverside Family Practice', loc:'Riverside MOB-2', payer:RV_PAY, consumer:'P.S.',
       status:'OFFERED', notes:'[SEED] Annual physical.' },
 
     // ---- CLAIMED: 3 jobs assigned, awaiting confirmation ----
     { svc:'medical',       mod:'on-site', src:'en-US', tgt:'ASL',   team:'cdi+hearing', start: shiftHours(20), end: shiftHours(21.5),
-      req:'Catoctin Regional Medical Center', loc:'CRM Pediatrics Annex', payer:'Catoctin Regional Medical — Central Billing', consumer:'L.D.',
+      req:'Frederick Health Pediatrics', loc:'FH Pediatrics — Mt Airy', payer:FH_PAY, specialist:'Dr. Lena Park', consumer:'L.D.',
       status:'CLAIMED', notes:'[SEED] DeafBlind consumer — CDI + voicer required. Tactile interpretation.', _assign:[{ name:'Marcus Thompson', role:'cdi' }, { name:'Maria Rivera', role:'hearing-voicer' }] },
     { svc:'education',     mod:'on-site', src:'en-US', tgt:'ASL',   team:'solo', start: shiftHours(45), end: shiftHours(47),
-      req:'Liberty Hill Community College', loc:'Liberty Hill — Student Services', payer:'Liberty Hill CC — Bursar', consumer:'A.B.',
+      req:'Liberty Hill Disability Services', loc:'Liberty Hill — Student Services', payer:LHCC_PAY, consumer:'A.B.',
       status:'CLAIMED', notes:'[SEED] Higher-ed lecture interpretation.', _assign:[{ name:'Jordan Hayes', role:'primary' }] },
     { svc:'medical',       mod:'on-site', src:'en-US', tgt:'ko',    team:'solo', start: shiftHours(60), end: shiftHours(61),
-      req:'Riverside Family Practice', loc:'Riverside MOB-2', payer:'Riverside Family Practice', consumer:'T.K.',
+      req:'Riverside Family Practice', loc:'Riverside MOB-2', payer:RV_PAY, consumer:'T.K.',
       status:'CLAIMED', notes:'[SEED] Standard appointment.', _assign:[{ name:'David Park', role:'primary' }] },
 
     // ---- CONFIRMED: 2 jobs locked in, ready to go ----
     { svc:'medical',       mod:'on-site', src:'en-US', tgt:'es-419',team:'solo', start: shiftHours(8),  end: shiftHours(9.5),
-      req:'Catoctin Regional Medical Center', loc:'CRM Main Campus', payer:'Catoctin Regional Medical — Central Billing', consumer:'N.H.',
-      status:'CONFIRMED', notes:'[SEED] Outpatient. Confirmed yesterday.', _assign:[{ name:'Elena Vasquez', role:'primary' }] },
+      req:'Frederick Health Oncology Center', loc:'FH James M Stockman Cancer Inst.', payer:FH_PAY, specialist:'Dr. James Okafor', consumer:'N.H.',
+      status:'CONFIRMED', notes:'[SEED] Oncology consult. Confirmed yesterday.', _assign:[{ name:'Elena Vasquez', role:'primary' }] },
     { svc:'legal',         mod:'on-site', src:'en-US', tgt:'es-419',team:'solo', start: shiftHours(52), end: shiftHours(55),
-      req:'Catoctin County Circuit Court', loc:'Catoctin County Courthouse', payer:'Catoctin County Treasury', consumer:'S.R.',
+      req:'Catoctin County Circuit Court', loc:'Catoctin County Courthouse', payer:CRT_PAY, consumer:'S.R.',
       status:'CONFIRMED', notes:'[SEED] Custody hearing. Confirmed.', _assign:[{ name:'Elena Vasquez', role:'primary' }] },
 
     // ---- IN_PROGRESS: 1 active right now ----
     { svc:'medical',       mod:'on-site', src:'en-US', tgt:'ASL',   team:'solo', start: shiftHours(-0.5), end: shiftHours(1.0),
-      req:'Catoctin Regional Medical Center', loc:'CRM Main Campus', payer:'Catoctin Regional Medical — Central Billing', consumer:'J.M.',
+      req:'Frederick Health Cardiology', loc:'FH Cardiology — Main Hospital', payer:FH_PAY, specialist:'Dr. Aisha Patel', consumer:'J.M.',
       status:'IN_PROGRESS', notes:'[SEED] Currently in progress. Cardiology consult.', _assign:[{ name:'Maria Rivera', role:'primary' }],
       actual_start: shiftHours(-0.5) },
 
     // ---- COMPLETED: 7 jobs in the last 2 weeks (ready to invoice + pay) ----
     { svc:'medical',       mod:'on-site', src:'en-US', tgt:'ASL',   team:'solo', start: shiftDays(-2, 9), end: shiftDays(-2, 11),
-      req:'Catoctin Regional Medical Center', loc:'CRM Main Campus', payer:'Catoctin Regional Medical — Central Billing', consumer:'A.B.',
+      req:'Frederick Health Cardiology', loc:'FH Cardiology — Urbana Clinic', payer:FH_PAY, specialist:'Dr. Aisha Patel', consumer:'A.B.',
       status:'COMPLETED', notes:'[SEED] Pre-op consult.', _assign:[{ name:'Sarah Chen', role:'primary' }] },
     { svc:'medical',       mod:'on-site', src:'en-US', tgt:'es-419',team:'solo', start: shiftDays(-3, 14), end: shiftDays(-3, 15.5),
-      req:'Catoctin Regional Medical Center', loc:'CRM Main Campus', payer:'Catoctin Regional Medical — Central Billing', consumer:'N.H.',
-      status:'COMPLETED', notes:'[SEED] Diabetes management visit.', _assign:[{ name:'Elena Vasquez', role:'primary' }] },
+      req:'Frederick Health Oncology Center', loc:'FH James M Stockman Cancer Inst.', payer:FH_PAY, specialist:'Dr. James Okafor', consumer:'N.H.',
+      status:'COMPLETED', notes:'[SEED] Oncology mgmt visit.', _assign:[{ name:'Elena Vasquez', role:'primary' }] },
     { svc:'medical',       mod:'on-site', src:'en-US', tgt:'ar-MSA',team:'solo', start: shiftDays(-4, 10), end: shiftDays(-4, 11.5),
-      req:'Riverside Family Practice', loc:'Riverside MOB-2', payer:'Riverside Family Practice', consumer:'F.A.',
+      req:'Riverside Family Practice', loc:'Riverside MOB-2', payer:RV_PAY, consumer:'F.A.',
       status:'COMPLETED', notes:'[SEED] Routine.', _assign:[{ name:'Ahmad Hassan', role:'primary' }] },
     { svc:'mental-health', mod:'on-site', src:'en-US', tgt:'ASL',   team:'solo', start: shiftDays(-5, 13), end: shiftDays(-5, 14),
-      req:'Midstate Behavioral Health', loc:'Midstate Outpatient Wing', payer:'Midstate Behavioral Health', consumer:'V.O.',
+      req:'Midstate Adult Outpatient', loc:'Midstate Outpatient — Rockville', payer:BHN_PAY, specialist:'Dr. Rachel Stone', consumer:'V.O.',
       status:'COMPLETED', notes:'[SEED] Group session.', _assign:[{ name:'Marcus Thompson', role:'primary' }] },
     { svc:'education',     mod:'on-site', src:'en-US', tgt:'ASL',   team:'solo', start: shiftDays(-7, 9), end: shiftDays(-7, 11),
-      req:'Liberty Hill Community College', loc:'Liberty Hill — Student Services', payer:'Liberty Hill CC — Bursar', consumer:'A.B.',
+      req:'Liberty Hill Disability Services', loc:'Liberty Hill — Student Services', payer:LHCC_PAY, consumer:'A.B.',
       status:'COMPLETED', notes:'[SEED] Biology lecture.', _assign:[{ name:'Riya Patel', role:'primary' }] },
     { svc:'medical',       mod:'VRI',     src:'en-US', tgt:'cmn-CN',team:'solo', start: shiftDays(-9, 16), end: shiftDays(-9, 17),
-      req:'Catoctin Regional Medical Center', loc:'CRM Main Campus', payer:'Catoctin Regional Medical — Central Billing', consumer:'M.C.',
+      req:'Frederick Health Emergency Dept', loc:'FH Emergency Dept', payer:FH_PAY, specialist:'Dr. Marco Rossi', consumer:'M.C.',
       status:'COMPLETED', notes:'[SEED] VRI from ED.', _assign:[{ name:'Wei Liu', role:'primary' }] },
     { svc:'legal',         mod:'on-site', src:'en-US', tgt:'ASL',   team:'team-of-2', start: shiftDays(-11, 9), end: shiftDays(-11, 13),
-      req:'Catoctin County Circuit Court', loc:'Catoctin County Courthouse', payer:'Catoctin County Treasury', consumer:'V.O.',
+      req:'Catoctin County Circuit Court', loc:'Catoctin County Courthouse', payer:CRT_PAY, consumer:'V.O.',
       status:'COMPLETED', notes:'[SEED] Court hearing. Team-of-2.', _assign:[{ name:'Jordan Hayes', role:'primary' }, { name:'Marcus Thompson', role:'team' }] },
 
     // ---- CANCELLED: 1 illustrative ----
     { svc:'medical',       mod:'on-site', src:'en-US', tgt:'ko',    team:'solo', start: shiftDays(-1, 10), end: shiftDays(-1, 11),
-      req:'Riverside Family Practice', loc:'Riverside MOB-2', payer:'Riverside Family Practice', consumer:'T.K.',
+      req:'Riverside Family Practice', loc:'Riverside MOB-2', payer:RV_PAY, consumer:'T.K.',
       status:'CANCELLED_BY_REQUESTOR', notes:'[SEED] Patient cancelled morning-of.', cancellation_reason:'Patient cancelled <2h before appointment.', cancellation_at: shiftDays(-1, 8) },
 
     // ---- NO_SHOW: 1 illustrative ----
     { svc:'medical',       mod:'on-site', src:'en-US', tgt:'es-419',team:'solo', start: shiftDays(-6, 14), end: shiftDays(-6, 15),
-      req:'Catoctin Regional Medical Center', loc:'CRM Main Campus', payer:'Catoctin Regional Medical — Central Billing', consumer:'N.H.',
+      req:'Frederick Health Oncology Center', loc:'FH James M Stockman Cancer Inst.', payer:FH_PAY, specialist:'Dr. James Okafor', consumer:'N.H.',
       status:'NO_SHOW_CONSUMER', notes:'[SEED] Consumer did not show. Interpreter arrived, waited 20 min, billable per policy.', _assign:[{ name:'Elena Vasquez', role:'primary' }] }
   ];
   var nowIso = now.toISOString();
@@ -547,24 +872,29 @@ function seedJobs_(ss, tid, refs) {
     var payer = byPayer[j.payer] || {};
     var contact = byContact[req.requestor_id] || {};
     var consumer = j.consumer ? byCons[j.consumer] : null;
+    var spec = j.specialist ? (bySpec[j.specialist] || {}) : {};
     var row = {
       job_id: jobId, tenant_id: tid,
+      client_id: req.client_id || '',
       requestor_id: req.requestor_id || '', requestor_contact_id: contact.contact_id || '',
       payer_id: payer.payer_id || '',
       location_id: loc.location_id || '',
+      specialist_id: spec.specialist_id || '',
       consumer_id: consumer ? consumer.consumer_id : '',
       modality: j.mod, service_type: j.svc,
       source_language_id: j.src, target_language_id: j.tgt,
       team_config: j.team,
       scheduled_start: j.start, scheduled_end: j.end,
       actual_start: j.actual_start || '', actual_end: '',
-      status: j.status, on_demand: false, reference_no: '',
+      status: j.status, on_demand: false, reference_no: '', po_number: '',
       notes_to_interpreter: j.notes,
       consent_recording: false, recording_r2_key: '', transcript_r2_key: '',
       created_via: 'portal', ai_intake_id: '',
       rate_applied: '{}',
       cancellation_reason: j.cancellation_reason || '',
       cancellation_at: j.cancellation_at || '',
+      cancellation_bill_cents: '', cancellation_pay_cents: '',
+      invoice_id: '',
       _created_at: nowIso, _updated_at: nowIso, _rev: 1
     };
     sh.appendRow(hdr.map(function (h) { return row[h] !== undefined ? row[h] : ''; }));
@@ -643,7 +973,7 @@ function seedInvoices_(ss, tid, payers, jobs) {
     if (crmJobs.length) invoices.push({ payer: crmPayer, jobs: crmJobs, status: 'paid', issuedDaysAgo: 18, dueDaysAgo: -12, label:'Older — paid' });
   }
   // Invoice 2: issued, Net-30 — Liberty Hill CC + Catoctin Court (older legal job)
-  var lhPayer = byPayer['Liberty Hill CC — Bursar'];
+  var lhPayer = byPayer['Liberty Hill Community College — Bursar'];
   if (lhPayer) {
     var lhJobs = byPayerJobs[lhPayer.payer_id] || [];
     if (lhJobs.length) invoices.push({ payer: lhPayer, jobs: lhJobs, status: 'issued', issuedDaysAgo: 4, dueDaysAgo: -26, label:'Recent — issued' });
@@ -793,17 +1123,22 @@ function wipeSeed() {
   var ss = SpreadsheetApp.openById(SHEET_ID);
   var report = {};
   var tabs = [
-    { tab: T.Interpreters,  marker: 'notes_internal' },
-    { tab: T.Requestors,    marker: 'notes' },
-    { tab: T.Locations,     marker: '' },     // wipe all (locations don't have a notes column we control)
-    { tab: T.Consumers,     marker: '' },     // wipe all (Consumers seeds don't tag)
-    { tab: T.Jobs,          marker: 'notes_to_interpreter' },
-    { tab: T.JobAssignments,marker: '' },     // wipe assignments tied to seeded jobs (cascade — skip for simplicity)
-    { tab: T.Invoices,      marker: '' },     // wipe all invoices (only seeded ones exist)
-    { tab: T.InvoiceLines,  marker: '' },
-    { tab: T.Payouts,       marker: '' },
-    { tab: T.RequestorContacts, marker: '' },
-    { tab: T.Payers,        marker: '' }
+    { tab: T.Interpreters,        marker: 'notes_internal' },
+    { tab: T.Requestors,          marker: 'notes' },
+    { tab: T.Locations,           marker: '' },     // wipe all (locations don't have a notes column we control)
+    { tab: T.Consumers,           marker: '' },     // wipe all (Consumers seeds don't tag)
+    { tab: T.Jobs,                marker: 'notes_to_interpreter' },
+    { tab: T.JobAssignments,      marker: '' },     // wipe assignments tied to seeded jobs (cascade — skip for simplicity)
+    { tab: T.Invoices,            marker: '' },     // wipe all invoices (only seeded ones exist)
+    { tab: T.InvoiceLines,        marker: '' },
+    { tab: T.Payouts,             marker: '' },
+    { tab: T.RequestorContacts,   marker: '' },
+    { tab: T.Payers,              marker: '' },
+    // v18 — client hierarchy
+    { tab: T.Clients,             marker: 'notes' },
+    { tab: T.ClientContacts,      marker: '' },
+    { tab: T.Specialists,         marker: 'notes' },
+    { tab: T.ClientBillingRules,  marker: 'notes' }
   ];
   tabs.forEach(function (t) {
     var sh = ss.getSheetByName(t.tab);
@@ -822,6 +1157,27 @@ function wipeSeed() {
     }
     report[t.tab] = removed;
   });
+
+  // Also remove synthetic interpreter login users — identified by their
+  // reserved `@seed.example` email domain (set by _seedUserForInterpreter_).
+  var usersSh = ss.getSheetByName(T.Users);
+  if (usersSh && usersSh.getLastRow() >= 2) {
+    var uData = usersSh.getDataRange().getValues();
+    var iEmail = uData[0].indexOf('email');
+    var uRemoved = 0;
+    if (iEmail >= 0) {
+      for (var ui = uData.length - 1; ui >= 1; ui--) {
+        if (String(uData[ui][iEmail] || '').toLowerCase().indexOf('@seed.example') >= 0) {
+          usersSh.deleteRow(ui + 1);
+          uRemoved++;
+        }
+      }
+    }
+    report[T.Users] = uRemoved;
+  } else {
+    report[T.Users] = 0;
+  }
+
   _logAudit('seed.wipe', 'host', 'system', JSON.stringify(report));
   return report;
 }

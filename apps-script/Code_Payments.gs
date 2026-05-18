@@ -759,26 +759,26 @@ function _updateSettingDirect(ss, s, key, value, category) {
 }
 
 // =============================================================================
-// Webhook callback — the Worker reaches this via the proxy with X-1891-Internal.
-// We expose it on the existing /v1/proxy/exec path so it lives inside the
-// session-less doPost dispatch. The action is `mark_payout_paid` (already
-// declared in Code.gs). Same for `mark_invoice_paid`. Apps Script's existing
-// handlers already exist and don't need session if called with the internal
-// header — but those handlers DO require a session today. So we accept the
-// internal header here and synthesize a session.
+// Webhook callback authentication.
 //
-// NOTE FOR ORCHESTRATOR: The router wiring in Code.gs will need a small tweak:
-// at the top of doPost, if e.parameter._internal === '1' AND a header check
-// passes, treat the call as authorized. Implementing that header check from
-// inside Apps Script requires reading e.postData.headers (not exposed) — so
-// for v1, the Worker sends both the header AND a `session=<synthesized
-// internal token>` query param. We provide the helper below.
+// The Worker reaches `mark_invoice_paid` / `mark_payout_paid` /
+// `update_interpreter` via the proxy after verifying Stripe's webhook
+// signature. Apps Script can't read inbound HTTP headers, so the Worker
+// authenticates by minting a 60-second worker JWT (same HMAC secret, signed
+// payload like `{ iss: 'worker', purpose: 'stripe_webhook', tid: '*', iat, exp }`)
+// and passing it as `session=<jwt>` in the body.
+//
+// The handlers above use `_requireSessionOrWorker(e, 'stripe_webhook')`
+// (defined in Code.gs) instead of `_requireSession(e)`. When called by the
+// Worker, the tenant scope is dropped — the row's own `tenant_id` is used
+// for the audit log. See Code.gs `_verifyWorkerJwt` for full details.
+//
+// The legacy `_payMintInternalSession` helper below is unused (kept only as
+// a reference; new callbacks must use the worker-JWT pattern above).
 
 function _payMintInternalSession(tenantId) {
-  // Reuse the same minter as user sessions. The 'role' is a synthetic
-  // 'role_internal' that's permitted to call mark_*_paid only via the
-  // dedicated `_internal=1` flag at the top of those handlers. The actual
-  // role-gate lives in the apiMark*Paid functions — they already accept any
-  // session today, so no additional gate is needed beyond signature.
+  // Deprecated — use the Worker's `signWorkerJwt` (workers/api/src/jwt.ts)
+  // which sets `iss='worker'` + `purpose=...` and is accepted by
+  // `_requireSessionOrWorker`. Kept for historical reference only.
   return _mintSession({ uid: 'system_stripe_webhook', tid: tenantId, role: 'role_internal', email: '' });
 }
