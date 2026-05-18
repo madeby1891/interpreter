@@ -228,7 +228,7 @@
     host.appendChild(h('div', { class: 'widget-controls' }, [
       h('div', {}, [ h('label', {}, ['Service']), serviceSel ]),
       h('div', {}, [ h('label', {}, ['Modality']), modalitySel ]),
-      h('div', {}, [ h('label', {}, ['Time']), chips ])
+      h('div', { class: 'full' }, [ h('label', {}, ['Time']), chips ])
     ]));
     host.appendChild(h('div', { class: 'widget-figures' }, [
       h('div', { class: 'widget-fig is-bloom' }, [

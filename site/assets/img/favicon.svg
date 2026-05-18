@@ -1,14 +1,11 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="1891 Interpreter">
   <title>1891 Interpreter</title>
   <rect width="64" height="64" rx="13" fill="#0F1419"/>
-  <!-- Simplified 1891 — heavier strokes, no filters, no gradients (favicon-safe) -->
-  <g fill="#FAFAF7" font-family="Georgia, serif" font-weight="700" text-anchor="middle">
-    <!-- Use heavy text glyphs at small render sizes for clarity -->
-    <text x="18" y="30" font-size="22">1</text>
-    <text x="38" y="30" font-size="22">8</text>
-    <text x="18" y="54" font-size="22">9</text>
-    <text x="38" y="54" font-size="22">1</text>
+  <!-- 1891 horizontal — favicon-safe heavy serif -->
+  <g fill="#FAFAF7" font-family="'Iowan Old Style','Palatino Linotype',Georgia,serif" font-weight="700" text-anchor="middle">
+    <text x="32" y="38" font-size="26" letter-spacing="0.5">1891</text>
   </g>
-  <!-- ASL contact dot, bloom -->
-  <circle cx="54" cy="14" r="6" fill="#C8553D"/>
+  <!-- ASL contact-point: arc + dot, calm baseline beneath the wordmark -->
+  <path d="M22 50 Q32 44.5 42 50" stroke="#C8553D" stroke-width="2.2" fill="none" stroke-linecap="round"/>
+  <circle cx="32" cy="47" r="2" fill="#C8553D"/>
 </svg>

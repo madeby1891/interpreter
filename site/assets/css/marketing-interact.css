@@ -30,14 +30,35 @@
    Hover polish — card, button, stat, comparison, pillar, eyebrow
    ---------------------------------------------------------------------------*/
 .card-hoverable {
-  transition: transform 280ms var(--1891int-ease, cubic-bezier(.16,1,.3,1)),
-              box-shadow 280ms var(--1891int-ease, cubic-bezier(.16,1,.3,1)),
-              border-color 280ms var(--1891int-ease, cubic-bezier(.16,1,.3,1));
+  transition: transform 320ms var(--1891int-ease, cubic-bezier(.16,1,.3,1)),
+              box-shadow 320ms var(--1891int-ease, cubic-bezier(.16,1,.3,1)),
+              border-color 320ms var(--1891int-ease, cubic-bezier(.16,1,.3,1)),
+              padding 320ms var(--1891int-ease, cubic-bezier(.16,1,.3,1));
+  will-change: transform;
 }
 .card-hoverable:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 22px 50px rgba(15,20,25,.14);
+  transform: translateY(-6px) scale(1.012);
+  box-shadow:
+    0 32px 64px -16px rgba(15,20,25,.22),
+    0 8px 16px -8px rgba(200,85,61,.12);
   border-color: var(--1891int-bloom-soft);
+}
+/* The text-bloom "→" arrow inside hoverable cards nudges right on hover */
+.card-hoverable .text-bloom {
+  transition: transform 320ms var(--1891int-ease, cubic-bezier(.16,1,.3,1));
+}
+.card-hoverable:hover .text-bloom {
+  transform: translateX(4px);
+}
+/* Pillar gets the same breathing pattern as card-hoverable for consistency */
+.pillar {
+  transition: transform 320ms var(--1891int-ease, cubic-bezier(.16,1,.3,1)),
+              box-shadow 320ms var(--1891int-ease, cubic-bezier(.16,1,.3,1)),
+              border-color 320ms var(--1891int-ease, cubic-bezier(.16,1,.3,1));
+}
+.pillar:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 24px 48px -16px rgba(15,20,25,.16);
 }
 
 .btn-primary:hover {
@@ -143,10 +164,18 @@ img.brand-mark {
   background: var(--1891int-paper);
   border: 1px solid var(--1891int-line);
   border-radius: var(--1891int-radius-lg);
-  padding: var(--1891int-s-6);
+  padding: var(--1891int-s-5);
   box-shadow: var(--1891int-shadow-sm);
   position: relative;
   overflow: hidden;
+  transition: transform 320ms var(--1891int-ease, cubic-bezier(.16,1,.3,1)),
+              box-shadow 320ms var(--1891int-ease, cubic-bezier(.16,1,.3,1)),
+              border-color 320ms var(--1891int-ease, cubic-bezier(.16,1,.3,1));
+}
+.widget:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 26px 56px rgba(15,20,25,.12);
+  border-color: var(--1891int-bloom-soft);
 }
 .widget-frame {
   background: var(--1891int-paper-warm);
@@ -155,10 +184,14 @@ img.brand-mark {
   border: 1px solid var(--1891int-line);
 }
 .widget-controls {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
   gap: var(--1891int-s-3);
-  margin-bottom: var(--1891int-s-5);
+  margin-bottom: var(--1891int-s-4);
+}
+.widget-controls > .full { grid-column: 1 / -1; }
+@media (max-width: 380px) {
+  .widget-controls { grid-template-columns: 1fr; }
 }
 .widget-title {
   font-family: var(--1891int-display);
@@ -200,22 +233,26 @@ img.brand-mark {
   box-shadow: 0 0 0 3px var(--1891int-bloom-tint);
 }
 
-/* Chip group (time-of-day) */
+/* Chip group (time-of-day) — single row, smaller chips so the widget breathes */
 .widget-chips {
-  display: inline-flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  padding: 4px;
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 3px;
+  padding: 3px;
   border-radius: var(--1891int-radius-pill);
   background: var(--1891int-paper-deep);
   border: 1px solid var(--1891int-line);
+  width: 100%;
+  overflow-x: auto;
 }
 .widget-chips button {
   background: transparent;
+  flex: 1 1 auto;
+  white-space: nowrap;
   border: 0;
-  padding: 7px 14px;
+  padding: 6px 10px;
   border-radius: var(--1891int-radius-pill);
-  font-size: 13.5px;
+  font-size: 12.5px;
   font-weight: 600;
   color: var(--1891int-ink-soft);
   cursor: pointer;
@@ -260,32 +297,36 @@ img.brand-mark {
 .widget-figures {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: var(--1891int-s-4);
+  gap: var(--1891int-s-3);
   margin-top: var(--1891int-s-4);
 }
 .widget-fig {
   background: var(--1891int-paper);
   border: 1px solid var(--1891int-line);
   border-radius: var(--1891int-radius-md);
-  padding: var(--1891int-s-4);
+  padding: 12px 14px;
   text-align: center;
+  min-width: 0;
 }
 .widget-fig .lbl {
-  font-size: 12px;
+  font-size: 10.5px;
   text-transform: uppercase;
   letter-spacing: .08em;
   color: var(--1891int-fog);
   font-weight: 700;
   display: block;
   margin-bottom: 4px;
+  line-height: 1.25;
 }
 .widget-fig .val {
   font-family: var(--1891int-display);
-  font-size: clamp(28px, 4vw, 38px);
+  font-size: clamp(22px, 2.6vw, 30px);
   font-weight: 700;
   line-height: 1;
   color: var(--1891int-ink);
   transition: color 200ms var(--1891int-ease, cubic-bezier(.16,1,.3,1));
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 .widget-fig.is-bloom .val { color: var(--1891int-bloom-deep); }
 .widget-fig.is-river .val { color: var(--1891int-river-deep); }
