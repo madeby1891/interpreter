@@ -16,6 +16,7 @@ import { verifyToken } from "./jwt";
 import { JobBoardRoom } from "./durable/JobBoardRoom";
 import { routeTranslate } from "./translate";
 import { verifyInternalHeader } from "./internal";
+import { handleSmsSend, handleSmsInbound } from "./sms";
 import {
   createConnectAccount,
   createAccountLink,
@@ -56,6 +57,11 @@ export interface Env {
   TRACK1099_BASE?: string;
   PLAID_CLIENT_ID?: string;
   PLAID_SECRET?: string;
+  // Twilio (SMS) — set with `wrangler secret put`.
+  // Missing keys → /v1/sms/send returns { ok:false, configured:false }.
+  TWILIO_ACCOUNT_SID?: string;
+  TWILIO_AUTH_TOKEN?: string;
+  TWILIO_FROM_NUMBER?: string;
 }
 
 function corsConfig(env: Env): CorsConfig {
@@ -124,6 +130,14 @@ async function handle(req: Request, env: Env, ctx: ExecutionContext): Promise<Re
   // Internal track1099 routes (Apps Script → Worker).
   if (url.pathname.startsWith("/v1/track1099/")) {
     return withCors(await handleTrack1099(req, env, url.pathname), req, cfg);
+  }
+
+  // SMS: outbound send (Apps Script → Worker), inbound webhook (Twilio → Worker).
+  if (url.pathname === "/v1/sms/send" && req.method === "POST") {
+    return withCors(await handleSmsSend(req, env), req, cfg);
+  }
+  if (url.pathname === "/v1/sms/inbound" && req.method === "POST") {
+    return handleSmsInbound(req, env);
   }
 
   return withCors(json({ ok: false, error: "not found" }, { status: 404 }), req, cfg);

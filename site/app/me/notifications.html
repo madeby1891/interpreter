@@ -1,0 +1,211 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Notification preferences — 1891 Interpreter</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#C8553D">
+<link rel="icon" type="image/svg+xml" href="/interpreter/assets/img/favicon.svg">
+<link rel="stylesheet" href="/interpreter/assets/css/site.css">
+<link rel="stylesheet" href="/interpreter/assets/css/app.css">
+<style>
+  .pref-table { width:100%; border-collapse:collapse; font-size:13.5px }
+  .pref-table th { text-align:left; padding:10px; border-bottom:2px solid var(--1891int-ink); font-size:11px; text-transform:uppercase; letter-spacing:.08em; color:var(--1891int-fog) }
+  .pref-table td { padding:10px; border-bottom:1px solid var(--1891int-line); vertical-align:middle }
+  .pref-table select { padding:4px 8px; border:1px solid var(--1891int-line); border-radius:4px; font-size:12.5px; width:130px }
+  .pref-table .event-name { font-weight:600 }
+  .pref-table .event-help { color:var(--1891int-fog); font-size:12px; margin-top:2px }
+  .channel-disabled { opacity:.5 }
+  .sms-config-warn { padding:10px 14px; background:#FFF5CC; color:#7D5C00; border-radius:6px; font-size:13.5px; margin-bottom:var(--1891int-s-3) }
+</style>
+</head>
+<body>
+<a href="#main" class="skip">Skip to main content</a>
+
+<div class="app-shell">
+  <header class="app-header">
+    <div class="wrap">
+      <a href="/interpreter/app/" class="brand"><img src="/interpreter/assets/img/brand-mark.svg" alt="" width="32" height="32"><span>1891 <span class="brand-sub">Interpreter</span></span></a>
+      <div class="who"><span>Signed in as </span><strong id="who-name">…</strong><button id="signout" type="button">Sign out</button></div>
+    </div>
+  </header>
+  <nav class="app-nav" aria-label="App sections">
+    <div class="wrap">
+      <a href="/interpreter/app/me/">My offers</a>
+      <a href="/interpreter/app/me/notifications.html" aria-current="page">Notifications</a>
+    </div>
+  </nav>
+
+  <main id="main" class="app-main">
+    <div class="wrap" style="max-width:880px">
+      <h1 style="margin:0 0 var(--1891int-s-2);font-size:30px">Notification preferences</h1>
+      <p class="ink-soft" style="font-size:14.5px;max-width:64ch">Per-event delivery cadence. <strong>Immediate</strong> sends as soon as the event happens. <strong>Daily digest</strong> rolls them into one email at 6am Eastern. <strong>Weekly</strong> bundles them into a Monday-morning summary. SMS is immediate-or-off — there are no digest texts.</p>
+
+      <section class="card" style="margin-bottom:var(--1891int-s-5)">
+        <h2 class="mt-0">SMS settings</h2>
+        <p class="ink-soft" style="font-size:13.5px">If you want urgent offers and cancellations by text, drop your mobile number here in E.164 format (+15551234567).</p>
+        <div id="sms-config-state" class="sms-config-warn" style="display:none"></div>
+        <div style="display:grid;grid-template-columns:180px 1fr 110px;gap:10px;align-items:center;font-size:14.5px">
+          <label for="phone">Mobile number</label>
+          <input id="phone" type="tel" placeholder="+13015550100" style="padding:8px 12px;border:1px solid var(--1891int-line);border-radius:4px;font-family:var(--1891int-mono);font-size:13.5px">
+          <button class="btn btn-primary btn-sm" id="save-phone">Save number</button>
+        </div>
+      </section>
+
+      <section class="card" style="margin-bottom:var(--1891int-s-5)">
+        <h2 class="mt-0">Digest timing</h2>
+        <div style="display:grid;grid-template-columns:180px 1fr;gap:10px;align-items:center;font-size:14.5px;margin-bottom:10px">
+          <label for="daily-hour">Daily digest send time</label>
+          <select id="daily-hour" style="padding:6px 10px;border:1px solid var(--1891int-line);border-radius:4px;font-size:13.5px;width:200px">
+            <option value="5">5:00 AM ET</option><option value="6">6:00 AM ET</option><option value="7">7:00 AM ET</option><option value="8">8:00 AM ET</option><option value="17">5:00 PM ET</option><option value="18">6:00 PM ET</option>
+          </select>
+        </div>
+        <div style="display:grid;grid-template-columns:180px 1fr;gap:10px;align-items:center;font-size:14.5px">
+          <label for="weekly-day">Weekly digest day</label>
+          <select id="weekly-day" style="padding:6px 10px;border:1px solid var(--1891int-line);border-radius:4px;font-size:13.5px;width:200px">
+            <option value="1">Monday</option><option value="2">Tuesday</option><option value="3">Wednesday</option><option value="4">Thursday</option><option value="5">Friday</option><option value="6">Saturday</option><option value="0">Sunday</option>
+          </select>
+        </div>
+        <div style="margin-top:var(--1891int-s-3)">
+          <button class="btn btn-primary btn-sm" id="save-settings">Save digest settings</button>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2 class="mt-0">Per-event cadence</h2>
+        <div id="loading" class="empty-state"><span class="spinner"></span> Loading&hellip;</div>
+        <div id="table-wrap" style="display:none;overflow:auto">
+          <table class="pref-table">
+            <thead><tr><th>Event</th><th>Email</th><th>SMS</th><th>Push</th></tr></thead>
+            <tbody id="rows"></tbody>
+          </table>
+        </div>
+        <p class="muted" style="font-size:12.5px;margin-top:var(--1891int-s-3)">Push notifications activate once we ship the mobile app. The setting is saved either way.</p>
+      </section>
+    </div>
+  </main>
+</div>
+
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+<script src="/interpreter/assets/js/whitelabel.js"></script>
+<script src="/interpreter/assets/js/api.js"></script>
+<script>
+(function () {
+  'use strict';
+  function $(id) { return document.getElementById(id); }
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' })[c]; }); }
+  function toast(msg, kind) { var t = $('toast'); t.textContent = msg; t.className = 'toast show' + (kind ? ' ' + kind : ''); setTimeout(function () { t.className = 'toast'; }, 3500); }
+
+  var EVENT_LABELS = {
+    job_offer: { name: 'Job offer received', help: 'A scheduler offered you a job — preview only, PII reveals on accept' },
+    job_claimed: { name: 'Job claimed', help: 'One of your jobs has been confirmed by an interpreter' },
+    job_confirmed: { name: 'Job confirmed', help: 'Scheduler confirmed an assignment' },
+    job_cancelled: { name: 'Job cancelled', help: 'A job you are/were on was cancelled' },
+    job_complete: { name: 'Job completed', help: 'A job hit COMPLETED status; useful for billing review' },
+    invoice_issued: { name: 'Invoice issued', help: 'An invoice was sent to a payer' },
+    payout_paid: { name: 'Payout paid', help: 'A payout was marked paid by the agency' },
+    doc_expiring_30d: { name: 'Doc expiring in 30 days', help: 'A required doc will expire soon' },
+    doc_expiring_7d: { name: 'Doc expiring in 7 days', help: 'Urgent doc renewal needed' },
+    doc_expired: { name: 'Doc expired', help: 'A required doc is now expired — you cannot be offered new jobs' }
+  };
+
+  document.addEventListener('DOMContentLoaded', init);
+
+  function init() {
+    if (!IntApi.getSession()) { location.href = '/interpreter/sign-in.html'; return; }
+    IntApi.whoami().then(function (r) {
+      if (!r || !r.ok) { IntApi.clearSession(); location.href = '/interpreter/sign-in.html'; return; }
+      $('who-name').textContent = r.user.display_name || r.user.email;
+      if (window.IntTheme && r.agency) IntTheme.apply(r.agency);
+      load();
+    });
+    $('signout').addEventListener('click', function () { IntApi.clearSession(); location.href = '/interpreter/'; });
+    $('save-phone').addEventListener('click', savePhone);
+    $('save-settings').addEventListener('click', saveSettings);
+  }
+
+  function load() {
+    $('loading').style.display = '';
+    $('table-wrap').style.display = 'none';
+    IntApi.jsonp({ action: 'list_notification_prefs' }).then(function (r) {
+      $('loading').style.display = 'none';
+      if (!r || !r.ok) { toast(r && r.error || 'Load failed', 'error'); return; }
+      var prefs = r.prefs || [];
+      var settings = r.settings || {};
+      $('phone').value = settings.phone_e164 || '';
+      if (settings.daily_digest_hour) $('daily-hour').value = String(settings.daily_digest_hour);
+      if (settings.weekly_digest_day !== undefined) $('weekly-day').value = String(settings.weekly_digest_day);
+      if (!settings.phone_e164) {
+        $('sms-config-state').style.display = '';
+        $('sms-config-state').textContent = 'No mobile number on file. SMS will not deliver. Save a number to enable.';
+      } else {
+        $('sms-config-state').style.display = 'none';
+      }
+      renderRows(prefs);
+      $('table-wrap').style.display = '';
+    });
+  }
+
+  function renderRows(prefs) {
+    var byEvent = {};
+    prefs.forEach(function (p) { byEvent[p.event_type] = p; });
+    var orderedKeys = Object.keys(EVENT_LABELS);
+    var rows = orderedKeys.map(function (ev) {
+      var p = byEvent[ev] || {};
+      var lbl = EVENT_LABELS[ev];
+      return '<tr>' +
+        '<td><div class="event-name">' + esc(lbl.name) + '</div><div class="event-help">' + esc(lbl.help) + '</div></td>' +
+        '<td>' + selectFor(ev, 'email', p.email_mode || 'immediate', false) + '</td>' +
+        '<td>' + selectFor(ev, 'sms', p.sms_mode || 'off', true) + '</td>' +
+        '<td>' + selectFor(ev, 'push', p.push_mode || 'immediate', false) + '</td>' +
+      '</tr>';
+    }).join('');
+    $('rows').innerHTML = rows;
+    document.querySelectorAll('[data-pref]').forEach(function (sel) {
+      sel.addEventListener('change', function () {
+        var ev = sel.getAttribute('data-event');
+        var ch = sel.getAttribute('data-channel');
+        IntApi.jsonp({ action:'update_notification_pref', event_type: ev, channel: ch, mode: sel.value }).then(function (r) {
+          if (!r || !r.ok) { toast((r && r.error) || 'Save failed', 'error'); return; }
+          toast('Saved.', 'ok');
+        });
+      });
+    });
+  }
+
+  function selectFor(eventType, channel, current, smsOnly) {
+    var opts;
+    if (smsOnly) {
+      opts = ['immediate', 'off'];
+    } else {
+      opts = ['immediate', 'daily_digest', 'weekly_digest', 'off'];
+    }
+    return '<select data-pref data-event="' + esc(eventType) + '" data-channel="' + esc(channel) + '">' +
+      opts.map(function (o) {
+        return '<option value="' + esc(o) + '"' + (o === current ? ' selected' : '') + '>' + esc(o.replace(/_/g, ' ')) + '</option>';
+      }).join('') + '</select>';
+  }
+
+  function savePhone() {
+    var p = $('phone').value.trim();
+    if (p && !/^\+[1-9]\d{6,14}$/.test(p)) {
+      toast('Use E.164 format like +15551234567', 'error'); return;
+    }
+    IntApi.jsonp({ action:'update_notification_settings', phone_e164: p }).then(function (r) {
+      if (!r || !r.ok) { toast((r && r.error) || 'Save failed', 'error'); return; }
+      toast('Phone saved.', 'ok');
+      load();
+    });
+  }
+  function saveSettings() {
+    IntApi.jsonp({ action:'update_notification_settings', daily_digest_hour: $('daily-hour').value, weekly_digest_day: $('weekly-day').value }).then(function (r) {
+      if (!r || !r.ok) { toast((r && r.error) || 'Save failed', 'error'); return; }
+      toast('Saved.', 'ok');
+    });
+  }
+})();
+</script>
+</body>
+</html>

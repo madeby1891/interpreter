@@ -4,6 +4,123 @@ Dated history of changes. Newest entries at the top. Note user-visible changes o
 
 ---
 
+## 2026-05-17 — v17: PII reveal-on-accept + notifications + SMS + agency health dashboard
+
+The scheduler / interpreter workflow gets serious. Five new capabilities,
+all wired end-to-end:
+
+### 1. PII reveal-on-accept (`Code_Offers.gs`, 19 KB)
+
+The HIPAA-defensible offer flow:
+- Interpreters see **redacted previews** of pending offers — no consumer
+  name (not even initials in `full` PHI mode), no specific room/suite,
+  no MRN, notes scrubbed via the same regex stack as AI intake
+- On **accept**, the assignment flips to `claim` response and PII unlocks
+  **for that interpreter only** via a second call to `offer_details`
+- Every PII reveal writes an audit row: `consumer.read.on_assigned_job`
+  with `purpose_of_use='treatment'`, assignment_id, requesting user
+- New endpoints: `list_my_offers`, `offer_details`, `accept_offer`,
+  `decline_offer`, `add_assignment_note`
+
+### 2. Team-of-2 coordination
+
+- When BOTH team members accept (`team-of-2`, `cdi+hearing`, or
+  `voicer+signer`), `_sendTeamContactExchange_` fires automatically:
+  each team member gets an email with the other's name + email + role,
+  so they can coordinate role split + breaks before the assignment
+- New `Assignment_Notes` tab: team-shared notes scoped to the assignment.
+  Both interpreters and staff can post; PHI gets auto-scrubbed inline.
+- Co-interpreters list appears on the offer details when PII is revealed
+
+### 3. Notification preferences (`Code_Notifications.gs`, 13 KB)
+
+- Per-user, per-event-type, per-channel mode:
+  - **Email**: immediate | daily_digest | weekly_digest | off
+  - **SMS**: immediate | off (no digests for SMS)
+  - **Push**: immediate | off (reserved for future mobile app)
+- 10 event types tracked: `job_offer`, `job_claimed`, `job_confirmed`,
+  `job_cancelled`, `job_complete`, `invoice_issued`, `payout_paid`,
+  `doc_expiring_30d`, `doc_expiring_7d`, `doc_expired`
+- **Digest cron**: `installDigestTriggers()` installs Apps Script time-driven
+  triggers — daily at 6am ET, Monday 7am ET. Each fires `flushDigests_`
+  which scans `Communications` for `queued_daily` / `queued_weekly` rows
+  and consolidates per recipient.
+- Endpoints: `list_notification_prefs`, `update_notification_pref`,
+  `update_notification_settings`, `_install_digest_triggers`
+
+### 4. SMS via Twilio (Worker route + Apps Script wrapper)
+
+- **`workers/api/src/sms.ts`** — `/v1/sms/send` Twilio outbound + `/v1/sms/inbound`
+  webhook stub (signature verify TODO)
+- Plan-gated: returns `{ok:false, configured:false}` until `TWILIO_ACCOUNT_SID`,
+  `TWILIO_AUTH_TOKEN`, `TWILIO_FROM_NUMBER` are set via `wrangler secret put`
+- Apps Script proxies via `_sendSmsViaWorker_` with `X-1891-Internal` =
+  shared JWT_SECRET
+- Apps Script logs every SMS to `Communications` with status (sent/failed
+  by Twilio response, or `queued_*` for digests)
+
+### 5. Agency health dashboard (`Code_Metrics.gs`, 13 KB + `/app/admin/health.html`)
+
+Owner/admin/scheduler-gated. One endpoint (`agency_health`) returns:
+- **Roster**: total, active, available-now (no overlapping claimed job),
+  CDI-eligible count, languages covered
+- **Jobs**: counts by status, today, next 7d, last 30d, open_now,
+  offered_now, in_progress_now
+- **Fill rate**: % of last-30d jobs that got a claim before scheduled_start
+- **Time to fill**: median + mean minutes from job creation to first claim
+- **Utilization per interpreter**: billed_minutes / 9600 (40h/week × 4),
+  with claim count
+- **Doc health**: compliant / missing / expired / expiring-soon counts
+- **Top languages last 30d** + **service mix** + **12-week weekly trend**
+
+UI shows a 6-KPI strip up top, full pipeline pills, utilization bars with
+high/low color coding, top-5 languages, service-mix percentages, sparkline.
+
+### New /app/ pages
+
+- **`/app/me/`** — interpreter self-serve offers portal:
+  - Filter tabs (Needs action / Upcoming / All) with badge counts
+  - Cards show redacted preview before accept; full PII + co-interpreter
+    team + specific address after accept
+  - Pay-rate snapshot visible on every card
+  - Accept / Decline buttons; decline opens a modal with reason
+- **`/app/me/notifications.html`** — preferences UI:
+  - SMS number input (E.164 validated)
+  - Daily digest hour selector, Weekly digest day selector
+  - Per-event 3-column matrix (Email | SMS | Push) with cadence dropdowns
+- **`/app/admin/health.html`** — agency dashboard described above
+
+### Schema additions
+
+- `Notification_Prefs` tab — per-user-per-event delivery config
+- `Assignment_Notes` tab — team-shared notes scoped to an assignment
+
+### Verified live
+
+- Health dashboard renders: Roster 10, Open 5, fill rate 0% (no claims in
+  last 30d because all completed jobs are seeded with past dates that
+  predate the recent assignment.responded_at writes), 10 utilization
+  rows, full pipeline pills, all 9 status types showing
+- `apiAuthVerify`-style PII redaction works through `redactJobForPreview_`
+  which strips consumer.display_initials, location.street, notes_to_interpreter
+  PHI patterns
+- Worker `/v1/sms/send` correctly returns `Forbidden` to unauthed calls and
+  `{configured:false}` when secrets aren't set
+
+### Activation steps for SMS / digests
+
+```
+# SMS (when you sign up for Twilio)
+wrangler secret put TWILIO_ACCOUNT_SID
+wrangler secret put TWILIO_AUTH_TOKEN
+wrangler secret put TWILIO_FROM_NUMBER
+
+# Digest schedulers (one-time, from any browser)
+curl -G "$WORKER/v1/proxy/exec" --data-urlencode "action=_install_digest_triggers" --data-urlencode "setup=$SHEET_ID"
+```
+
+---
+
 ## 2026-05-17 — v16: Two-sided rate engine + interpreter docs + qualification-gated smart-fill
 
 The headline fix for "why most interpreting platforms fall flat": real-world

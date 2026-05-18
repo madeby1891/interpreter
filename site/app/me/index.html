@@ -1,0 +1,314 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>My offers — 1891 Interpreter</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#C8553D">
+<link rel="icon" type="image/svg+xml" href="/interpreter/assets/img/favicon.svg">
+<link rel="stylesheet" href="/interpreter/assets/css/site.css">
+<link rel="stylesheet" href="/interpreter/assets/css/app.css">
+<style>
+  .offer-card { background:var(--1891int-paper); border:1px solid var(--1891int-line); border-radius:12px; padding:18px 20px; margin-bottom:16px; box-shadow:var(--1891int-shadow-sm) }
+  .offer-card.preview { border-color:var(--1891int-bloom-soft); border-left:4px solid var(--1891int-bloom) }
+  .offer-card.claimed { border-color:#9CCFB1; border-left:4px solid var(--1891int-ok) }
+  .offer-card.declined { opacity:.55 }
+  .offer-head { display:flex; justify-content:space-between; gap:16px; align-items:flex-start; margin-bottom:12px; flex-wrap:wrap }
+  .offer-status { display:inline-block; padding:3px 10px; border-radius:999px; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.08em }
+  .os-offered { background:var(--1891int-bloom-tint); color:var(--1891int-bloom-deep) }
+  .os-claimed { background:#DDF1E5; color:#0F5C2E }
+  .os-declined { background:var(--1891int-paper-deep); color:var(--1891int-fog) }
+  .os-confirmed { background:#D7E9FF; color:#1B4A8F }
+  .offer-meta { display:grid; grid-template-columns:120px 1fr; gap:6px 14px; font-size:14px; align-items:start }
+  .offer-meta dt { color:var(--1891int-fog); font-weight:600 }
+  .offer-meta dd { margin:0 }
+  .redacted { color:var(--1891int-fog); font-style:italic; font-size:13px }
+  .reveal-on-accept { background:var(--1891int-bloom-tint); color:var(--1891int-bloom-deep); padding:1px 8px; border-radius:6px; font-size:12px; font-weight:600 }
+  .offer-pay { background:var(--1891int-paper-warm); padding:10px 14px; border-radius:8px; margin-top:12px; font-size:14px; font-variant-numeric:tabular-nums }
+  .offer-pay strong { color:var(--1891int-bloom-deep); font-size:16px }
+  .offer-actions { display:flex; gap:10px; margin-top:14px; flex-wrap:wrap }
+  .team-card { background:#F0F6FF; border:1px solid #BFD9F2; border-radius:8px; padding:10px 14px; margin-top:12px; font-size:13.5px }
+  .team-card h4 { margin:0 0 6px; font-size:13px; text-transform:uppercase; letter-spacing:.08em; color:#1B4A8F }
+  .filter-tabs { display:inline-flex; background:var(--1891int-paper-deep); padding:3px; border-radius:8px; margin-bottom:var(--1891int-s-5) }
+  .filter-tabs button { background:transparent; border:0; padding:6px 14px; border-radius:6px; font-weight:600; font-size:13px; color:var(--1891int-fog); cursor:pointer }
+  .filter-tabs button.on { background:var(--1891int-paper); color:var(--1891int-bloom-deep); box-shadow:0 1px 2px rgba(0,0,0,.05) }
+  .filter-tabs .count { background:var(--1891int-bloom); color:#fff; padding:1px 6px; border-radius:999px; font-size:10px; margin-left:6px; font-weight:700 }
+</style>
+</head>
+<body>
+<a href="#main" class="skip">Skip to main content</a>
+
+<div class="app-shell">
+  <header class="app-header">
+    <div class="wrap">
+      <a href="/interpreter/app/" class="brand"><img src="/interpreter/assets/img/brand-mark.svg" alt="" width="32" height="32"><span>1891 <span class="brand-sub">Interpreter</span></span></a>
+      <div class="who"><span>Signed in as </span><strong id="who-name">…</strong><button id="signout" type="button">Sign out</button></div>
+    </div>
+  </header>
+  <nav class="app-nav" aria-label="App sections">
+    <div class="wrap">
+      <a href="/interpreter/app/me/" aria-current="page">My offers</a>
+      <a href="/interpreter/app/me/notifications.html">Notifications</a>
+      <a href="/interpreter/app/" id="staff-nav-board" style="display:none">Day-of board</a>
+      <a href="/interpreter/app/interpreters/" id="staff-nav-roster" style="display:none">Roster</a>
+    </div>
+  </nav>
+
+  <main id="main" class="app-main">
+    <div class="wrap">
+      <div class="toolbar">
+        <h1 style="margin:0;font-size:30px">My offers &amp; jobs</h1>
+        <div class="spacer"></div>
+        <button class="btn btn-ghost btn-sm" id="refresh">Refresh</button>
+      </div>
+
+      <div class="filter-tabs" id="filter-tabs">
+        <button data-filter="open" class="on">Needs action <span class="count" id="ct-open">·</span></button>
+        <button data-filter="upcoming">Upcoming <span class="count" id="ct-up">·</span></button>
+        <button data-filter="all">All</button>
+      </div>
+
+      <div id="loading" class="empty-state"><span class="spinner"></span> Loading your offers&hellip;</div>
+      <div id="list"></div>
+      <div id="empty" class="empty-state" style="display:none">
+        <h2>You're all caught up.</h2>
+        <p>No outstanding offers right now. We'll email and (optionally) text you when a new one comes in. <a href="/interpreter/app/me/notifications.html">Adjust notification preferences →</a></p>
+      </div>
+      <div id="not-interp" class="empty-state" style="display:none">
+        <h2>You don't have an interpreter profile linked.</h2>
+        <p class="ink-soft">Your user account isn't connected to an interpreter row. If you're staff and want to see all open jobs, head to the <a href="/interpreter/app/">day-of board</a>. If you should be an interpreter, ask your scheduler to link your account.</p>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- Decline modal -->
+<div class="modal-backdrop" id="m-decline" role="dialog" aria-modal="true">
+  <div class="modal">
+    <div class="modal-header"><h2>Decline this offer?</h2><button class="close" type="button" data-close>&times;</button></div>
+    <div class="modal-body">
+      <p class="ink-soft">Helps your scheduler match better next time. Optional.</p>
+      <div class="field">
+        <label for="d-reason">Reason</label>
+        <select id="d-reason">
+          <option value="not_available">Not available at that time</option>
+          <option value="outside_radius">Outside my service radius</option>
+          <option value="not_my_specialty">Not my specialty / service type</option>
+          <option value="rate_too_low">Rate too low</option>
+          <option value="other">Other</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="d-note">Note (optional)</label>
+        <textarea id="d-note" rows="2"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" type="button" data-close>Cancel</button>
+      <button class="btn btn-primary" type="button" id="confirm-decline">Decline</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+<script src="/interpreter/assets/js/whitelabel.js"></script>
+<script src="/interpreter/assets/js/api.js"></script>
+<script>
+(function () {
+  'use strict';
+  function $(id) { return document.getElementById(id); }
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' })[c]; }); }
+  function toast(msg, kind) { var t = $('toast'); t.textContent = msg; t.className = 'toast show' + (kind ? ' ' + kind : ''); setTimeout(function () { t.className = 'toast'; }, 3500); }
+  function fmt(iso) { if (!iso) return '—'; var d = new Date(iso); if (isNaN(d.getTime())) return iso; return d.toLocaleString('en-US', { weekday:'short', month:'short', day:'numeric', hour:'numeric', minute:'2-digit' }); }
+  function fmtCents(c) { return '$' + (Number(c || 0) / 100).toFixed(2); }
+
+  var state = { filter: 'open', offers: [], pendingDeclineId: null };
+
+  document.addEventListener('DOMContentLoaded', init);
+
+  function init() {
+    if (!IntApi.getSession()) { location.href = '/interpreter/sign-in.html'; return; }
+    IntApi.whoami().then(function (r) {
+      if (!r || !r.ok) { IntApi.clearSession(); location.href = '/interpreter/sign-in.html'; return; }
+      $('who-name').textContent = r.user.display_name || r.user.email;
+      if (window.IntTheme && r.agency) IntTheme.apply(r.agency);
+      // Show staff nav if applicable
+      if (['role_owner','role_admin','role_scheduler'].indexOf(r.user.role_id) >= 0) {
+        $('staff-nav-board').style.display = '';
+        $('staff-nav-roster').style.display = '';
+      }
+      state.role = r.user.role_id;
+      load();
+    });
+    $('signout').addEventListener('click', function () { IntApi.clearSession(); location.href = '/interpreter/'; });
+    $('refresh').addEventListener('click', load);
+    document.querySelectorAll('#filter-tabs button').forEach(function (b) {
+      b.addEventListener('click', function () {
+        state.filter = b.getAttribute('data-filter');
+        document.querySelectorAll('#filter-tabs button').forEach(function (x) { x.classList.toggle('on', x === b); });
+        render();
+      });
+    });
+    document.querySelectorAll('[data-close]').forEach(function (b) {
+      b.addEventListener('click', function () { document.querySelectorAll('.modal-backdrop.open').forEach(function (m) { m.classList.remove('open'); }); });
+    });
+    $('confirm-decline').addEventListener('click', function () {
+      var reason = ($('d-reason').value || '') + ($('d-note').value ? ' — ' + $('d-note').value : '');
+      doDecline(state.pendingDeclineId, reason);
+      document.querySelectorAll('.modal-backdrop.open').forEach(function (m) { m.classList.remove('open'); });
+    });
+  }
+
+  function load() {
+    $('loading').style.display = '';
+    $('list').innerHTML = '';
+    $('empty').style.display = 'none';
+    $('not-interp').style.display = 'none';
+    IntApi.jsonp({ action: 'list_my_offers' }).then(function (r) {
+      $('loading').style.display = 'none';
+      if (!r || !r.ok) { toast(r && r.error || 'Load failed', 'error'); return; }
+      if (r.note && r.note.indexOf('No linked') >= 0) {
+        $('not-interp').style.display = '';
+        return;
+      }
+      state.offers = r.offers || [];
+      render();
+    }).catch(function () { $('loading').style.display = 'none'; toast('Network error', 'error'); });
+  }
+
+  function render() {
+    var f = state.filter;
+    var filtered = state.offers.filter(function (o) {
+      if (f === 'open') {
+        return o.assignment_response === 'offered' ||
+               (o.assignment_response === 'claim' && (o.assignment_status === 'CLAIMED' || o.assignment_status === 'CONFIRMED'));
+      }
+      if (f === 'upcoming') {
+        return o.scheduled_start && new Date(o.scheduled_start) > new Date();
+      }
+      return true;
+    });
+    var openCount = state.offers.filter(function (o) { return o.assignment_response === 'offered'; }).length;
+    var upcomingCount = state.offers.filter(function (o) { return o.scheduled_start && new Date(o.scheduled_start) > new Date() && o.assignment_response !== 'decline'; }).length;
+    $('ct-open').textContent = openCount;
+    $('ct-up').textContent = upcomingCount;
+    if (!filtered.length) {
+      $('empty').style.display = '';
+      $('list').innerHTML = '';
+      return;
+    }
+    $('empty').style.display = 'none';
+    filtered.sort(function (a, b) {
+      // Outstanding offers first, then by scheduled_start
+      if (a.assignment_response === 'offered' && b.assignment_response !== 'offered') return -1;
+      if (a.assignment_response !== 'offered' && b.assignment_response === 'offered') return 1;
+      return String(a.scheduled_start || '').localeCompare(String(b.scheduled_start || ''));
+    });
+    $('list').innerHTML = filtered.map(card).join('');
+    bindActions();
+  }
+
+  function card(o) {
+    var resp = o.assignment_response || 'offered';
+    var st = o.assignment_status || 'OFFERED';
+    var cls = 'offer-card';
+    var statusClass = 'os-offered';
+    if (resp === 'claim') { cls += ' claimed'; statusClass = st === 'CONFIRMED' ? 'os-confirmed' : 'os-claimed'; }
+    if (resp === 'decline') { cls += ' declined'; statusClass = 'os-declined'; }
+    var statusLabel = resp === 'decline' ? 'declined' : (st || resp).toLowerCase().replace(/_/g, ' ');
+
+    var revealed = o._pii_revealed === true || (o.consumer && o.consumer.display_initials);
+    var consumerLine = revealed
+      ? (o.consumer ? '<strong>' + esc(o.consumer.display_initials || o.consumer.consumer_id) + '</strong>' + (o.consumer.primary_language_id ? ' · prefers ' + esc(o.consumer.primary_language_id) : '') : '—')
+      : '<span class="redacted">[consumer details revealed on accept]</span>';
+
+    var locLine = revealed && o.location
+      ? esc(o.location.display_name) + (o.location.street ? '<br><span class="muted" style="font-size:12.5px">' + esc(o.location.street) + ', ' + esc(o.location.city) + ', ' + esc(o.location.state) + ' ' + esc(o.location.zip) + '</span>' : '')
+      : (o.location_general ? esc(o.location_general.city || '—') + (o.location_general.state ? ', ' + esc(o.location_general.state) : '') + ' <span class="reveal-on-accept">specific address on accept</span>' : '<span class="redacted">—</span>');
+
+    var notesLine = revealed
+      ? esc(o.notes_to_interpreter || '—')
+      : esc(o.notes_preview || '—');
+
+    var rate = '';
+    try {
+      var snap = JSON.parse(o.pay_rate_snapshot || '{}');
+      if (snap.hourly_cents) {
+        rate = 'Pay rate: <strong>$' + (snap.hourly_cents / 100).toFixed(2) + '/hr</strong>';
+      }
+    } catch (_) {}
+
+    var actions = '';
+    if (resp === 'offered') {
+      actions = '<button class="btn btn-primary" data-act="accept" data-id="' + esc(o.assignment_id) + '">Accept this offer</button>' +
+                '<button class="btn btn-ghost" data-act="decline" data-id="' + esc(o.assignment_id) + '">Decline</button>';
+    } else if (resp === 'claim' && (st === 'CLAIMED' || st === 'CONFIRMED' || st === 'IN_PROGRESS')) {
+      actions = '<a class="btn btn-ghost btn-sm" href="/interpreter/app/me/?assignment=' + esc(o.assignment_id) + '">View details &amp; notes</a>';
+    }
+
+    var team = '';
+    if (revealed && o.co_interpreters && o.co_interpreters.length) {
+      team = '<div class="team-card"><h4>Your team</h4>' +
+        o.co_interpreters.map(function (c) {
+          return '· <strong>' + esc(c.display_name) + '</strong> (' + esc(c.role_on_job) + ')' +
+            (c.response === 'claim' ? ' <span class="badge" style="background:#DDF1E5;color:#0F5C2E;font-size:10px">confirmed</span>' : ' <span class="muted" style="font-size:12px">awaiting confirmation</span>');
+        }).join('<br>') + '</div>';
+    }
+
+    return '<div class="' + cls + '">' +
+      '<div class="offer-head"><div>' +
+      '<h2 style="margin:0 0 4px;font-size:20px">' + esc((o.service_type || '').replace(/-/g, ' ')) + ' · ' + esc(o.target_language_id || '') + (o.modality ? ' · ' + esc(o.modality) : '') + '</h2>' +
+      '<div class="muted" style="font-size:12.5px;font-family:var(--1891int-mono)">' + esc(o.assignment_id) + '</div>' +
+      '</div><div><span class="offer-status ' + statusClass + '">' + esc(statusLabel) + '</span></div></div>' +
+      '<dl class="offer-meta">' +
+      '<dt>When</dt><dd>' + esc(fmt(o.scheduled_start)) + ' – ' + esc(fmt(o.scheduled_end)) + '</dd>' +
+      '<dt>Requestor</dt><dd>' + (o.requestor ? esc(o.requestor.display_name) : '—') + '</dd>' +
+      '<dt>Where</dt><dd>' + locLine + '</dd>' +
+      '<dt>Consumer</dt><dd>' + consumerLine + '</dd>' +
+      '<dt>Team</dt><dd>' + esc(o.team_config || 'solo') + (o.role_on_job ? ' · your role: ' + esc(o.role_on_job) : '') + '</dd>' +
+      '<dt>Notes</dt><dd style="white-space:pre-wrap">' + notesLine + '</dd>' +
+      '</dl>' +
+      (rate ? '<div class="offer-pay">' + rate + '</div>' : '') +
+      team +
+      (actions ? '<div class="offer-actions">' + actions + '</div>' : '') +
+    '</div>';
+  }
+
+  function bindActions() {
+    document.querySelectorAll('[data-act="accept"]').forEach(function (b) {
+      b.addEventListener('click', function () { doAccept(b.getAttribute('data-id')); });
+    });
+    document.querySelectorAll('[data-act="decline"]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        state.pendingDeclineId = b.getAttribute('data-id');
+        $('m-decline').classList.add('open');
+      });
+    });
+  }
+
+  function doAccept(assignmentId) {
+    IntApi.jsonp({ action:'accept_offer', assignment_id: assignmentId }).then(function (r) {
+      if (!r || !r.ok) { toast((r && r.error) || 'Accept failed', 'error'); return; }
+      toast('Accepted. Loading full details…', 'ok');
+      // Re-fetch with PII reveal
+      setTimeout(function () {
+        IntApi.jsonp({ action:'offer_details', assignment_id: assignmentId }).then(function (d) {
+          // d.detail has full PII; just reload the list to redraw
+          load();
+        });
+      }, 1200);
+    });
+  }
+  function doDecline(assignmentId, reason) {
+    IntApi.jsonp({ action:'decline_offer', assignment_id: assignmentId, reason: reason }).then(function (r) {
+      if (!r || !r.ok) { toast((r && r.error) || 'Decline failed', 'error'); return; }
+      toast('Declined. Thanks for the heads-up.', 'ok');
+      setTimeout(load, 800);
+    });
+  }
+})();
+</script>
+</body>
+</html>

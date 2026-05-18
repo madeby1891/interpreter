@@ -67,7 +67,10 @@ var T = {
   InterpreterDocuments: 'Interpreter_Documents',
   TenantRequirements: 'Tenant_Requirements',
   RateModifiers: 'Rate_Modifiers',
-  RateCards: 'Rate_Cards'
+  RateCards: 'Rate_Cards',
+  // Comms + team coordination
+  NotificationPrefs: 'Notification_Prefs',
+  AssignmentNotes: 'Assignment_Notes'
 };
 
 var AUTH_TOKEN_TTL_MS = 15 * 60 * 1000;        // magic link valid for 15 min
@@ -126,6 +129,13 @@ function doGet(e) {
       case 'list_interpreter_docs': return _safeCall('apiListInterpreterDocs', e);
       case 'qualification_check': return _safeCall('apiQualificationCheck', e);
       case 'smart_fill_qualified': return _safeCall('apiSmartFillQualified', e);
+      // Offer / PII reveal
+      case 'list_my_offers':     return _safeCall('apiListMyOffers', e);
+      case 'offer_details':      return _safeCall('apiOfferDetails', e);
+      // Notification prefs
+      case 'list_notification_prefs': return _safeCall('apiListNotificationPrefs', e);
+      // Metrics
+      case 'agency_health':      return _safeCall('apiAgencyHealth', e);
       case 'switch_tenant':      return _safeCall('apiSwitchTenant', e);  // GET-path enables JSONP response read
       case '_rotate_hmac':       return apiRotateHmac(e);                  // one-shot Worker-secret sync
       case '_mail_debug':        return apiMailDebug(e);                   // diagnostic
@@ -200,6 +210,14 @@ function doPost(e) {
       case 'upsert_requirement':        return _safeCall('apiUpsertRequirement', e);
       case 'delete_requirement':        return _safeCall('apiDeleteRequirement', e);
       case 'update_interpreter_rates':  return _safeCall('apiUpdateInterpreterRates', e);
+      // Offer / PII reveal
+      case 'accept_offer':              return _safeCall('apiAcceptOffer', e);
+      case 'decline_offer':             return _safeCall('apiDeclineOffer', e);
+      case 'add_assignment_note':       return _safeCall('apiAddAssignmentNote', e);
+      // Notifications
+      case 'update_notification_pref':  return _safeCall('apiUpdateNotificationPref', e);
+      case 'update_notification_settings': return _safeCall('apiUpdateNotificationSettings', e);
+      case '_install_digest_triggers':  return _safeCall('apiInstallDigestTriggers', e);
       default:                   return _json({ ok:false, error:'Unknown action: ' + action }, 404);
     }
   } catch (err) {
@@ -1834,6 +1852,8 @@ function _tenantSchema() {
     Tenant_Requirements: ['req_id','tenant_id','applies_to_service_type','applies_to_modality','doc_type','display_name','required','reminder_days','renewal_period_months','notes','_created_at','_updated_at'],
     Rate_Modifiers: ['modifier_id','tenant_id','side','kind','name','trigger','modifier_pct','modifier_cents','applies_to_service_type','applies_to_modality','priority','status','notes','_created_at','_updated_at'],
     Rate_Cards: ['rate_card_id','tenant_id','side','service_type','modality','team_config','base_hourly_cents','minimum_hours','rounding_minutes','notes','_created_at','_updated_at'],
+    Notification_Prefs: ['pref_id','tenant_id','user_id','event_type','channel','mode','phone_e164','daily_digest_hour','weekly_digest_day','quiet_hours','_created_at','_updated_at'],
+    Assignment_Notes: ['note_id','tenant_id','assignment_id','job_id','author_user_id','author_role','body','visibility','_created_at'],
     Languages: ['language_id','display_name','family','directionalities','dialects','script','rtl','_created_at','_updated_at'],
     Certifications: ['certification_id','body','display_name','applies_to_languages','renewable','ceu_required','_created_at','_updated_at'],
     Requestors: ['requestor_id','tenant_id','display_name','type','parent_org_id','billing_payer_id','default_location_id','contract_doc_id','po_required','notes','status','_created_at','_updated_at','_rev'],

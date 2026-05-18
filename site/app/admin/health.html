@@ -1,0 +1,263 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Agency health — 1891 Interpreter</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#C8553D">
+<link rel="icon" type="image/svg+xml" href="/interpreter/assets/img/favicon.svg">
+<link rel="stylesheet" href="/interpreter/assets/css/site.css">
+<link rel="stylesheet" href="/interpreter/assets/css/app.css">
+<style>
+  .kpi-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:14px }
+  .kpi { background:var(--1891int-paper); border:1px solid var(--1891int-line); border-radius:12px; padding:16px 18px; box-shadow:var(--1891int-shadow-sm) }
+  .kpi-label { color:var(--1891int-fog); font-size:11px; text-transform:uppercase; letter-spacing:.08em; font-weight:600; margin-bottom:6px }
+  .kpi-value { font-family:var(--1891int-display); font-size:34px; line-height:1; font-weight:700; color:var(--1891int-ink); font-variant-numeric:tabular-nums }
+  .kpi-value small { font-size:14px; color:var(--1891int-fog); font-family:var(--1891int-body); font-weight:500; margin-left:4px }
+  .kpi-sub { color:var(--1891int-fog); font-size:12px; margin-top:6px }
+  .kpi.bloom .kpi-value { color:var(--1891int-bloom-deep) }
+  .kpi.river .kpi-value { color:var(--1891int-river-deep) }
+  .kpi.warn  .kpi-value { color:#9E4500 }
+  .kpi.err   .kpi-value { color:var(--1891int-err) }
+  .bars { display:flex; gap:3px; align-items:flex-end; height:60px; padding:6px 0 }
+  .bars .bar { background:var(--1891int-bloom-soft); width:14px; border-radius:3px 3px 0 0 }
+  .bars .bar.recent { background:var(--1891int-bloom) }
+  .row-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px }
+  @media (max-width: 980px) { .row-grid { grid-template-columns:1fr } }
+  .util-row { display:grid; grid-template-columns:1fr 80px 60px 120px; gap:8px; padding:8px 0; border-top:1px solid var(--1891int-line); font-size:13.5px; align-items:center }
+  .util-row:first-child { border-top:0 }
+  .util-bar-bg { background:var(--1891int-paper-deep); border-radius:4px; height:8px; overflow:hidden }
+  .util-bar-fill { background:var(--1891int-bloom); height:100%; transition:width .3s }
+  .util-bar-fill.high { background:var(--1891int-ok) }
+  .util-bar-fill.low { background:var(--1891int-warn) }
+  .lang-row { display:grid; grid-template-columns:1fr 60px; padding:4px 0; font-size:13.5px }
+  .status-pill { display:inline-block; padding:2px 10px; border-radius:999px; font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.06em }
+  .sp-open { background:#FFE9D6; color:#9E4500 }
+  .sp-offered { background:var(--1891int-bloom-tint); color:var(--1891int-bloom-deep) }
+  .sp-claimed { background:#FFF5CC; color:#7D5C00 }
+  .sp-confirmed { background:#D7E9FF; color:#1B4A8F }
+  .sp-in-progress { background:#E8F0FF; color:#1B4A8F }
+  .sp-completed { background:#DDF1E5; color:#0F5C2E }
+  .sp-cancelled { background:#FCE0E0; color:#A8170D }
+</style>
+</head>
+<body>
+<a href="#main" class="skip">Skip to main content</a>
+
+<div class="app-shell">
+  <header class="app-header">
+    <div class="wrap">
+      <a href="/interpreter/app/" class="brand"><img src="/interpreter/assets/img/brand-mark.svg" alt="" width="32" height="32"><span>1891 <span class="brand-sub">Scheduler</span></span></a>
+      <div class="who"><span>Signed in as </span><strong id="who-name">…</strong><button id="signout" type="button">Sign out</button></div>
+    </div>
+  </header>
+  <nav class="app-nav" aria-label="App sections">
+    <div class="wrap">
+      <a href="/interpreter/app/">Day-of board</a>
+      <a href="/interpreter/app/interpreters/">Interpreters</a>
+      <a href="/interpreter/app/admin/">Admin</a>
+      <a href="/interpreter/app/admin/health.html" aria-current="page">Health</a>
+      <a href="/interpreter/app/admin/tenants/">Tenants</a>
+    </div>
+  </nav>
+
+  <main id="main" class="app-main">
+    <div class="wrap">
+      <div class="toolbar">
+        <h1 style="margin:0;font-size:30px">Agency health</h1>
+        <div class="spacer"></div>
+        <span class="muted" style="font-size:13.5px" id="snapshot-time"></span>
+        <button class="btn btn-ghost btn-sm" type="button" id="refresh">Refresh</button>
+      </div>
+
+      <div id="loading" class="empty-state"><span class="spinner"></span> Computing metrics&hellip;</div>
+      <div id="forbidden" class="empty-state" style="display:none">
+        <h2>Admin or scheduler role required.</h2>
+        <p class="ink-soft">This dashboard surfaces tenant-wide metrics, so it's gated to owner, admin, and scheduler roles only.</p>
+        <a class="btn btn-primary" href="/interpreter/app/">Back to day-of board</a>
+      </div>
+      <div id="content" style="display:none">
+
+        <!-- Top KPI strip -->
+        <section style="margin-bottom:var(--1891int-s-5)">
+          <div class="kpi-grid">
+            <div class="kpi"><div class="kpi-label">Roster active</div><div class="kpi-value" id="kpi-roster-active">—</div><div class="kpi-sub" id="kpi-roster-sub"></div></div>
+            <div class="kpi river"><div class="kpi-label">Available now</div><div class="kpi-value" id="kpi-avail">—</div><div class="kpi-sub" id="kpi-avail-sub"></div></div>
+            <div class="kpi bloom"><div class="kpi-label">Open jobs</div><div class="kpi-value" id="kpi-open">—</div><div class="kpi-sub" id="kpi-open-sub"></div></div>
+            <div class="kpi"><div class="kpi-label">Fill rate · 30d</div><div class="kpi-value" id="kpi-fill">—<small>%</small></div><div class="kpi-sub" id="kpi-fill-sub"></div></div>
+            <div class="kpi"><div class="kpi-label">Median time-to-fill</div><div class="kpi-value" id="kpi-ttf">—</div><div class="kpi-sub" id="kpi-ttf-sub"></div></div>
+            <div class="kpi"><div class="kpi-label">Doc-compliant</div><div class="kpi-value" id="kpi-comp">—</div><div class="kpi-sub" id="kpi-comp-sub"></div></div>
+          </div>
+        </section>
+
+        <!-- Job pipeline -->
+        <section class="card" style="margin-bottom:var(--1891int-s-5)">
+          <h2 class="mt-0">Job pipeline</h2>
+          <div id="pipeline" class="cluster" style="gap:10px;font-size:13.5px"></div>
+          <p class="muted" style="font-size:13px;margin-top:var(--1891int-s-3)">All jobs across the tenant, by status.</p>
+        </section>
+
+        <div class="row-grid">
+
+          <!-- Utilization -->
+          <section class="card">
+            <h2 class="mt-0">Interpreter utilization · last 30 days</h2>
+            <p class="ink-soft" style="font-size:13.5px">Billed minutes vs. assumed capacity of 40h/week. Lower numbers can mean the interpreter is new, restricted, or under-offered.</p>
+            <div id="util-list" style="margin-top:var(--1891int-s-3)"></div>
+          </section>
+
+          <!-- Doc health + Languages + Service types -->
+          <section>
+            <div class="card">
+              <h2 class="mt-0">Top languages · last 30 days</h2>
+              <div id="langs-list"></div>
+            </div>
+            <div class="card" style="margin-top:var(--1891int-s-4)">
+              <h2 class="mt-0">Service mix · last 30 days</h2>
+              <div id="svc-list"></div>
+            </div>
+            <div class="card" style="margin-top:var(--1891int-s-4)">
+              <h2 class="mt-0">Weekly trend</h2>
+              <p class="ink-soft" style="font-size:13.5px">Job count, 12 weeks. Right-most is current week.</p>
+              <div class="bars" id="trend-bars"></div>
+              <div class="muted" style="font-size:11px;margin-top:4px;display:flex;justify-content:space-between" id="trend-labels"></div>
+            </div>
+          </section>
+
+        </div>
+
+      </div>
+    </div>
+  </main>
+</div>
+
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+<script src="/interpreter/assets/js/whitelabel.js"></script>
+<script src="/interpreter/assets/js/api.js"></script>
+<script>
+(function () {
+  'use strict';
+  function $(id) { return document.getElementById(id); }
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' })[c]; }); }
+  function toast(msg, kind) { var t = $('toast'); t.textContent = msg; t.className = 'toast show' + (kind ? ' ' + kind : ''); setTimeout(function () { t.className = 'toast'; }, 3500); }
+  function fmtHm(min) {
+    if (min == null) return '—';
+    if (min < 60) return min + 'm';
+    var h = Math.floor(min / 60), m = min % 60;
+    return h + 'h' + (m ? ' ' + m + 'm' : '');
+  }
+
+  document.addEventListener('DOMContentLoaded', init);
+
+  function init() {
+    if (!IntApi.getSession()) { location.href = '/interpreter/sign-in.html'; return; }
+    IntApi.whoami().then(function (r) {
+      if (!r || !r.ok) { IntApi.clearSession(); location.href = '/interpreter/sign-in.html'; return; }
+      $('who-name').textContent = r.user.display_name || r.user.email;
+      if (window.IntTheme && r.agency) IntTheme.apply(r.agency);
+      load();
+    });
+    $('signout').addEventListener('click', function () { IntApi.clearSession(); location.href = '/interpreter/'; });
+    $('refresh').addEventListener('click', load);
+  }
+
+  function load() {
+    $('loading').style.display = '';
+    $('content').style.display = 'none';
+    $('forbidden').style.display = 'none';
+    IntApi.jsonp({ action: 'agency_health' }).then(function (r) {
+      $('loading').style.display = 'none';
+      if (!r) { toast('Network error', 'error'); return; }
+      if (r._status === 403 || (r.error && r.error.indexOf('role required') >= 0)) {
+        $('forbidden').style.display = '';
+        return;
+      }
+      if (!r.ok) { toast(r.error || 'Load failed', 'error'); return; }
+      render(r);
+      $('content').style.display = '';
+    });
+  }
+
+  function render(r) {
+    $('snapshot-time').textContent = 'updated ' + new Date(r.snapshot_at).toLocaleTimeString([], { hour:'numeric', minute:'2-digit' });
+
+    // KPIs
+    var roster = r.roster || {};
+    $('kpi-roster-active').textContent = roster.active;
+    $('kpi-roster-sub').textContent = roster.total + ' total · ' + (roster.languages_covered || 0) + ' languages · ' + (roster.cdi_eligible || 0) + ' CDI';
+    $('kpi-avail').textContent = roster.available_now;
+    $('kpi-avail-sub').textContent = 'as of now';
+
+    var jobs = r.jobs || {};
+    $('kpi-open').textContent = jobs.open_now;
+    $('kpi-open-sub').textContent = (jobs.today_open || 0) + ' today, ' + (jobs.offered_now || 0) + ' out for claim';
+
+    var fill = r.fill_rate || {};
+    $('kpi-fill').innerHTML = (fill.on_time_pct_30d != null ? fill.on_time_pct_30d : '—') + '<small>%</small>';
+    $('kpi-fill-sub').textContent = (fill.filled_on_time_30d || 0) + ' on-time / ' + (fill.total_fillable_30d || 0) + ' fillable';
+
+    var ttf = r.time_to_fill || {};
+    $('kpi-ttf').textContent = ttf.median_minutes_30d != null ? fmtHm(ttf.median_minutes_30d) : '—';
+    $('kpi-ttf-sub').textContent = 'avg ' + (ttf.avg_minutes_30d != null ? fmtHm(ttf.avg_minutes_30d) : '—') + ' · n=' + (ttf.sample_size || 0);
+
+    var dh = r.doc_health || {};
+    var compTotal = (dh.compliant || 0) + (dh.missing || 0) + (dh.expired || 0) + (dh.expiring_soon || 0);
+    $('kpi-comp').textContent = (dh.compliant || 0) + '/' + compTotal;
+    $('kpi-comp-sub').innerHTML = (dh.expiring_soon ? '<span style="color:var(--1891int-warn)">' + dh.expiring_soon + ' expiring soon</span> · ' : '') +
+      (dh.expired ? '<span style="color:var(--1891int-err)">' + dh.expired + ' expired</span>' : (dh.missing ? dh.missing + ' missing' : 'all current'));
+
+    // Pipeline
+    var bs = jobs.by_status || {};
+    var ORDER = ['DRAFT','OPEN','OFFERED','CLAIMED','CONFIRMED','EN_ROUTE','IN_PROGRESS','COMPLETED','BILLED','PAID','CANCELLED_BY_REQUESTOR','CANCELLED_BY_AGENCY','NO_SHOW_CONSUMER','NO_SHOW_INTERPRETER','RESCHEDULED','DECLINED'];
+    var pipeHtml = ORDER.filter(function (s) { return bs[s]; }).map(function (s) {
+      var cls = 'sp-' + s.toLowerCase().split('_')[0];
+      return '<span class="status-pill ' + cls + '">' + s.replace(/_/g, ' ').toLowerCase() + ' · ' + bs[s] + '</span>';
+    }).join('');
+    $('pipeline').innerHTML = pipeHtml || '<span class="muted">No jobs yet.</span>';
+
+    // Utilization
+    var util = (r.utilization && r.utilization.interpreters) || [];
+    var capacityMin = r.utilization && r.utilization.capacity_minutes_per_interpreter || 9600;
+    var maxUtil = Math.max.apply(null, util.map(function (u) { return u.utilization_pct; }).concat([1]));
+    $('util-list').innerHTML = util.slice(0, 12).map(function (u) {
+      var pct = u.utilization_pct || 0;
+      var fillCls = pct >= 60 ? 'high' : (pct >= 25 ? '' : 'low');
+      var widthPct = Math.min(100, pct);
+      return '<div class="util-row">' +
+        '<div>' + esc(u.display_name) + '</div>' +
+        '<div class="util-bar-bg"><div class="util-bar-fill ' + fillCls + '" style="width:' + widthPct + '%"></div></div>' +
+        '<div style="text-align:right">' + pct + '%</div>' +
+        '<div class="muted" style="font-size:12px;text-align:right">' + fmtHm(u.billed_minutes) + ' · ' + u.jobs_claimed + ' jobs</div>' +
+      '</div>';
+    }).join('');
+    if (!util.length) $('util-list').innerHTML = '<p class="muted">No interpreters in roster.</p>';
+
+    // Top languages
+    var langs = r.languages_top || [];
+    $('langs-list').innerHTML = langs.length ? langs.map(function (l) {
+      return '<div class="lang-row"><div>' + esc(l.language) + '</div><div style="text-align:right">' + l.count + '</div></div>';
+    }).join('') : '<p class="muted" style="font-size:13.5px">No jobs yet.</p>';
+
+    // Service mix
+    var svcs = r.service_types || [];
+    var svcTotal = svcs.reduce(function (a, s) { return a + s.count; }, 0);
+    $('svc-list').innerHTML = svcs.length ? svcs.map(function (s) {
+      var pct = svcTotal ? Math.round(100 * s.count / svcTotal) : 0;
+      return '<div class="lang-row"><div>' + esc(s.service_type) + ' <span class="muted" style="font-size:12px">(' + pct + '%)</span></div><div style="text-align:right">' + s.count + '</div></div>';
+    }).join('') : '<p class="muted" style="font-size:13.5px">No jobs yet.</p>';
+
+    // Weekly trend bars
+    var trend = r.weekly_trend || [];
+    var maxCount = Math.max.apply(null, trend.map(function (w) { return w.count; }).concat([1]));
+    $('trend-bars').innerHTML = trend.map(function (w, idx) {
+      var height = Math.max(4, Math.round(60 * w.count / maxCount));
+      return '<div class="bar' + (idx === trend.length - 1 ? ' recent' : '') + '" style="height:' + height + 'px" title="' + esc(w.week_start) + ': ' + w.count + ' jobs"></div>';
+    }).join('');
+    $('trend-labels').innerHTML = '<span>' + esc((trend[0] || {}).week_start || '') + '</span><span>' + esc((trend[trend.length - 1] || {}).week_start || '') + '</span>';
+  }
+})();
+</script>
+</body>
+</html>
