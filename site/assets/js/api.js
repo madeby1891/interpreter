@@ -189,6 +189,29 @@
   function upsertSpecialist(fields)     { return _post('upsert_specialist', fields); }
   function updateClientBillingRules(fields) { return _post('update_client_billing_rules', fields); }
 
+  // Client documents (v18.3) — contracts, BAAs, COIs, W-9s, …
+  function listClientDocuments(clientId) {
+    return jsonp({ action: 'list_client_documents', client_id: clientId });
+  }
+  function uploadClientDocument(fields) {
+    return _postCors('upload_client_document', fields);
+  }
+  function archiveClientDocument(docId) {
+    return _postCors('archive_client_document', { doc_id: docId });
+  }
+  function clientDocumentUrl(docId) {
+    return ENDPOINT + '?action=get_client_document&id=' + encodeURIComponent(docId) +
+           '&session=' + encodeURIComponent(getSession());
+  }
+
+  // Team / invitations (v18.3)
+  function listUsers()            { return jsonp({ action: 'list_users' }); }
+  function listInvitations()      { return jsonp({ action: 'list_invitations' }); }
+  function inviteAllowlist()      { return jsonp({ action: 'invite_allowlist' }); }
+  function inviteUser(fields)     { return _postCors('invite_user', fields); }
+  function cancelInvitation(uid)  { return _postCors('cancel_invitation', { user_id: uid }); }
+  function resendInvitation(uid)  { return _postCors('resend_invitation', { user_id: uid }); }
+
   // Admin — audit log read-back. `params` may include tenant_id, from, to,
   // user_id, action_filter (note: NOT `action` — that's the dispatch key),
   // and limit. All optional; backend has sane defaults.
@@ -245,12 +268,22 @@
     upsertSpecialist: upsertSpecialist,
     updateClientBillingRules: updateClientBillingRules,
     listAuditLog: listAuditLog,
+    listUsers: listUsers,
+    listInvitations: listInvitations,
+    inviteAllowlist: inviteAllowlist,
+    inviteUser: inviteUser,
+    cancelInvitation: cancelInvitation,
+    resendInvitation: resendInvitation,
     closeOutJob: closeOutJob,
     uploadReceipt: uploadReceipt,
     disputeCloseout: disputeCloseout,
     updateExpenseStatus: updateExpenseStatus,
     listJobExpenses: listJobExpenses,
     receiptUrl: receiptUrl,
+    listClientDocuments: listClientDocuments,
+    uploadClientDocument: uploadClientDocument,
+    archiveClientDocument: archiveClientDocument,
+    clientDocumentUrl: clientDocumentUrl,
     jsonp: jsonp
   };
 })(window);

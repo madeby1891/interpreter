@@ -4,6 +4,88 @@ Dated history of changes. Newest entries at the top. Note user-visible changes o
 
 ---
 
+## 2026-05-18 — v18.3: Teammate invitations, per-client document library, payout PDF with expense lines
+
+Three queue items closed in one parallel sweep.
+
+### 1. Teammate invitations (`Code_Invitations.gs` + `/app/settings/team.html`)
+
+Owner/manager can now bring people onboard without manually editing the Sheet.
+
+- `apiInviteUser`, `apiListInvitations`, `apiCancelInvitation`, `apiResendInvitation`,
+  plus `apiListUsers` and `apiInviteAllowlist` for the UI.
+- **Role-scoped allowlist** enforced server-side:
+  - `role_owner`, `role_platform_staff` — can invite any role
+  - `role_manager` — only scheduler / interpreter / client_contact /
+    requestor_contact / billing_contact (no escalation to owner/manager/admin/auditor)
+- New `purpose='invitation'` column on `Auth_Tokens` (added lazily, no migration).
+- **7-day TTL** for invitation tokens (vs 15-min for magic-link).
+- `apiAuthVerify` now flips `status='invited'` → `'active'` on first successful
+  redemption, stamps `last_login_at` on every redemption, returns `first_login` flag.
+- UI: `/app/settings/team.html` — Pending invitations table with Resend / Cancel
+  buttons, Current team table, "+ Invite teammate" modal with role-scoped fields
+  (interpreter dropdown only when `role=interpreter`; client dropdown required for
+  client_contact / billing_contact).
+- Idempotent: re-inviting an `invited` or `cancelled` row reuses the same `user_id`.
+  Refuses to overwrite an `active` teammate.
+- Every API logs audit rows (`invite.create` / `cancel` / `resend` / `accept`).
+
+### 2. Per-client document library (`Code_ClientDocs.gs` + Documents section on profile)
+
+Contracts, BAAs, MSAs, COIs, W-9s, 1099s, NDAs, rate sheets — stored on Drive,
+listed per-client, with expiry visualization.
+
+- New `Client_Documents` tab (19 columns including sha256, effective_date, expires_at).
+- `apiUploadClientDocument` — owner/manager/admin/scheduler/platform_staff; mime allowlist
+  (PDF / Word / images / plain text); size ≤25MB; sha256 written for tamper detection.
+  Drive folder: `/1891 Interpreter — Client Documents/<tenant_id>/<client_id>/<doc_type>/`.
+- `apiListClientDocuments` — same role gate **plus** `role_client_contact` can read
+  their own client's docs (linked via `Client_Contacts.client_id`).
+- `apiArchiveClientDocument` — narrower (owner/manager/platform_staff only). Never
+  hard-deletes; preserves legal retention trail.
+- `apiGetClientDocument` — streams the file back wrapped in HTML embed/img.
+- UI: new **Documents** section on `/app/clients/profile.html` with upload modal,
+  expiry visualization (red row + "Expired" chip when `is_expired`; amber row +
+  "Expires in N days" when ≤30 days out), archived rows dimmed.
+- Read-only viewers (client_contact role) see the list but no upload/archive buttons.
+- Seed adds three demo PDFs (Frederick Health BAA, Catoctin County contract, and a
+  near-expiring FH COI 20 days out so the amber chip shows in screenshots).
+
+### 3. Payout PDF — expense reimbursement lines (`Code_Invoicing.gs`)
+
+Closing the v18.2 loop: when interpreters log expenses on close-out, those now
+render as their own section on the payout PDF.
+
+- `_findPayoutLines` extended to merge labor (from `Job_Events:payout_included`)
+  with expenses (from `Job_Expenses.payout_id`). Tagged `kind:'labor'` vs
+  `kind:'expense'`. Defensive dedupe: if both event + row exist for the same
+  expense_id, the Job_Expenses row wins.
+- `_renderPayoutHtml` rewritten with two tables:
+  - **Labor** — Date | Service type | Hours | Rate | Amount
+  - **Expenses (pay-side reimbursement)** — Date | Type | Description | Qty/Unit | Rate | Amount
+  - Mileage shows "X mi" + "$0.67/mi"; flat expenses show "—" in Qty/Unit
+  - Receipts surface as `[receipt on file: <filename>]` text (PDFs can't carry
+    live session links)
+- Three totals: Labor subtotal · Expense subtotal · **Total payout**.
+- Defensive `payout.pdf_mismatch` audit if header total disagrees with line sum
+  by >1¢.
+- `seedJobExpenses_` added — for each COMPLETED assignment, seeds a mileage row
+  (12–45 miles at interpreter's `mileage_rate_cents`) and occasional parking
+  ($5–15). All `[SEED]`-tagged, `status='approved'` so `apiCreatePayout` picks
+  them up immediately.
+
+### Deploy notes
+
+- Apps Script pushed (20+ files including 2 new `.gs`).
+- Site deployed to `madeby1891.com/interpreter`; 16/16 smoke checks pass.
+- **Still needs the 4-click "New version → Deploy"** in the editor for the
+  v18.3 endpoints to go live on `/exec`: `invite_user`, `list_invitations`,
+  `cancel_invitation`, `resend_invitation`, `list_users`, `invite_allowlist`,
+  `upload_client_document`, `list_client_documents`, `archive_client_document`,
+  `get_client_document`.
+
+---
+
 ## 2026-05-18 — v18.2: Interpreter close-out (actuals + expenses) + audit-log viewer
 
 Closing out a job is now a real thing. Interpreter ends the appointment,

@@ -1196,20 +1196,81 @@ function _findInterpreterById(ss, interpreterId) {
 }
 
 function _findPayoutLines(ss, payoutId) {
-  var sh = ss.getSheetByName(T.JobEvents);
-  if (!sh) return [];
-  var data = sh.getDataRange().getValues();
-  if (data.length < 2) return [];
-  var hdr = data[0];
+  // v18.2 — returns a merged labor + expense list. Labor lines come from
+  // Job_Events (event_type='payout_included'); expense lines come from
+  // Job_Expenses (column payout_id). Sorted: labor first by service_date,
+  // then expenses by _created_at.
   var out = [];
-  for (var i = 1; i < data.length; i++) {
-    var o = _rowToObj(hdr, data[i]);
-    if (o.event_type !== 'payout_included') continue;
-    try {
-      var p = JSON.parse(o.payload || '{}');
-      if (p.payout_id === payoutId) out.push(Object.assign({}, o, p));
-    } catch (_) {}
+
+  // ---- Labor lines ---------------------------------------------------------
+  var sh = ss.getSheetByName(T.JobEvents);
+  if (sh) {
+    var data = sh.getDataRange().getValues();
+    if (data.length >= 2) {
+      var hdr = data[0];
+      for (var i = 1; i < data.length; i++) {
+        var o = _rowToObj(hdr, data[i]);
+        if (o.event_type !== 'payout_included') continue;
+        try {
+          var p = JSON.parse(o.payload || '{}');
+          if (p.payout_id !== payoutId) continue;
+          var line = Object.assign({}, o, p);
+          line.kind = 'labor';
+          out.push(line);
+        } catch (_) {}
+      }
+    }
   }
+
+  // ---- Expense lines (v18.2) ----------------------------------------------
+  // Defensive dedupe: if a labor line slipped through with an `expense_id` we
+  // skip it once we see the Job_Expenses row (Job_Expenses is authoritative).
+  var exSh = ss.getSheetByName(T.JobExpenses);
+  var seenExpenseIds = {};
+  if (exSh && exSh.getLastRow() >= 2) {
+    var exData = exSh.getDataRange().getValues();
+    var exHdr = exData[0];
+    for (var ei = 1; ei < exData.length; ei++) {
+      var ex = _rowToObj(exHdr, exData[ei]);
+      if (String(ex.payout_id) !== String(payoutId)) continue;
+      seenExpenseIds[String(ex.expense_id)] = true;
+      out.push({
+        kind: 'expense',
+        expense_id: ex.expense_id,
+        assignment_id: ex.assignment_id || '',
+        job_id: ex.job_id || '',
+        expense_type: ex.expense_type || '',
+        quantity: ex.quantity || '',
+        unit: ex.unit || '',
+        rate_cents: Number(ex.rate_cents) || 0,
+        amount_cents: Number(ex.amount_cents) || 0,
+        description: ex.description || '',
+        receipt_r2_key: ex.receipt_r2_key || '',
+        receipt_filename: ex.receipt_filename || '',
+        _created_at: ex._created_at || '',
+        service_date: (ex._created_at ? String(ex._created_at).slice(0, 10) : '')
+      });
+    }
+  }
+
+  // Drop any labor line that's actually an expense duplicate (defensive — the
+  // current writer never emits payout_included for expenses, but a future bug
+  // shouldn't double-count).
+  out = out.filter(function (l) {
+    if (l.kind !== 'labor') return true;
+    if (l.expense_id && seenExpenseIds[String(l.expense_id)]) return false;
+    return true;
+  });
+
+  // Sort: labor by service_date ascending, then expenses by _created_at ascending.
+  out.sort(function (a, b) {
+    if (a.kind !== b.kind) return a.kind === 'labor' ? -1 : 1;
+    if (a.kind === 'labor') {
+      return String(a.service_date || '').localeCompare(String(b.service_date || ''));
+    }
+    return String(a._created_at || '').localeCompare(String(b._created_at || ''));
+  });
+
   return out;
 }
 
@@ -1367,18 +1428,142 @@ function _renderInvoiceHtml(agency, invoice, lines, payer, client) {
   ].join('\n');
 }
 
+// Friendly labels for the expense_type enum used in Job_Expenses.
+var _EXPENSE_TYPE_LABELS = {
+  mileage: 'Mileage',
+  parking: 'Parking',
+  tolls:   'Tolls',
+  supplies:'Supplies',
+  meal:    'Meal',
+  other:   'Other'
+};
+function _expenseTypeLabel(t) {
+  if (!t) return 'Expense';
+  return _EXPENSE_TYPE_LABELS[String(t).toLowerCase()] || (String(t).charAt(0).toUpperCase() + String(t).slice(1));
+}
+
 function _renderPayoutHtml(agency, payout, lines, interpreter) {
   var styles = _pdfCss(agency.brand_color);
-  var rows = lines.map(function (l) {
+
+  // Split lines by kind. _findPayoutLines already sorted labor first / expenses
+  // last, but we render two tables so a partition is clearer.
+  var laborLines = [];
+  var expenseLines = [];
+  (lines || []).forEach(function (l) {
+    if (l && l.kind === 'expense') expenseLines.push(l);
+    else laborLines.push(l);
+  });
+
+  // Subtotals from the lines array (used both for display and as a defensive
+  // cross-check against payout.total_cents).
+  var laborSubtotal = laborLines.reduce(function (s, l) { return s + (Number(l.amount_cents) || 0); }, 0);
+  var expenseSubtotal = expenseLines.reduce(function (s, l) { return s + (Number(l.amount_cents) || 0); }, 0);
+  var grandTotal = laborSubtotal + expenseSubtotal;
+  var headerTotal = Number(payout.total_cents) || 0;
+  if (headerTotal && grandTotal && Math.abs(headerTotal - grandTotal) > 1) {
+    try {
+      _logAudit('payout.pdf_mismatch', payout.tenant_id || '*', 'system',
+        payout.payout_id + ' header=' + headerTotal + ' labor=' + laborSubtotal +
+        ' expense=' + expenseSubtotal + ' sum=' + grandTotal);
+    } catch (_) {}
+  }
+
+  // ---- Labor table rows ----------------------------------------------------
+  // Columns: Date | Service type | Hours | Rate | Amount
+  var laborRows = laborLines.map(function (l) {
+    var date = l.service_date || '';
+    var serviceLabel = (l.service_type || l.description || '').toString().replace(/-/g, ' ');
+    if (!serviceLabel && l.assignment_id) serviceLabel = 'Assignment ' + l.assignment_id;
+    var hours = (l.hours != null && l.hours !== '') ? l.hours : (l.billable_minutes ? (Number(l.billable_minutes) / 60) : '');
+    if (typeof hours === 'number') hours = _round2(hours).toFixed(2);
     return '<tr>' +
-      '<td>' + _esc(l.description || ('Assignment ' + (l.assignment_id || '—'))) + '</td>' +
-      '<td>' + _esc(l.service_type || '') + '</td>' +
-      '<td class="right">' + _esc(l.billable_minutes || '') + '</td>' +
+      '<td>' + _esc(_fmtDate(date)) + '</td>' +
+      '<td>' + _esc(serviceLabel || '—') + '</td>' +
+      '<td class="right">' + _esc(hours || '—') + '</td>' +
       '<td class="right">' + _fmtMoney(l.pay_rate_cents || l.rate_cents) + '</td>' +
       '<td class="right">' + _fmtMoney(l.amount_cents) + '</td>' +
     '</tr>';
   }).join('');
+
+  // ---- Expense table rows --------------------------------------------------
+  // Columns: Date | Type | Description | Qty / Unit | Rate | Amount
+  var expenseRows = expenseLines.map(function (l) {
+    var date = l.service_date || (l._created_at ? String(l._created_at).slice(0, 10) : '');
+    var type = _expenseTypeLabel(l.expense_type);
+    var isMileage = String(l.expense_type || '').toLowerCase() === 'mileage';
+
+    var qtyUnit = '—';
+    var rate = '—';
+    if (isMileage && l.quantity) {
+      qtyUnit = _esc(l.quantity) + ' mi';
+      // Mileage rate_cents is stored as cents-per-mile (e.g. 67 → "$0.67/mi").
+      var rateDollars = (Number(l.rate_cents || 0) / 100);
+      rate = '$' + rateDollars.toFixed(2) + '/mi';
+    } else if (l.quantity && l.unit) {
+      qtyUnit = _esc(l.quantity) + ' ' + _esc(l.unit);
+      if (l.rate_cents) rate = _fmtMoney(l.rate_cents);
+    }
+
+    // Description column: original description + a "[receipt on file: filename]"
+    // tag if a receipt was uploaded. PDFs can't carry live session links, so we
+    // surface the filename only and route them to the portal.
+    var desc = _esc(l.description || '');
+    if (l.receipt_r2_key) {
+      var fname = _esc(l.receipt_filename || 'attachment');
+      var receiptTag = '<div style="font-size:11px;color:#5C6670;margin-top:2px">[receipt on file: ' + fname + ']</div>';
+      desc = (desc ? desc : '<span style="color:#9B958A">(no description)</span>') + receiptTag;
+    } else if (!desc) {
+      desc = '<span style="color:#9B958A">—</span>';
+    }
+
+    return '<tr>' +
+      '<td>' + _esc(_fmtDate(date)) + '</td>' +
+      '<td>' + _esc(type) + '</td>' +
+      '<td>' + desc + '</td>' +
+      '<td class="right">' + qtyUnit + '</td>' +
+      '<td class="right">' + rate + '</td>' +
+      '<td class="right">' + _fmtMoney(l.amount_cents) + '</td>' +
+    '</tr>';
+  }).join('');
+
   var name = (interpreter.legal_first || '') + ' ' + (interpreter.legal_last || '');
+
+  var laborSection = '';
+  if (laborLines.length) {
+    laborSection = [
+      '<h3 style="margin:24px 0 6px;font-size:13px;text-transform:uppercase;letter-spacing:.10em;color:#5C6670;font-weight:700">Labor</h3>',
+      '<table>',
+      '  <thead><tr><th>Date</th><th>Service type</th><th class="right">Hours</th><th class="right">Rate</th><th class="right">Amount</th></tr></thead>',
+      '  <tbody>' + laborRows + '</tbody>',
+      '</table>'
+    ].join('\n');
+  }
+
+  var expenseSection = '';
+  if (expenseLines.length) {
+    expenseSection = [
+      '<h3 style="margin:24px 0 6px;font-size:13px;text-transform:uppercase;letter-spacing:.10em;color:#5C6670;font-weight:700">Expenses <span style="text-transform:none;font-weight:400;color:#9B958A">(pay-side reimbursement)</span></h3>',
+      '<table>',
+      '  <thead><tr><th>Date</th><th>Type</th><th>Description</th><th class="right">Qty / Unit</th><th class="right">Rate</th><th class="right">Amount</th></tr></thead>',
+      '  <tbody>' + expenseRows + '</tbody>',
+      '</table>'
+    ].join('\n');
+  }
+
+  var emptyState = (!laborLines.length && !expenseLines.length)
+    ? '<table><tbody><tr><td colspan="5" style="color:#5C6670;text-align:center">No lines.</td></tr></tbody></table>'
+    : '';
+
+  // Totals table — only show the dual subtotals when both sides are non-zero.
+  var totalsRows = [];
+  if (laborLines.length) {
+    totalsRows.push('<tr><td>Labor subtotal</td><td class="right">' + _fmtMoney(laborSubtotal) + '</td></tr>');
+  }
+  if (expenseLines.length) {
+    totalsRows.push('<tr><td>Expense subtotal</td><td class="right">' + _fmtMoney(expenseSubtotal) + '</td></tr>');
+  }
+  totalsRows.push('<tr class="total"><td>Total payout</td><td class="right">' + _fmtMoney(payout.total_cents || grandTotal) + '</td></tr>');
+
   return [
     '<!doctype html><html><head><meta charset="utf-8"><style>' + styles + '</style></head><body>',
     '<header>',
@@ -1396,12 +1581,11 @@ function _renderPayoutHtml(agency, payout, lines, interpreter) {
     (interpreter.classification ? '<div style="font-size:12px;color:#5C6670;margin-top:2px">' + _esc(interpreter.classification) + '</div>' : '') + '</div>',
     '</section>',
     '<div><strong>Service period:</strong> ' + _fmtDate(payout.period_start) + ' &mdash; ' + _fmtDate(payout.period_end) + '</div>',
-    '<table>',
-    '  <thead><tr><th>Description</th><th>Type</th><th class="right">Minutes</th><th class="right">Rate</th><th class="right">Amount</th></tr></thead>',
-    '  <tbody>' + (rows || '<tr><td colspan="5" style="color:#5C6670;text-align:center">No lines.</td></tr>') + '</tbody>',
-    '</table>',
+    laborSection,
+    expenseSection,
+    emptyState,
     '<table class="totals">',
-    '  <tr class="total"><td>Total paid</td><td class="right">' + _fmtMoney(payout.total_cents) + '</td></tr>',
+    '  ' + totalsRows.join('\n  '),
     '</table>',
     (payout.stripe_transfer_id ? '<div class="terms"><strong>Stripe transfer:</strong> ' + _esc(payout.stripe_transfer_id) + '</div>' : ''),
     '<footer>',

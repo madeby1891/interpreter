@@ -1,0 +1,405 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Team — 1891 Interpreter</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#C8553D">
+<link rel="icon" type="image/svg+xml" href="/interpreter/assets/img/favicon.svg">
+<link rel="stylesheet" href="/interpreter/assets/css/site.css">
+<link rel="stylesheet" href="/interpreter/assets/css/app.css">
+<style>
+  table.team-table { width:100%; border-collapse:collapse; font-size:13.5px }
+  table.team-table th { text-align:left; padding:8px 10px; border-bottom:2px solid var(--1891int-ink); font-size:11px; text-transform:uppercase; letter-spacing:.08em }
+  table.team-table td { padding:10px; border-bottom:1px solid var(--1891int-line); vertical-align:middle }
+  .role-chip { display:inline-block; padding:2px 8px; border-radius:999px; font-size:11px; font-weight:600; background:var(--1891int-paper-deep); color:var(--1891int-ink-soft); text-transform:uppercase; letter-spacing:.06em }
+  .status-chip { display:inline-block; padding:2px 8px; border-radius:999px; font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.06em }
+  .status-chip.active    { background:var(--1891int-ok-tint, #d9f2e0); color:var(--1891int-ok, #1d6f3f) }
+  .status-chip.invited   { background:var(--1891int-warn-tint, #fff1d6); color:var(--1891int-warn, #8a5a00) }
+  .status-chip.cancelled { background:var(--1891int-paper-deep); color:var(--1891int-fog) }
+  .status-chip.suspended { background:var(--1891int-err-tint, #fde0e0); color:var(--1891int-err, #a82f2f) }
+  .token-chip { display:inline-block; padding:2px 8px; border-radius:999px; font-size:11px; font-weight:600; font-variant-numeric:tabular-nums }
+  .token-chip.active   { background:var(--1891int-river-tint, #d6edf7); color:var(--1891int-river-deep, #15577a) }
+  .token-chip.expired  { background:var(--1891int-err-tint, #fde0e0); color:var(--1891int-err, #a82f2f) }
+  .token-chip.consumed { background:var(--1891int-ok-tint, #d9f2e0); color:var(--1891int-ok, #1d6f3f) }
+  .token-chip.no-token { background:var(--1891int-paper-deep); color:var(--1891int-fog) }
+  .row-actions { display:flex; gap:6px; justify-content:flex-end }
+
+  /* Modal */
+  .modal-backdrop { position:fixed; inset:0; background:rgba(0,0,0,.4); display:none; align-items:center; justify-content:center; z-index:50; padding:var(--1891int-s-3) }
+  .modal-backdrop.open { display:flex }
+  .modal { background:var(--1891int-paper); border-radius:10px; padding:var(--1891int-s-5); max-width:520px; width:100%; max-height:92vh; overflow:auto; box-shadow:0 12px 40px rgba(0,0,0,.25) }
+  .modal h2 { margin:0 0 var(--1891int-s-4); font-size:22px }
+  .modal .field { margin-bottom:var(--1891int-s-3) }
+  .modal .field label { display:block; font-size:11px; text-transform:uppercase; letter-spacing:.08em; color:var(--1891int-fog); margin-bottom:4px; font-weight:600 }
+  .modal .field input, .modal .field select, .modal .field textarea {
+    width:100%; padding:8px 10px; border:1px solid var(--1891int-line); border-radius:6px; font-size:14px; box-sizing:border-box
+  }
+  .modal .field textarea { min-height:64px; resize:vertical }
+  .modal .field .hint { display:block; font-size:12px; color:var(--1891int-fog); margin-top:4px }
+  .modal .actions { display:flex; gap:8px; justify-content:flex-end; margin-top:var(--1891int-s-4); flex-wrap:wrap }
+  .scoped { display:none }
+  .scoped.show { display:block }
+</style>
+</head>
+<body>
+<a href="#main" class="skip">Skip to main content</a>
+
+<div class="app-shell">
+  <header class="app-header">
+    <div class="wrap">
+      <a href="/interpreter/app/" class="brand"><img src="/interpreter/assets/img/brand-mark.svg" alt="" width="32" height="32"><span>1891 <span class="brand-sub">Scheduler</span></span></a>
+      <div class="who"><span>Signed in as </span><strong id="who-name">&hellip;</strong><button id="signout" type="button">Sign out</button></div>
+    </div>
+  </header>
+  <nav class="app-nav" aria-label="App sections">
+    <div class="wrap">
+      <a href="/interpreter/app/">Day-of board</a>
+      <a href="/interpreter/app/interpreters/">Interpreters</a>
+      <a href="/interpreter/app/requestors/">Requestors</a>
+      <a href="/interpreter/app/intake/">AI intake</a>
+      <a href="/interpreter/app/invoices/">Invoices</a>
+      <a href="/interpreter/app/payouts/">Payouts</a>
+      <a href="/interpreter/app/payments/">Payments</a>
+      <a href="/interpreter/app/settings/" aria-current="page">Settings</a>
+    </div>
+  </nav>
+
+  <main id="main" class="app-main">
+    <div class="wrap">
+      <h1 style="margin:0 0 var(--1891int-s-3);font-size:30px">Team</h1>
+      <p class="ink-soft" style="font-size:14.5px;max-width:64ch">People who can sign in to your agency. Invite a teammate by email; they get a one-click setup link valid for 7 days. Managers can invite operational roles (scheduler, interpreter, client&nbsp;contact, requestor&nbsp;contact, billing&nbsp;contact). Only owners can invite other owners or managers.</p>
+
+      <div class="cluster" style="margin-bottom:var(--1891int-s-4)">
+        <a class="btn btn-ghost btn-sm" href="/interpreter/app/settings/">&larr; Settings</a>
+        <a class="btn btn-ghost btn-sm" href="/interpreter/app/settings/rates.html">Rates &rarr;</a>
+        <a class="btn btn-ghost btn-sm" href="/interpreter/app/settings/requirements.html">Requirements &rarr;</a>
+        <button class="btn btn-primary btn-sm" id="invite-open" type="button">+ Invite teammate</button>
+      </div>
+
+      <!-- Pending invitations -->
+      <section class="card" style="margin-bottom:var(--1891int-s-5)">
+        <h2 class="mt-0">Pending invitations</h2>
+        <div id="inv-empty" class="empty-state" style="display:none">No outstanding invitations.</div>
+        <div id="inv-loading" class="empty-state"><span class="spinner"></span> Loading&hellip;</div>
+        <div id="inv-wrap" style="display:none;overflow:auto">
+          <table class="team-table" id="inv-table">
+            <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Sent</th><th>Expires</th><th>Status</th><th></th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- Current team -->
+      <section class="card" style="margin-bottom:var(--1891int-s-5)">
+        <h2 class="mt-0">Current team</h2>
+        <div id="team-empty" class="empty-state" style="display:none">No active teammates yet.</div>
+        <div id="team-loading" class="empty-state"><span class="spinner"></span> Loading&hellip;</div>
+        <div id="team-wrap" style="display:none;overflow:auto">
+          <table class="team-table" id="team-table">
+            <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Interpreter link</th><th>Last sign-in</th><th>Status</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+  </main>
+</div>
+
+<!-- Invite modal -->
+<div class="modal-backdrop" id="modal" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+  <div class="modal">
+    <h2 id="modal-title">Invite a teammate</h2>
+    <form id="invite-form" autocomplete="off">
+      <div class="field">
+        <label for="i-name">Display name</label>
+        <input id="i-name" name="display_name" type="text" required placeholder="Jordan Riley">
+      </div>
+      <div class="field">
+        <label for="i-email">Email</label>
+        <input id="i-email" name="email" type="email" required placeholder="jordan@example.com">
+      </div>
+      <div class="field">
+        <label for="i-role">Role</label>
+        <select id="i-role" name="role_id" required>
+          <option value="">Loading roles&hellip;</option>
+        </select>
+        <span class="hint">Only the roles you're allowed to invite are shown.</span>
+      </div>
+
+      <div class="field scoped" id="scope-interpreter">
+        <label for="i-interpreter">Interpreter profile (optional)</label>
+        <select id="i-interpreter" name="interpreter_id">
+          <option value="">&mdash; Create a new interpreter on first sign-in &mdash;</option>
+        </select>
+        <span class="hint">Link to an existing Interpreters row. Leave blank to create a new one.</span>
+      </div>
+
+      <div class="field scoped" id="scope-client">
+        <label for="i-client">Client</label>
+        <select id="i-client" name="client_id">
+          <option value="">&mdash; Select a client &mdash;</option>
+        </select>
+        <span class="hint">Required: which client this contact belongs to.</span>
+      </div>
+
+      <div class="field">
+        <label for="i-phone">Phone (optional)</label>
+        <input id="i-phone" name="phone_e164" type="tel" placeholder="+1 area-code number">
+      </div>
+
+      <div class="field">
+        <label for="i-notes">Note to invitee (optional)</label>
+        <textarea id="i-notes" name="notes_for_invitee" maxlength="500" placeholder="Hey Jordan — go ahead and set up your account so we can route Tuesday's job to you."></textarea>
+      </div>
+
+      <div class="actions">
+        <button type="button" class="btn btn-ghost" id="invite-cancel">Cancel</button>
+        <button type="submit" class="btn btn-primary" id="invite-submit">Send invitation</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+<script src="/interpreter/assets/js/whitelabel.js" defer></script>
+<script src="/interpreter/assets/js/api.js" defer></script>
+<script>
+(function () {
+  'use strict';
+  function $(id) { return document.getElementById(id); }
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' })[c]; }); }
+  function toast(msg, kind) { var t = $('toast'); t.textContent = msg; t.className = 'toast show' + (kind ? ' ' + kind : ''); setTimeout(function () { t.className = 'toast'; }, 3500); }
+  function fmtDate(iso) {
+    if (!iso) return '—';
+    try {
+      var d = new Date(iso);
+      if (isNaN(d.getTime())) return String(iso).slice(0, 16).replace('T', ' ');
+      return d.toLocaleString(undefined, { year: 'numeric', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+    } catch (_) { return String(iso); }
+  }
+
+  document.addEventListener('DOMContentLoaded', init);
+
+  function init() {
+    if (!IntApi.getSession()) { location.href = '/interpreter/sign-in.html'; return; }
+    IntApi.whoami().then(function (r) {
+      if (!r || !r.ok) { IntApi.clearSession(); location.href = '/interpreter/sign-in.html'; return; }
+      $('who-name').textContent = r.user.display_name || r.user.email;
+      if (window.IntTheme && r.agency) IntTheme.apply(r.agency);
+      // Gate the page to roles that can manage team.
+      var role = r.user.role_id;
+      if (role !== 'role_owner' && role !== 'role_manager' && role !== 'role_platform_staff') {
+        $('inv-loading').style.display = 'none';
+        $('team-loading').style.display = 'none';
+        toast('Team management requires owner, manager, or platform-staff role.', 'error');
+        $('invite-open').disabled = true;
+        return;
+      }
+      loadAll();
+    }).catch(function () { toast('Auth check failed.', 'error'); });
+
+    $('signout').addEventListener('click', function () { IntApi.clearSession(); location.href = '/interpreter/'; });
+    $('invite-open').addEventListener('click', openModal);
+    $('invite-cancel').addEventListener('click', closeModal);
+    $('modal').addEventListener('click', function (e) { if (e.target === $('modal')) closeModal(); });
+    $('i-role').addEventListener('change', toggleRoleScopes);
+    $('invite-form').addEventListener('submit', submitInvite);
+  }
+
+  function loadAll() {
+    loadTeam();
+    loadInvitations();
+  }
+
+  function loadTeam() {
+    IntApi.listUsers().then(function (r) {
+      $('team-loading').style.display = 'none';
+      if (!r || !r.ok) { toast(r && r.error ? r.error : 'Failed to load team.', 'error'); return; }
+      var users = (r.users || []).filter(function (u) { return u.status === 'active' || u.status === 'suspended'; });
+      if (!users.length) { $('team-empty').style.display = 'block'; return; }
+      var tb = $('team-table').querySelector('tbody');
+      tb.innerHTML = users.map(function (u) {
+        return '<tr>' +
+          '<td>' + esc(u.display_name || '—') + '</td>' +
+          '<td><a href="mailto:' + esc(u.email) + '">' + esc(u.email) + '</a></td>' +
+          '<td><span class="role-chip">' + esc(u.role_label || u.role_id) + '</span></td>' +
+          '<td><code style="font-size:12px">' + esc(u.interpreter_id || '—') + '</code></td>' +
+          '<td>' + esc(fmtDate(u.last_login_at)) + '</td>' +
+          '<td><span class="status-chip ' + esc(u.status) + '">' + esc(u.status) + '</span></td>' +
+        '</tr>';
+      }).join('');
+      $('team-wrap').style.display = 'block';
+    }).catch(function () {
+      $('team-loading').style.display = 'none';
+      toast('Failed to load team.', 'error');
+    });
+  }
+
+  function loadInvitations() {
+    IntApi.listInvitations().then(function (r) {
+      $('inv-loading').style.display = 'none';
+      if (!r || !r.ok) { toast(r && r.error ? r.error : 'Failed to load invitations.', 'error'); return; }
+      var invs = r.invitations || [];
+      if (!invs.length) { $('inv-empty').style.display = 'block'; return; }
+      var tb = $('inv-table').querySelector('tbody');
+      tb.innerHTML = invs.map(function (i) {
+        return '<tr data-uid="' + esc(i.user_id) + '">' +
+          '<td>' + esc(i.display_name || '—') + '</td>' +
+          '<td>' + esc(i.email) + '</td>' +
+          '<td><span class="role-chip">' + esc(i.role_label || i.role_id) + '</span></td>' +
+          '<td>' + esc(fmtDate(i.last_sent_at)) + '</td>' +
+          '<td>' + esc(fmtDate(i.expires_at)) + '</td>' +
+          '<td><span class="token-chip ' + esc(i.token_status) + '">' + esc(i.token_status) + '</span></td>' +
+          '<td><div class="row-actions">' +
+            '<button class="btn btn-ghost btn-sm" data-act="resend">Resend</button>' +
+            '<button class="btn btn-ghost btn-sm" data-act="cancel">Cancel</button>' +
+          '</div></td>' +
+        '</tr>';
+      }).join('');
+      tb.querySelectorAll('button[data-act]').forEach(function (b) {
+        b.addEventListener('click', onInvitationAction);
+      });
+      $('inv-wrap').style.display = 'block';
+    }).catch(function () {
+      $('inv-loading').style.display = 'none';
+      toast('Failed to load invitations.', 'error');
+    });
+  }
+
+  function onInvitationAction(ev) {
+    var btn = ev.currentTarget;
+    var tr = btn.closest('tr');
+    var uid = tr.getAttribute('data-uid');
+    var act = btn.getAttribute('data-act');
+    if (!uid) return;
+    btn.disabled = true;
+    if (act === 'resend') {
+      IntApi.resendInvitation(uid).then(function (r) {
+        if (r && r.ok) { toast('Invitation resent.', 'ok'); loadInvitations(); }
+        else { toast(r && r.error ? r.error : 'Resend failed.', 'error'); btn.disabled = false; }
+      }).catch(function () { toast('Resend failed.', 'error'); btn.disabled = false; });
+    } else if (act === 'cancel') {
+      if (!window.confirm('Cancel this invitation? The link will stop working.')) { btn.disabled = false; return; }
+      IntApi.cancelInvitation(uid).then(function (r) {
+        if (r && r.ok) { toast('Invitation cancelled.', 'ok'); loadInvitations(); }
+        else { toast(r && r.error ? r.error : 'Cancel failed.', 'error'); btn.disabled = false; }
+      }).catch(function () { toast('Cancel failed.', 'error'); btn.disabled = false; });
+    }
+  }
+
+  // -------------------------------------------------------------------------
+  // Modal: open, populate dropdowns, scope-toggle, submit
+  // -------------------------------------------------------------------------
+  function openModal() {
+    $('modal').classList.add('open');
+    $('modal').setAttribute('aria-hidden', 'false');
+    document.body.style.overflow = 'hidden';
+    $('invite-form').reset();
+    populateRoles();
+    populateInterpreters();
+    populateClients();
+    setTimeout(function () { $('i-name').focus(); }, 30);
+  }
+  function closeModal() {
+    $('modal').classList.remove('open');
+    $('modal').setAttribute('aria-hidden', 'true');
+    document.body.style.overflow = '';
+  }
+
+  function populateRoles() {
+    var sel = $('i-role');
+    sel.innerHTML = '<option value="">Loading roles…</option>';
+    IntApi.inviteAllowlist().then(function (r) {
+      if (!r || !r.ok) { sel.innerHTML = '<option value="">No roles available</option>'; return; }
+      sel.innerHTML = '<option value="">— Select a role —</option>' +
+        (r.allowed_roles || []).map(function (rr) {
+          return '<option value="' + esc(rr.role_id) + '">' + esc(rr.label) + '</option>';
+        }).join('');
+    }).catch(function () { sel.innerHTML = '<option value="">— Select a role —</option>'; });
+  }
+
+  function populateInterpreters() {
+    var sel = $('i-interpreter');
+    IntApi.listInterpreters().then(function (r) {
+      if (!r || !r.ok) return;
+      var keep = sel.options[0];
+      sel.innerHTML = '';
+      sel.appendChild(keep);
+      (r.interpreters || []).forEach(function (it) {
+        var label = (it.legal_first || '') + ' ' + (it.legal_last || '') + ' (' + (it.interpreter_id || '') + ')';
+        var opt = document.createElement('option');
+        opt.value = it.interpreter_id;
+        opt.textContent = label.trim();
+        sel.appendChild(opt);
+      });
+    }).catch(function () { /* leave default */ });
+  }
+
+  function populateClients() {
+    var sel = $('i-client');
+    if (!IntApi.listClients) return;
+    IntApi.listClients().then(function (r) {
+      if (!r || !r.ok) return;
+      var keep = sel.options[0];
+      sel.innerHTML = '';
+      sel.appendChild(keep);
+      (r.clients || []).forEach(function (c) {
+        var opt = document.createElement('option');
+        opt.value = c.client_id;
+        opt.textContent = (c.display_name || c.legal_name || c.client_id);
+        sel.appendChild(opt);
+      });
+    }).catch(function () { /* leave default */ });
+  }
+
+  function toggleRoleScopes() {
+    var role = $('i-role').value;
+    var interpScope = $('scope-interpreter');
+    var clientScope = $('scope-client');
+    interpScope.classList.toggle('show', role === 'role_interpreter');
+    clientScope.classList.toggle('show', role === 'role_client_contact' || role === 'role_billing_contact');
+    $('i-client').required = (role === 'role_client_contact' || role === 'role_billing_contact');
+  }
+
+  function submitInvite(ev) {
+    ev.preventDefault();
+    var btn = $('invite-submit');
+    btn.disabled = true;
+    var f = $('invite-form');
+    var fd = new FormData(f);
+    var fields = {};
+    fd.forEach(function (v, k) {
+      var s = String(v || '').trim();
+      if (s) fields[k] = s;
+    });
+    if (!fields.email || !fields.display_name || !fields.role_id) {
+      toast('Email, name, and role are required.', 'error');
+      btn.disabled = false;
+      return;
+    }
+    // Strip irrelevant scope fields the server didn't ask for.
+    if (fields.role_id !== 'role_interpreter') delete fields.interpreter_id;
+    if (fields.role_id !== 'role_client_contact' && fields.role_id !== 'role_billing_contact') delete fields.client_id;
+
+    IntApi.inviteUser(fields).then(function (r) {
+      btn.disabled = false;
+      if (r && r.ok) {
+        toast('Invitation sent to ' + fields.email + '.', 'ok');
+        closeModal();
+        loadInvitations();
+        loadTeam();
+      } else {
+        toast(r && r.error ? r.error : 'Invite failed.', 'error');
+      }
+    }).catch(function () {
+      btn.disabled = false;
+      toast('Invite failed.', 'error');
+    });
+  }
+})();
+</script>
+</body>
+</html>

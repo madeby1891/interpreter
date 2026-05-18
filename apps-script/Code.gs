@@ -77,7 +77,9 @@ var T = {
   Specialists: 'Specialists',
   ClientBillingRules: 'Client_Billing_Rules',
   // v18.2 — Interpreter close-out (actuals + expenses)
-  JobExpenses: 'Job_Expenses'
+  JobExpenses: 'Job_Expenses',
+  // v18.3 — Per-client document library (contracts, BAAs, COIs, W-9s, …)
+  ClientDocuments: 'Client_Documents'
 };
 
 var AUTH_TOKEN_TTL_MS = 15 * 60 * 1000;        // magic link valid for 15 min
@@ -150,9 +152,16 @@ function doGet(e) {
       // Clients
       case 'list_clients':       return _safeCall('apiListClients', e);
       case 'get_client':         return _safeCall('apiGetClient', e);
+      // Team / invitations
+      case 'list_users':         return _safeCall('apiListUsers', e);
+      case 'list_invitations':   return _safeCall('apiListInvitations', e);
+      case 'invite_allowlist':   return _safeCall('apiInviteAllowlist', e);
       // Close-out (v18.2)
       case 'list_job_expenses':  return _safeCall('apiListJobExpenses', e);
       case 'get_receipt':        return _safeCall('apiGetReceipt', e);
+      // Client documents (v18.3)
+      case 'list_client_documents': return _safeCall('apiListClientDocuments', e);
+      case 'get_client_document':   return _safeCall('apiGetClientDocument', e);
       case 'switch_tenant':      return _safeCall('apiSwitchTenant', e);  // GET-path enables JSONP response read
       case '_rotate_hmac':       return apiRotateHmac(e);                  // one-shot Worker-secret sync
       case '_mail_debug':        return apiMailDebug(e);                   // diagnostic
@@ -248,6 +257,13 @@ function doPost(e) {
       case 'upload_receipt':            return _safeCall('apiUploadReceipt', e);
       case 'dispute_closeout':          return _safeCall('apiDisputeCloseout', e);
       case 'update_expense_status':     return _safeCall('apiUpdateExpenseStatus', e);
+      // Client documents (v18.3)
+      case 'upload_client_document':    return _safeCall('apiUploadClientDocument', e);
+      case 'archive_client_document':   return _safeCall('apiArchiveClientDocument', e);
+      // Team / invitations (v18.3)
+      case 'invite_user':               return _safeCall('apiInviteUser', e);
+      case 'cancel_invitation':         return _safeCall('apiCancelInvitation', e);
+      case 'resend_invitation':         return _safeCall('apiResendInvitation', e);
       default:                   return _json({ ok:false, error:'Unknown action: ' + action }, 404);
     }
   } catch (err) {
@@ -504,15 +520,65 @@ function apiAuthVerify(e) {
     return _json({ ok:false, error:'Sign-in link invalid for this account.' });
   }
 
-  // Re-verify user still exists & is active
+  // Re-verify user still exists. Accept 'active' AND 'invited' — invitation
+  // tokens are redeemed via this same endpoint, and we flip the user to
+  // 'active' on first successful redemption (see _activateInvitedUser_).
   var user = _lookupUserById(ss, userId);
-  if (!user || user.status !== 'active') return _json({ ok:false, error:'Account not active.' });
+  if (!user) return _json({ ok:false, error:'Account no longer exists.' });
+  if (user.status !== 'active' && user.status !== 'invited') {
+    return _json({ ok:false, error:'Account not active (status=' + user.status + ').' });
+  }
 
-  sheet.getRange(found + 1, idxConsumed + 1).setValue(new Date().toISOString());
+  var nowIso = new Date().toISOString();
+  sheet.getRange(found + 1, idxConsumed + 1).setValue(nowIso);
+
+  // Invitation acceptance: flip 'invited' → 'active' and stamp last_login_at.
+  // Magic-link sign-ins (status='active') just stamp last_login_at.
+  var firstLogin = (user.status === 'invited');
+  _stampUserLogin_(ss, userId, nowIso, firstLogin);
+  if (firstLogin) {
+    user.status = 'active';  // reflect in returned payload
+    _logAudit('invite.accept', tenantId, userId, user.email);
+  }
 
   var session = _mintSession({ uid:userId, tid:tenantId, role:user.role_id, email:user.email });
-  _logAudit('auth_login', tenantId, userId, '');
-  return _json({ ok:true, session:session, user:{ user_id:userId, tenant_id:tenantId, email:user.email, display_name:user.display_name, role_id:user.role_id } });
+  _logAudit('auth_login', tenantId, userId, firstLogin ? 'first_login_via_invitation' : '');
+  return _json({
+    ok: true,
+    session: session,
+    user: {
+      user_id: userId,
+      tenant_id: tenantId,
+      email: user.email,
+      display_name: user.display_name,
+      role_id: user.role_id,
+      first_login: firstLogin
+    }
+  });
+}
+
+// Stamp last_login_at and (optionally) flip status='invited' → 'active'.
+// Lives in Code.gs so it can be called from apiAuthVerify above without
+// depending on Code_Invitations.gs being present.
+function _stampUserLogin_(ss, userId, iso, activateIfInvited) {
+  var sh = ss.getSheetByName(T.Users);
+  if (!sh || sh.getLastRow() < 2) return;
+  var data = sh.getDataRange().getValues();
+  var hdr = data[0];
+  var iUser = hdr.indexOf('user_id');
+  var iLast = hdr.indexOf('last_login_at');
+  var iStatus = hdr.indexOf('status');
+  var iUpdated = hdr.indexOf('_updated_at');
+  if (iUser < 0) return;
+  for (var r = 1; r < data.length; r++) {
+    if (String(data[r][iUser]) !== userId) continue;
+    if (iLast >= 0) sh.getRange(r + 1, iLast + 1).setValue(iso);
+    if (iUpdated >= 0) sh.getRange(r + 1, iUpdated + 1).setValue(iso);
+    if (activateIfInvited && iStatus >= 0 && String(data[r][iStatus]) === 'invited') {
+      sh.getRange(r + 1, iStatus + 1).setValue('active');
+    }
+    return;
+  }
 }
 
 function apiWhoami(e) {
@@ -2169,6 +2235,7 @@ function _tenantSchema() {
     Specialists: ['specialist_id','client_id','tenant_id','display_name','department','specialty_code','npi','default_location_id','default_modality_pref','notes','status','_created_at','_updated_at'],
     Client_Billing_Rules: ['rule_id','client_id','tenant_id','consolidation_mode','billing_cycle','statement_day_of_month','requires_po','po_format_regex','gl_template','invoice_format','split_by_location','split_by_specialist','show_consumer_initials_on_invoice','show_specialist_on_invoice','show_interpreter_name_on_invoice','rounding_minutes','minimum_invoice_cents','late_fee_pct','notes','status','_created_at','_updated_at'],
     Job_Expenses: ['expense_id','tenant_id','job_id','assignment_id','interpreter_id','expense_type','quantity','unit','rate_cents','amount_cents','description','receipt_r2_key','receipt_filename','receipt_mime','submitted_at','status','approved_by_user_id','approved_at','rejected_reason','payout_id','_created_at','_updated_at','_rev'],
+    Client_Documents: ['doc_id','client_id','tenant_id','doc_type','title','filename','mime','size_bytes','drive_file_id','uploaded_by_user_id','uploaded_at','effective_date','expires_at','status','notes','sha256','_created_at','_updated_at','_rev'],
     Payers: ['payer_id','tenant_id','display_name','billing_email','billing_address','net_terms','tax_exempt','stripe_customer_id','qb_customer_id','status','_created_at','_updated_at'],
     Consumers: ['consumer_id','tenant_id','display_initials','legal_first_encrypted','legal_last_encrypted','dob_encrypted','mrn_encrypted','primary_language_id','dialect','communication_prefs','notes_sealed','do_not_contact','consent_recording_default','created_by_user_id','deletion_requested_at','_created_at','_updated_at'],
     Locations: ['location_id','tenant_id','requestor_id','display_name','street','city','state','zip','timezone','parking_notes','accessibility_notes','geo','modalities_supported','_created_at','_updated_at'],

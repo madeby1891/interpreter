@@ -189,6 +189,16 @@
               <p class="ink-soft" style="font-size:13px;margin:-4px 0 8px">People on the client side — owner, billing AP, scheduler. Add them so notifications go to the right inbox.</p>
               <table class="roster" id="t-contacts"><thead><tr><th>Name</th><th>Role</th><th>Email</th><th>Phone</th></tr></thead><tbody></tbody></table>
             </section>
+
+            <section class="card">
+              <div class="toolbar" style="margin-bottom:8px">
+                <h2 class="mt-0" style="font-size:18px">Documents <span id="c-doc-count" style="color:var(--1891int-fog);font-size:13.5px;font-weight:400"></span></h2>
+                <div class="spacer"></div>
+                <button class="btn btn-ghost small-add" type="button" id="add-doc">+ Upload</button>
+              </div>
+              <p class="ink-soft" style="font-size:13px;margin:-4px 0 8px">Contracts, BAAs, insurance certificates, W-9s. Stored in Drive; auto-flagged when expiring.</p>
+              <table class="roster" id="t-documents"><thead><tr><th>Title</th><th>Type</th><th>Effective</th><th>Expires</th><th>Uploaded</th><th></th></tr></thead><tbody></tbody></table>
+            </section>
           </div>
         </div>
       </div>
@@ -316,6 +326,54 @@
   </div>
 </div>
 
+<div class="modal-backdrop" id="m-doc">
+  <div class="modal">
+    <div class="modal-header"><h2>Upload document</h2><button class="close" type="button" data-close>&times;</button></div>
+    <form id="form-doc" class="modal-body">
+      <div class="field">
+        <label for="d-file">File <span aria-hidden="true">*</span></label>
+        <input id="d-file" type="file" required accept=".pdf,.doc,.docx,.txt,image/*,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain">
+        <div class="help">PDF, Word, plain text, or image. Up to 25MB per file.</div>
+      </div>
+      <div class="field">
+        <label for="d-type">Type <span aria-hidden="true">*</span></label>
+        <select id="d-type" required>
+          <option value="contract">Contract / MSA</option>
+          <option value="baa">BAA (Business Associate Agreement)</option>
+          <option value="msa">MSA (Master Services Agreement)</option>
+          <option value="insurance">Insurance certificate (COI)</option>
+          <option value="w9">W-9</option>
+          <option value="1099">1099 (issued)</option>
+          <option value="nda">NDA</option>
+          <option value="rate_sheet">Rate sheet</option>
+          <option value="other">Other</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="d-title">Title <span aria-hidden="true">*</span></label>
+        <input id="d-title" type="text" required placeholder="e.g. Frederick Health MSA (2026)">
+      </div>
+      <div class="field">
+        <label for="d-effective">Effective date</label>
+        <input id="d-effective" type="date">
+      </div>
+      <div class="field">
+        <label for="d-expires">Expires</label>
+        <input id="d-expires" type="date">
+        <div class="help">If set, we'll flag this document amber 30 days before it expires and red after.</div>
+      </div>
+      <div class="field">
+        <label for="d-notes">Notes</label>
+        <textarea id="d-notes" rows="2" placeholder="Optional context (signatory, scope, exclusions…)"></textarea>
+      </div>
+    </form>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" type="button" data-close>Cancel</button>
+      <button class="btn btn-primary" type="button" id="save-doc">Upload</button>
+    </div>
+  </div>
+</div>
+
 <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
 <script src="/interpreter/assets/js/whitelabel.js" defer></script>
@@ -328,7 +386,9 @@
   function toast(msg, kind) { var t = $('toast'); t.textContent = msg; t.className = 'toast show' + (kind ? ' ' + kind : ''); setTimeout(function () { t.className = 'toast'; }, 3200); }
   function qs(k) { var m = location.search.match(new RegExp('[?&]' + k + '=([^&]*)')); return m ? decodeURIComponent(m[1]) : ''; }
 
-  var STATE = { client: null, locations: [], specialists: [], requestors: [], contacts: [], rules: null };
+  var STATE = { client: null, locations: [], specialists: [], requestors: [], contacts: [], rules: null, documents: [], docTypes: {}, role: '' };
+  var DOC_ARCHIVE_ROLES = ['role_owner','role_manager','role_platform_staff'];
+  var DOC_WRITE_ROLES   = ['role_owner','role_manager','role_admin','role_scheduler','role_platform_staff'];
 
   document.addEventListener('DOMContentLoaded', init);
 
@@ -337,6 +397,7 @@
     IntApi.whoami().then(function (r) {
       if (!r || !r.ok) { IntApi.clearSession(); location.href = '/interpreter/sign-in.html'; return; }
       $('who-name').textContent = r.user.display_name || r.user.email;
+      STATE.role = (r.user && r.user.role_id) || '';
       if (window.IntTheme && r.agency) IntTheme.apply(r.agency);
       load();
     });
@@ -356,6 +417,9 @@
     $('add-req-2').addEventListener('click', addRequestor);
     $('edit-client').addEventListener('click', openEditClient);
     $('save-client').addEventListener('click', saveEditClient);
+    $('add-doc').addEventListener('click', openDoc);
+    $('save-doc').addEventListener('click', saveDoc);
+    $('t-documents').addEventListener('click', onDocClick);
   }
 
   function openEditClient() {
@@ -410,7 +474,12 @@
   function load() {
     var clientId = qs('id');
     if (!clientId) { toast('Missing client id', 'error'); return; }
-    IntApi.getClient(clientId).then(function (r) {
+    Promise.all([
+      IntApi.getClient(clientId),
+      IntApi.listClientDocuments(clientId).catch(function () { return { ok:false, documents: [] }; })
+    ]).then(function (results) {
+      var r = results[0];
+      var d = results[1] || {};
       $('loading').style.display = 'none';
       if (!r || !r.ok) { toast(r && r.error || 'Load failed', 'error'); return; }
       STATE.client = r.client;
@@ -419,6 +488,8 @@
       STATE.requestors = r.requestors || [];
       STATE.contacts = r.contacts || [];
       STATE.rules = r.billing_rules || {};
+      STATE.documents = (d && d.ok && d.documents) ? d.documents : [];
+      STATE.docTypes = (d && d.doc_types) || {};
       render();
       $('content').style.display = '';
     });
@@ -443,6 +514,7 @@
     renderLocations();
     renderSpecialists();
     renderContacts();
+    renderDocuments();
   }
 
   function renderRules() {
@@ -571,6 +643,124 @@
   function addRequestor() {
     // Send the user to the Requestors page with a hint to attach to this client.
     location.href = '/interpreter/app/requestors/?client_id=' + encodeURIComponent(STATE.client.client_id);
+  }
+
+  // ----- Client documents --------------------------------------------------
+  function docTypeLabel(t) {
+    var meta = STATE.docTypes && STATE.docTypes[t];
+    if (meta && meta.label) return meta.label;
+    if (!t) return '';
+    return String(t).replace(/_/g,' ');
+  }
+
+  function fmtDate(iso) {
+    if (!iso) return '—';
+    try {
+      var d = new Date(/T/.test(iso) ? iso : (iso + 'T00:00:00'));
+      if (isNaN(d.getTime())) return iso;
+      return d.toLocaleDateString(undefined, { year:'numeric', month:'short', day:'numeric' });
+    } catch (_) { return iso; }
+  }
+
+  function renderDocuments() {
+    var docs = STATE.documents || [];
+    var active = docs.filter(function (d) { return d.status !== 'archived'; });
+    $('c-doc-count').textContent = '(' + active.length + ')';
+    var canArchive = DOC_ARCHIVE_ROLES.indexOf(STATE.role) >= 0;
+    var rows = docs.map(function (d) {
+      var rowStyle = '';
+      var expChip = '';
+      if (d.status === 'archived') {
+        rowStyle = ' style="opacity:.55"';
+        expChip = ' <span class="pill" style="background:#EEE;border-color:#BBB;color:#555">archived</span>';
+      } else if (d.is_expired === true) {
+        rowStyle = ' style="background:#FDECEA"';
+        expChip = ' <span class="pill" style="background:#F8D7DA;border-color:#E07A78;color:#9B1C1C">⚠ Expired</span>';
+      } else if (typeof d.expires_in_days === 'number' && d.expires_in_days <= 30) {
+        rowStyle = ' style="background:#FFF8E1"';
+        expChip = ' <span class="pill" style="background:#FFE4B5;border-color:#D49A2D;color:#7A4D00">Expires in ' + d.expires_in_days + ' day' + (d.expires_in_days === 1 ? '' : 's') + '</span>';
+      }
+      var viewUrl = IntApi.clientDocumentUrl(d.doc_id);
+      var actions = '<a href="' + esc(viewUrl) + '" target="_blank" rel="noopener" class="btn btn-ghost btn-sm" style="font-size:12px;padding:3px 8px">View</a>';
+      if (canArchive && d.status !== 'archived') {
+        actions += ' <button type="button" class="btn btn-ghost btn-sm" data-archive="' + esc(d.doc_id) + '" style="font-size:12px;padding:3px 8px">Archive</button>';
+      }
+      var titleHtml = '<strong>' + esc(d.title || d.filename || d.doc_id) + '</strong>' + expChip;
+      if (d.filename && d.filename !== d.title) {
+        titleHtml += '<div style="color:var(--1891int-fog);font-size:12px">' + esc(d.filename) + '</div>';
+      }
+      return '<tr' + rowStyle + '>' +
+        '<td>' + titleHtml + '</td>' +
+        '<td>' + esc(docTypeLabel(d.doc_type)) + '</td>' +
+        '<td>' + esc(fmtDate(d.effective_date)) + '</td>' +
+        '<td>' + esc(fmtDate(d.expires_at)) + '</td>' +
+        '<td>' + esc(fmtDate(d.uploaded_at)) + '</td>' +
+        '<td style="text-align:right;white-space:nowrap">' + actions + '</td>' +
+      '</tr>';
+    }).join('');
+    $('t-documents').querySelector('tbody').innerHTML = rows ||
+      '<tr><td colspan="6" class="ink-soft">No documents uploaded yet — drop the MSA, BAA, and current COI here so renewals are easy to track.</td></tr>';
+    // Hide the upload button for read-only viewers (client_contacts).
+    $('add-doc').style.display = (DOC_WRITE_ROLES.indexOf(STATE.role) >= 0) ? '' : 'none';
+  }
+
+  function openDoc() {
+    $('form-doc').reset();
+    $('m-doc').classList.add('open');
+  }
+
+  function saveDoc() {
+    var form = $('form-doc');
+    if (!form.reportValidity()) return;
+    var fileEl = $('d-file');
+    var file = fileEl.files && fileEl.files[0];
+    if (!file) { toast('Pick a file to upload.', 'error'); return; }
+    if (file.size > 25 * 1024 * 1024) { toast('File must be 25MB or smaller.', 'error'); return; }
+    var btn = $('save-doc');
+    btn.disabled = true; btn.textContent = 'Uploading…';
+    var reader = new FileReader();
+    reader.onload = function () {
+      var b64 = String(reader.result).split(',')[1];
+      IntApi.uploadClientDocument({
+        client_id: STATE.client.client_id,
+        doc_type: $('d-type').value,
+        title: $('d-title').value.trim(),
+        filename: file.name,
+        mime: file.type || 'application/octet-stream',
+        bytes_b64: b64,
+        effective_date: $('d-effective').value || '',
+        expires_at: $('d-expires').value || '',
+        notes: $('d-notes').value.trim()
+      }).then(function (r) {
+        btn.disabled = false; btn.textContent = 'Upload';
+        if (!r || !r.ok) { toast((r && r.error) || 'Upload failed.', 'error'); return; }
+        toast('Document uploaded.', 'ok');
+        $('m-doc').classList.remove('open');
+        load();
+      }).catch(function () {
+        btn.disabled = false; btn.textContent = 'Upload';
+        toast('Upload failed (network).', 'error');
+      });
+    };
+    reader.onerror = function () {
+      btn.disabled = false; btn.textContent = 'Upload';
+      toast('Could not read file.', 'error');
+    };
+    reader.readAsDataURL(file);
+  }
+
+  function onDocClick(e) {
+    var t = e.target.closest('[data-archive]');
+    if (!t) return;
+    var docId = t.getAttribute('data-archive');
+    if (!docId) return;
+    if (!confirm('Archive this document? The file stays in Drive but the doc is hidden from active rosters.')) return;
+    t.disabled = true; t.textContent = 'Archiving…';
+    IntApi.archiveClientDocument(docId).then(function (r) {
+      if (!r || !r.ok) { toast((r && r.error) || 'Archive failed', 'error'); t.disabled = false; t.textContent = 'Archive'; return; }
+      toast('Document archived.', 'ok');
+      load();
+    }).catch(function () { toast('Archive failed (network).', 'error'); t.disabled = false; t.textContent = 'Archive'; });
   }
 })();
 </script>

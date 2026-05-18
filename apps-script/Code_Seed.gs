@@ -86,15 +86,19 @@ function seedHostTenant() {
     contacts: report.requestor_contacts
   });
   report.assignments = seedAssignments_(ss, TID, report.jobs, report.interpreters);
+  report.job_expenses = seedJobExpenses_(ss, TID, report.assignments, report.interpreters);
   report.invoices = seedInvoices_(ss, TID, report.payers, report.jobs);
   report.payouts = seedPayouts_(ss, TID, report.interpreters, report.assignments);
+  report.client_documents = seedClientDocuments_(ss, TID, report.clients);
 
   _logAudit('seed.host_data', TID, 'system', JSON.stringify({
     interpreters: report.interpreters.length,
     clients: report.clients.length,
     jobs: report.jobs.length,
     invoices: report.invoices.length,
-    payouts: report.payouts.length
+    payouts: report.payouts.length,
+    job_expenses: report.job_expenses.length,
+    client_documents: report.client_documents.length
   }));
 
   return {
@@ -114,8 +118,10 @@ function seedHostTenant() {
     interpreter_docs: report.interpreter_docs.length,
     jobs: report.jobs.length,
     assignments: report.assignments.length,
+    job_expenses: report.job_expenses.length,
     invoices: report.invoices.length,
-    payouts: report.payouts.length
+    payouts: report.payouts.length,
+    client_documents: report.client_documents.length
   };
 }
 
@@ -253,6 +259,106 @@ function seedClientBillingRules_(ss, tid, clients) {
     out.push({ rule_id: id, client_id: c.client_id, consolidation_mode: b.mode });
   });
   return out;
+}
+
+// ----- CLIENT DOCUMENTS (v18.3) -------------------------------------------
+//
+// Seeds a tiny set of demo legal documents per client so the Documents
+// section on /app/clients/profile.html isn't empty in screenshots. The bytes
+// are a minimal valid PDF (~600B, encoded once below) so we don't ship a
+// large binary blob inside the codebase. Each row is tagged [SEED] in notes.
+function seedClientDocuments_(ss, tid, clients) {
+  var sh = _ensureTab(ss, T.ClientDocuments, _tenantSchema().Client_Documents);
+  if (sh.getLastRow() >= 2) {
+    var data = sh.getDataRange().getValues();
+    var iTenant = data[0].indexOf('tenant_id');
+    for (var i = 1; i < data.length; i++) {
+      if (String(data[i][iTenant]) === tid) return []; // idempotent — already seeded
+    }
+  }
+  var hdr = _tenantSchema().Client_Documents;
+  var nowIso = new Date().toISOString();
+  // Smallest possible valid PDF — viewable in any browser.
+  var STUB_PDF_B64 = 'JVBERi0xLjQKJcOkw7zDtsOfCjEgMCBvYmoKPDwgL1R5cGUgL0NhdGFsb2cgL1BhZ2VzIDIgMCBSID4+CmVuZG9iagoyIDAgb2JqCjw8IC9UeXBlIC9QYWdlcyAvS2lkcyBbMyAwIFJdIC9Db3VudCAxID4+CmVuZG9iagozIDAgb2JqCjw8IC9UeXBlIC9QYWdlIC9QYXJlbnQgMiAwIFIgL01lZGlhQm94IFswIDAgNjEyIDc5Ml0gL1Jlc291cmNlcyA8PCAvRm9udCA8PCAvRjEgPDwgL1R5cGUgL0ZvbnQgL1N1YnR5cGUgL1R5cGUxIC9CYXNlRm9udCAvSGVsdmV0aWNhID4+ID4+ID4+IC9Db250ZW50cyA0IDAgUiA+PgplbmRvYmoKNCAwIG9iago8PCAvTGVuZ3RoIDQ0ID4+CnN0cmVhbQpCVCAvRjEgMTYgVGYgNzIgNzUwIFRkICgxODkxIElOVEVSUFJFVEVSIC0gU0VFRCkgVGogRVQKZW5kc3RyZWFtCmVuZG9iagp4cmVmCjAgNQowMDAwMDAwMDAwIDY1NTM1IGYgCjAwMDAwMDAwMTUgMDAwMDAgbiAKMDAwMDAwMDA2NCAwMDAwMCBuIAowMDAwMDAwMTE1IDAwMDAwIG4gCjAwMDAwMDAyNzcgMDAwMDAgbiAKdHJhaWxlcgo8PCAvU2l6ZSA1IC9Sb290IDEgMCBSID4+CnN0YXJ0eHJlZgozNzAKJSVFT0Y=';
+  // Pre-compute the sha256 of the stub bytes once; every seed row points at
+  // its own Drive file but the bytes are identical so the hash is too.
+  var stubBytes = Utilities.base64Decode(STUB_PDF_B64);
+  var stubSha = Utilities.base64Encode(
+    Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, stubBytes)
+  );
+
+  // Pick the showcase client (Frederick Health) plus one government client so
+  // we can show both healthcare BAA + COI and a court-side contract.
+  var byClient = {
+    'Frederick Health': [
+      { type:'baa',       title:'Frederick Health BAA (2026)',
+        effective:'2026-01-01', expires:'2027-01-01',
+        notes:'[SEED] Standard hospital-wide BAA covering 18 locations. Annual renewal.' },
+      { type:'insurance', title:'COI — Liability Cert (expires soon)',
+        effective:'2025-06-01', expires: _isoDatePlusDays_(20),
+        notes:'[SEED] Demo: this COI is set to expire in 20 days so the amber chip is visible.' }
+    ],
+    'Catoctin County Govt': [
+      { type:'contract',  title:'Court Interpreter Master Agreement',
+        effective:'2025-07-01', expires:'2028-06-30',
+        notes:'[SEED] Three-year master contract — court interpreting + agency hearings.' }
+    ]
+  };
+
+  var out = [];
+  // Drive folder root reused from the live API.
+  var rootName = (typeof CD_DRIVE_FOLDER_NAME === 'string') ? CD_DRIVE_FOLDER_NAME : '1891 Interpreter — Client Documents';
+  var root = _cdSeedFolder_(DriveApp.getRootFolder(), rootName);
+
+  clients.forEach(function (c) {
+    var docs = byClient[c.display_name];
+    if (!docs) return;
+    var tenantFolder = _cdSeedFolder_(root, String(tid));
+    var clientFolder = _cdSeedFolder_(tenantFolder, String(c.client_id));
+    docs.forEach(function (doc) {
+      var typeFolder = _cdSeedFolder_(clientFolder, doc.type);
+      var safeName = doc.title.replace(/[^A-Za-z0-9._\-]/g, '_').slice(0, 100) + '.pdf';
+      var blob = Utilities.newBlob(stubBytes, 'application/pdf', safeName);
+      var file = typeFolder.createFile(blob);
+      try { file.setSharing(DriveApp.Access.PRIVATE, DriveApp.Permission.NONE); } catch (_) {}
+      var id = _ulid('cdoc');
+      var row = {
+        doc_id: id,
+        client_id: c.client_id,
+        tenant_id: tid,
+        doc_type: doc.type,
+        title: doc.title,
+        filename: safeName,
+        mime: 'application/pdf',
+        size_bytes: stubBytes.length,
+        drive_file_id: file.getId(),
+        uploaded_by_user_id: 'seed',
+        uploaded_at: nowIso,
+        effective_date: doc.effective || '',
+        expires_at: doc.expires || '',
+        status: 'active',
+        notes: doc.notes,
+        sha256: stubSha,
+        _created_at: nowIso,
+        _updated_at: nowIso,
+        _rev: 1
+      };
+      sh.appendRow(hdr.map(function (col) { return row[col] !== undefined ? row[col] : ''; }));
+      out.push({ doc_id: id, client_id: c.client_id, doc_type: doc.type });
+    });
+  });
+  return out;
+}
+
+function _cdSeedFolder_(parent, name) {
+  var iter = parent.getFoldersByName(name);
+  if (iter.hasNext()) return iter.next();
+  return parent.createFolder(name);
+}
+
+function _isoDatePlusDays_(days) {
+  var d = new Date(Date.now() + days * 24 * 60 * 60 * 1000);
+  return d.toISOString().slice(0, 10);
 }
 
 function seedSpecialists_(ss, tid, clients) {
@@ -948,6 +1054,125 @@ function seedAssignments_(ss, tid, jobs, interpreters) {
   return out;
 }
 
+// ----- JOB EXPENSES (v18.2 — pay-side reimbursement) ----------------------
+
+function seedJobExpenses_(ss, tid, assignments, interpreters) {
+  // For each COMPLETED assignment, seed 1-2 Job_Expenses rows so the payout PDF
+  // has something to render on the expense side. All seeded rows are tagged
+  // [SEED] in description and start with status='approved' so they're picked
+  // up by the auto-bill policy on the next apiCreatePayout run.
+  var sh = _ensureTab(ss, T.JobExpenses, _tenantSchema().Job_Expenses);
+  var hdr = _tenantSchema().Job_Expenses;
+  // Idempotent: skip if any seeded rows already exist (look for the [SEED]
+  // marker in description).
+  if (sh.getLastRow() >= 2) {
+    var existingData = sh.getDataRange().getValues();
+    var iDesc = existingData[0].indexOf('description');
+    var iTen = existingData[0].indexOf('tenant_id');
+    if (iDesc >= 0 && iTen >= 0) {
+      for (var k = 1; k < existingData.length; k++) {
+        if (String(existingData[k][iTen]) === tid &&
+            String(existingData[k][iDesc] || '').indexOf('[SEED]') >= 0) {
+          // Already seeded; collect a quick list for the report and bail.
+          var existed = [];
+          for (var m = 1; m < existingData.length; m++) {
+            if (String(existingData[m][iTen]) === tid &&
+                String(existingData[m][iDesc] || '').indexOf('[SEED]') >= 0) {
+              existed.push({ _existed: true });
+            }
+          }
+          return existed;
+        }
+      }
+    }
+  }
+
+  var interpById = {};
+  interpreters.forEach(function (i) {
+    // `mileage` is stored on the seeded shape (cents per mile); fallback 67.
+    interpById[i.interpreter_id] = i;
+  });
+
+  var out = [];
+  var nowMs = Date.now();
+  var completed = assignments.filter(function (a) { return a.status === 'COMPLETED'; });
+  completed.forEach(function (a, idx) {
+    var interp = interpById[a.interpreter_id];
+    var mileageCents = (interp && interp.mileage) ? Number(interp.mileage) : 67;
+
+    // Created timestamp staggered so they sort cleanly in the PDF (oldest first).
+    var createdAt = new Date(nowMs - (completed.length - idx) * 3600000).toISOString();
+
+    // 1) Mileage line — every completed assignment gets one (12-45 miles).
+    //    Use the assignment_id as a stable seed so reseeds produce same rows.
+    var seedHash = 0;
+    for (var ci = 0; ci < a.assignment_id.length; ci++) seedHash = (seedHash * 31 + a.assignment_id.charCodeAt(ci)) >>> 0;
+    var miles = 12 + (seedHash % 34); // 12..45 inclusive
+    var milesAmt = miles * mileageCents; // cents
+    var milRow = {
+      expense_id: _ulid('je'),
+      tenant_id: tid,
+      job_id: a.job_id,
+      assignment_id: a.assignment_id,
+      interpreter_id: a.interpreter_id,
+      expense_type: 'mileage',
+      quantity: miles,
+      unit: 'mi',
+      rate_cents: mileageCents,
+      amount_cents: milesAmt,
+      description: '[SEED] Round-trip mileage to assignment',
+      receipt_r2_key: '',
+      receipt_filename: '',
+      receipt_mime: '',
+      submitted_at: createdAt,
+      status: 'approved',
+      approved_by_user_id: 'system',
+      approved_at: createdAt,
+      rejected_reason: '',
+      payout_id: '', // left blank — apiCreatePayout will stamp it
+      _created_at: createdAt,
+      _updated_at: createdAt,
+      _rev: 1
+    };
+    sh.appendRow(hdr.map(function (h) { return milRow[h] !== undefined ? milRow[h] : ''; }));
+    out.push({ expense_id: milRow.expense_id, assignment_id: a.assignment_id, type: 'mileage', miles: miles, amount_cents: milesAmt });
+
+    // 2) Occasional parking — roughly every 3rd assignment, $5-15.
+    if ((seedHash % 3) === 0) {
+      var parkingCents = 500 + ((seedHash >> 3) % 11) * 100; // $5..$15 in $1 steps
+      var parkCreated = new Date(nowMs - (completed.length - idx) * 3600000 + 60000).toISOString();
+      var parkRow = {
+        expense_id: _ulid('je'),
+        tenant_id: tid,
+        job_id: a.job_id,
+        assignment_id: a.assignment_id,
+        interpreter_id: a.interpreter_id,
+        expense_type: 'parking',
+        quantity: 1,
+        unit: 'each',
+        rate_cents: parkingCents,
+        amount_cents: parkingCents,
+        description: '[SEED] Parking garage at venue',
+        receipt_r2_key: 'seed/parking-' + a.assignment_id + '.jpg',
+        receipt_filename: 'parking-' + a.assignment_id.slice(-6) + '.jpg',
+        receipt_mime: 'image/jpeg',
+        submitted_at: parkCreated,
+        status: 'approved',
+        approved_by_user_id: 'system',
+        approved_at: parkCreated,
+        rejected_reason: '',
+        payout_id: '',
+        _created_at: parkCreated,
+        _updated_at: parkCreated,
+        _rev: 1
+      };
+      sh.appendRow(hdr.map(function (h) { return parkRow[h] !== undefined ? parkRow[h] : ''; }));
+      out.push({ expense_id: parkRow.expense_id, assignment_id: a.assignment_id, type: 'parking', amount_cents: parkingCents });
+    }
+  });
+  return out;
+}
+
 // ----- INVOICES (paid + issued + draft) -----------------------------------
 
 function seedInvoices_(ss, tid, payers, jobs) {
@@ -1129,6 +1354,7 @@ function wipeSeed() {
     { tab: T.Consumers,           marker: '' },     // wipe all (Consumers seeds don't tag)
     { tab: T.Jobs,                marker: 'notes_to_interpreter' },
     { tab: T.JobAssignments,      marker: '' },     // wipe assignments tied to seeded jobs (cascade — skip for simplicity)
+    { tab: T.JobExpenses,         marker: 'description' }, // v18.2 — wipe only [SEED]-tagged expenses
     { tab: T.Invoices,            marker: '' },     // wipe all invoices (only seeded ones exist)
     { tab: T.InvoiceLines,        marker: '' },
     { tab: T.Payouts,             marker: '' },
@@ -1138,7 +1364,9 @@ function wipeSeed() {
     { tab: T.Clients,             marker: 'notes' },
     { tab: T.ClientContacts,      marker: '' },
     { tab: T.Specialists,         marker: 'notes' },
-    { tab: T.ClientBillingRules,  marker: 'notes' }
+    { tab: T.ClientBillingRules,  marker: 'notes' },
+    // v18.3 — per-client documents
+    { tab: T.ClientDocuments,     marker: 'notes' }
   ];
   tabs.forEach(function (t) {
     var sh = ss.getSheetByName(t.tab);
