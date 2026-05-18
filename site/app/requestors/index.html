@@ -95,6 +95,8 @@
 
 <script src="/interpreter/assets/js/whitelabel.js" defer></script>
 <script src="/interpreter/assets/js/api.js" defer></script>
+<script src="/interpreter/assets/js/api-multitenant.js" defer></script>
+<script src="/interpreter/assets/js/app-header.js" defer></script>
 <script src="/interpreter/assets/js/list-filter.js" defer></script>
 <script>
 (function () {
@@ -107,9 +109,9 @@
   function toast(msg, kind) { var t = $('toast'); t.textContent = msg; t.className = 'toast show' + (kind ? ' ' + kind : ''); setTimeout(function () { t.className = 'toast'; }, 3200); }
 
   function init() {
-    if (!IntApi.getSession()) { location.href = '/interpreter/sign-in.html'; return; }
+    if (!IntApi.getSession()) { location.href = '/interpreter/sign-in'; return; }
     IntApi.whoami().then(function (r) {
-      if (!r || !r.ok) { IntApi.clearSession(); location.href = '/interpreter/sign-in.html'; return; }
+      if (!r || !r.ok) { IntApi.clearSession(); location.href = '/interpreter/sign-in'; return; }
       $('who-name').textContent = r.user.display_name || r.user.email;
       if (window.IntTheme && r.agency) IntTheme.apply(r.agency);
       load();

@@ -212,6 +212,13 @@
   function cancelInvitation(uid)  { return _postCors('cancel_invitation', { user_id: uid }); }
   function resendInvitation(uid)  { return _postCors('resend_invitation', { user_id: uid }); }
 
+  // Calendar feed (v18.4) — per-user token, sanitized ICS, no PII in body.
+  function rotateCalendarToken() { return _postCors('rotate_calendar_token', {}); }
+  function clearCalendarToken()  { return _postCors('clear_calendar_token', {}); }
+  function calendarUrl(token) {
+    return ENDPOINT + '?action=interpreter_ics&token=' + encodeURIComponent(token);
+  }
+
   // Admin — audit log read-back. `params` may include tenant_id, from, to,
   // user_id, action_filter (note: NOT `action` — that's the dispatch key),
   // and limit. All optional; backend has sane defaults.
@@ -284,6 +291,9 @@
     uploadClientDocument: uploadClientDocument,
     archiveClientDocument: archiveClientDocument,
     clientDocumentUrl: clientDocumentUrl,
+    rotateCalendarToken: rotateCalendarToken,
+    clearCalendarToken: clearCalendarToken,
+    calendarUrl: calendarUrl,
     jsonp: jsonp
   };
 })(window);

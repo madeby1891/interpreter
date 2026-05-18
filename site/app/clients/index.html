@@ -38,7 +38,7 @@
       <a href="/interpreter/app/clients/" aria-current="page">Clients</a>
       <a href="/interpreter/app/requestors/">Requestors</a>
       <a href="/interpreter/app/invoices/">Invoices</a>
-      <a href="/interpreter/app/admin/health.html">Health</a>
+      <a href="/interpreter/app/admin/health">Health</a>
     </div>
   </nav>
 
@@ -141,6 +141,8 @@
 
 <script src="/interpreter/assets/js/whitelabel.js" defer></script>
 <script src="/interpreter/assets/js/api.js" defer></script>
+<script src="/interpreter/assets/js/api-multitenant.js" defer></script>
+<script src="/interpreter/assets/js/app-header.js" defer></script>
 <script src="/interpreter/assets/js/list-filter.js" defer></script>
 <script>
 (function () {
@@ -153,9 +155,9 @@
   document.addEventListener('DOMContentLoaded', init);
 
   function init() {
-    if (!IntApi.getSession()) { location.href = '/interpreter/sign-in.html'; return; }
+    if (!IntApi.getSession()) { location.href = '/interpreter/sign-in'; return; }
     IntApi.whoami().then(function (r) {
-      if (!r || !r.ok) { IntApi.clearSession(); location.href = '/interpreter/sign-in.html'; return; }
+      if (!r || !r.ok) { IntApi.clearSession(); location.href = '/interpreter/sign-in'; return; }
       $('who-name').textContent = r.user.display_name || r.user.email;
       if (window.IntTheme && r.agency) IntTheme.apply(r.agency);
       load();
@@ -234,7 +236,7 @@
   function card(c) {
     var typeLabel = (c.client_type || 'business').replace(/_/g,' ');
     return [
-      '<a class="client-card" href="/interpreter/app/clients/profile.html?id=' + encodeURIComponent(c.client_id) + '">',
+      '<a class="client-card" href="/interpreter/app/clients/profile?id=' + encodeURIComponent(c.client_id) + '">',
       '  <h3>' + esc(c.display_name || c.legal_name) + '</h3>',
       '  <div class="legal">' + esc(c.legal_name) + (c.industry ? ' &middot; ' + esc(c.industry) : '') + '</div>',
       '  <div class="meta-row">',
@@ -259,7 +261,7 @@
       toast('Client added.', 'ok');
       $('m-new').classList.remove('open');
       setTimeout(function () {
-        location.href = '/interpreter/app/clients/profile.html?id=' + encodeURIComponent(r.client_id);
+        location.href = '/interpreter/app/clients/profile?id=' + encodeURIComponent(r.client_id);
       }, 600);
     }).catch(function () { toast('Create failed.', 'error'); });
   }

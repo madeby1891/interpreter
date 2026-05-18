@@ -18,6 +18,12 @@
   .pref-table .event-help { color:var(--1891int-fog); font-size:12px; margin-top:2px }
   .channel-disabled { opacity:.5 }
   .sms-config-warn { padding:10px 14px; background:#FFF5CC; color:#7D5C00; border-radius:6px; font-size:13.5px; margin-bottom:var(--1891int-s-3) }
+  .cal-url-box { display:flex; gap:8px; align-items:stretch; margin:10px 0 }
+  .cal-url-box input { flex:1; padding:8px 10px; border:1px solid var(--1891int-line); border-radius:4px; font-family:var(--1891int-mono); font-size:12px; background:#FAFAFA; color:var(--1891int-ink) }
+  .cal-help { font-size:12.5px; color:var(--1891int-fog); line-height:1.5; margin-top:var(--1891int-s-2) }
+  .cal-help ul { margin:6px 0 0 18px; padding:0 }
+  .cal-help li { margin:3px 0 }
+  .cal-actions { display:flex; gap:8px; flex-wrap:wrap; margin-top:var(--1891int-s-2) }
 </style>
 </head>
 <body>
@@ -33,7 +39,7 @@
   <nav class="app-nav" aria-label="App sections">
     <div class="wrap">
       <a href="/interpreter/app/me/">My offers</a>
-      <a href="/interpreter/app/me/notifications.html" aria-current="page">Notifications</a>
+      <a href="/interpreter/app/me/notifications" aria-current="page">Notifications</a>
     </div>
   </nav>
 
@@ -69,6 +75,32 @@
         </div>
         <div style="margin-top:var(--1891int-s-3)">
           <button class="btn btn-primary btn-sm" id="save-settings">Save digest settings</button>
+        </div>
+      </section>
+
+      <section class="card" style="margin-bottom:var(--1891int-s-5)">
+        <h2 class="mt-0">Calendar feed</h2>
+        <p class="ink-soft" style="font-size:13.5px;max-width:64ch">Subscribe to your schedule in any calendar app — events are sanitized (no consumer names, no addresses, just service type + city + state). Auto-updates within 5 minutes when an offer becomes a claim.</p>
+        <div id="cal-empty" style="display:none">
+          <p style="font-size:13.5px;margin:6px 0 0">No calendar feed yet. Generate a URL to subscribe.</p>
+        </div>
+        <div id="cal-active" style="display:none">
+          <div class="cal-url-box">
+            <input id="cal-url" type="text" readonly aria-label="Calendar feed URL">
+            <button class="btn btn-sm" id="cal-copy" type="button">Copy</button>
+          </div>
+        </div>
+        <div class="cal-actions">
+          <button class="btn btn-primary btn-sm" id="cal-generate" type="button">Generate new URL</button>
+          <button class="btn btn-sm" id="cal-clear" type="button" style="display:none">Disable feed</button>
+        </div>
+        <div class="cal-help">
+          <strong>Anyone with this URL can subscribe</strong> — treat it like a password. Generating a new URL invalidates the old one immediately.
+          <ul>
+            <li><strong>Google Calendar:</strong> Other calendars → <em>From URL</em> → paste link.</li>
+            <li><strong>iOS:</strong> Settings → Calendar → Accounts → Add Account → Other → <em>Add Subscribed Calendar</em>.</li>
+            <li><strong>Outlook:</strong> Add calendar → Subscribe from web → paste link.</li>
+          </ul>
         </div>
       </section>
 
@@ -114,16 +146,74 @@
   document.addEventListener('DOMContentLoaded', init);
 
   function init() {
-    if (!IntApi.getSession()) { location.href = '/interpreter/sign-in.html'; return; }
+    if (!IntApi.getSession()) { location.href = '/interpreter/sign-in'; return; }
     IntApi.whoami().then(function (r) {
-      if (!r || !r.ok) { IntApi.clearSession(); location.href = '/interpreter/sign-in.html'; return; }
+      if (!r || !r.ok) { IntApi.clearSession(); location.href = '/interpreter/sign-in'; return; }
       $('who-name').textContent = r.user.display_name || r.user.email;
       if (window.IntTheme && r.agency) IntTheme.apply(r.agency);
+      renderCalendarCard(r.user && r.user.calendar_token);
       load();
     });
     $('signout').addEventListener('click', function () { IntApi.clearSession(); location.href = '/interpreter/'; });
     $('save-phone').addEventListener('click', savePhone);
     $('save-settings').addEventListener('click', saveSettings);
+    $('cal-generate').addEventListener('click', generateCalendarUrl);
+    $('cal-clear').addEventListener('click', clearCalendarUrl);
+    $('cal-copy').addEventListener('click', copyCalendarUrl);
+  }
+
+  function renderCalendarCard(token) {
+    if (token) {
+      $('cal-url').value = IntApi.calendarUrl(token);
+      $('cal-active').style.display = '';
+      $('cal-empty').style.display = 'none';
+      $('cal-clear').style.display = '';
+      $('cal-generate').textContent = 'Generate new URL';
+    } else {
+      $('cal-url').value = '';
+      $('cal-active').style.display = 'none';
+      $('cal-empty').style.display = '';
+      $('cal-clear').style.display = 'none';
+      $('cal-generate').textContent = 'Generate calendar URL';
+    }
+  }
+
+  function generateCalendarUrl() {
+    var btn = $('cal-generate');
+    btn.disabled = true;
+    IntApi.rotateCalendarToken().then(function (r) {
+      btn.disabled = false;
+      if (!r || !r.ok) { toast((r && r.error) || 'Could not generate URL', 'error'); return; }
+      renderCalendarCard(r.calendar_token);
+      toast('Calendar URL ready.', 'ok');
+    }, function () { btn.disabled = false; toast('Could not generate URL', 'error'); });
+  }
+
+  function clearCalendarUrl() {
+    if (!confirm('Disable the calendar feed? Subscribers will stop receiving updates.')) return;
+    var btn = $('cal-clear');
+    btn.disabled = true;
+    IntApi.clearCalendarToken().then(function (r) {
+      btn.disabled = false;
+      if (!r || !r.ok) { toast((r && r.error) || 'Could not disable', 'error'); return; }
+      renderCalendarCard(null);
+      toast('Calendar feed disabled.', 'ok');
+    }, function () { btn.disabled = false; toast('Could not disable', 'error'); });
+  }
+
+  function copyCalendarUrl() {
+    var input = $('cal-url');
+    if (!input.value) return;
+    input.select();
+    input.setSelectionRange(0, input.value.length);
+    var ok = false;
+    try { ok = document.execCommand('copy'); } catch (_) { ok = false; }
+    if (!ok && navigator.clipboard) {
+      navigator.clipboard.writeText(input.value).then(function () { toast('Copied.', 'ok'); },
+        function () { toast('Press Ctrl+C / Cmd+C to copy.', 'error'); });
+      return;
+    }
+    toast(ok ? 'Copied.' : 'Press Ctrl+C / Cmd+C to copy.', ok ? 'ok' : 'error');
   }
 
   function load() {

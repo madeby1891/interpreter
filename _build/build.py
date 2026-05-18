@@ -39,6 +39,7 @@ HEAD_TPL = """<!doctype html>
 <link rel="canonical" href="{canonical}">
 <link rel="icon" type="image/svg+xml" href="{base}/assets/img/favicon.svg">
 <link rel="stylesheet" href="{base}/assets/css/site.css">
+<link rel="stylesheet" href="{base}/assets/css/marketing-interact.css">
 <meta property="og:title" content="{og_title}">
 <meta property="og:description" content="{description}">
 <meta property="og:type" content="website">
@@ -70,14 +71,14 @@ HEAD_TPL = """<!doctype html>
 """
 
 NAV_LINKS = [
-    ("agencies",     "/for-agencies.html",        "Agencies"),
-    ("schedulers",   "/for-schedulers.html",      "Schedulers"),
-    ("interpreters", "/for-interpreters.html",    "Interpreters"),
-    ("features",     "/features/",                "Features"),
-    ("pricing",      "/pricing.html",             "Pricing"),
-    ("free",         "/free-for-deaf-owned.html", "Free for Deaf-owned"),
-    ("security",     "/security.html",            "Security"),
-    ("about",        "/about.html",               "About"),
+    ("agencies",     "/for-agencies",        "Agencies"),
+    ("schedulers",   "/for-schedulers",      "Schedulers"),
+    ("interpreters", "/for-interpreters",    "Interpreters"),
+    ("features",     "/features/",           "Features"),
+    ("pricing",      "/pricing",             "Pricing"),
+    ("free",         "/free-for-deaf-owned", "Free for Deaf-owned"),
+    ("security",     "/security",            "Security"),
+    ("about",        "/about",               "About"),
 ]
 
 
@@ -97,7 +98,7 @@ def header_html(active: str = "") -> str:
     </button>
     <nav class="nav-primary" id="primary-nav" aria-label="Primary">
 {chr(10).join(items)}
-      <a href="{BASE_PATH}/get-a-demo.html" class="btn btn-primary btn-sm nav-cta">Get a demo</a>
+      <a href="{BASE_PATH}/get-a-demo" class="btn btn-primary btn-sm nav-cta">Get a demo</a>
     </nav>
   </div>
 </header>
@@ -119,49 +120,50 @@ FOOTER = f"""<footer class="site-footer">
         <h4>Product</h4>
         <ul>
           <li><a href="{BASE_PATH}/features/">Features</a></li>
-          <li><a href="{BASE_PATH}/pricing.html">Pricing</a></li>
-          <li><a href="{BASE_PATH}/free-for-deaf-owned.html">Free for Deaf-owned</a></li>
-          <li><a href="{BASE_PATH}/changelog.html">Changelog</a></li>
+          <li><a href="{BASE_PATH}/pricing">Pricing</a></li>
+          <li><a href="{BASE_PATH}/free-for-deaf-owned">Free for Deaf-owned</a></li>
+          <li><a href="{BASE_PATH}/changelog">Changelog</a></li>
         </ul>
       </div>
       <div>
         <h4>For</h4>
         <ul>
-          <li><a href="{BASE_PATH}/for-agencies.html">Agencies</a></li>
-          <li><a href="{BASE_PATH}/for-schedulers.html">Schedulers</a></li>
-          <li><a href="{BASE_PATH}/for-interpreters.html">Interpreters</a></li>
-          <li><a href="{BASE_PATH}/for-requestors.html">Requestors</a></li>
-          <li><a href="{BASE_PATH}/for-payers.html">Billing / AP</a></li>
+          <li><a href="{BASE_PATH}/for-agencies">Agencies</a></li>
+          <li><a href="{BASE_PATH}/for-schedulers">Schedulers</a></li>
+          <li><a href="{BASE_PATH}/for-interpreters">Interpreters</a></li>
+          <li><a href="{BASE_PATH}/for-requestors">Requestors</a></li>
+          <li><a href="{BASE_PATH}/for-payers">Billing / AP</a></li>
         </ul>
       </div>
       <div>
         <h4>Company</h4>
         <ul>
-          <li><a href="{BASE_PATH}/about.html">About</a></li>
-          <li><a href="{BASE_PATH}/our-1891.html">Our 1891</a></li>
-          <li><a href="{BASE_PATH}/security.html">Security</a></li>
-          <li><a href="{BASE_PATH}/accessibility.html">Accessibility</a></li>
-          <li><a href="{BASE_PATH}/contact.html">Contact</a></li>
+          <li><a href="{BASE_PATH}/about">About</a></li>
+          <li><a href="{BASE_PATH}/our-1891">Our 1891</a></li>
+          <li><a href="{BASE_PATH}/security">Security</a></li>
+          <li><a href="{BASE_PATH}/accessibility">Accessibility</a></li>
+          <li><a href="{BASE_PATH}/contact">Contact</a></li>
         </ul>
       </div>
       <div>
         <h4>Legal</h4>
         <ul>
-          <li><a href="{BASE_PATH}/legal/privacy.html">Privacy</a></li>
-          <li><a href="{BASE_PATH}/legal/terms.html">Terms</a></li>
-          <li><a href="{BASE_PATH}/legal/baa.html">BAA</a></li>
-          <li><a href="{BASE_PATH}/legal/subprocessors.html">Subprocessors</a></li>
-          <li><a href="{BASE_PATH}/legal/responsible-disclosure.html">Disclosure</a></li>
+          <li><a href="{BASE_PATH}/legal/privacy">Privacy</a></li>
+          <li><a href="{BASE_PATH}/legal/terms">Terms</a></li>
+          <li><a href="{BASE_PATH}/legal/baa">BAA</a></li>
+          <li><a href="{BASE_PATH}/legal/subprocessors">Subprocessors</a></li>
+          <li><a href="{BASE_PATH}/legal/responsible-disclosure">Disclosure</a></li>
         </ul>
       </div>
     </div>
     <div class="footer-meta">
       <div>© <span data-year>2026</span> 1891 LLC. Built in Frederick. Carried forward since 1891.</div>
-      <div><a href="{BASE_PATH}/sign-in.html">Sign in</a> · <a href="https://madeby1891.com/">madeby1891.com</a></div>
+      <div><a href="{BASE_PATH}/sign-in">Sign in</a> · <a href="https://madeby1891.com/">madeby1891.com</a></div>
     </div>
   </div>
 </footer>
 <script src="{BASE_PATH}/assets/js/main.js" defer></script>
+<script src="{BASE_PATH}/assets/js/marketing-interact.js" defer></script>
 </body>
 </html>
 """
@@ -198,8 +200,15 @@ class Page:
     og_title: str = ""
 
     def canonical(self) -> str:
+        # 1891 convention: clean URLs everywhere — no .html in canonical or sitemap.
+        # The .htaccess handles the rewrite + 301; canonical points at the clean form.
         if self.path == "index.html":
             return f"{CANONICAL_BASE}/"
+        if self.path.endswith("/index.html"):
+            # Subdirectory index pages (features/index.html, blog/index.html, ...) — emit "<dir>/".
+            return f"{CANONICAL_BASE}/{self.path[:-len('index.html')]}"
+        if self.path.endswith(".html"):
+            return f"{CANONICAL_BASE}/{self.path[:-len('.html')]}"
         return f"{CANONICAL_BASE}/{self.path}"
 
 
@@ -222,23 +231,16 @@ def home_body() -> str:
             <div>Free, forever, for verified Deaf-owned agencies.</div>
           </div>
           <div class="cluster" style="margin-top:var(--1891int-s-6)">
-            <a class="btn btn-primary btn-lg" href="{BASE_PATH}/get-a-demo.html">Get a demo</a>
-            <a class="btn btn-secondary btn-lg" href="{BASE_PATH}/free-for-deaf-owned.html">Free if Deaf-owned</a>
+            <a class="btn btn-primary btn-lg" href="{BASE_PATH}/get-a-demo">Get a demo</a>
+            <a class="btn btn-secondary btn-lg" href="{BASE_PATH}/free-for-deaf-owned">Free if Deaf-owned</a>
           </div>
           <p class="muted" style="margin-top:var(--1891int-s-5); font-size:14px">
             No credit card. No per-seat fees. No per-call fees. Export your data any day, with one click.
           </p>
         </div>
         <div>
-          <figure class="asl-frame" aria-label="60-second ASL and captioned explainer (placeholder)">
-            <div>
-              <span class="play" aria-hidden="true">
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
-              </span>
-              <div class="cap">60-second explainer</div>
-              <small>ASL with English captions and audio description</small>
-            </div>
-          </figure>
+          <!-- Lifecycle widget — auto-cycles a job OPEN → COMPLETED -->
+          <div class="widget" data-widget="lifecycle" data-reveal></div>
         </div>
       </div>
     </div>
@@ -251,23 +253,59 @@ def home_body() -> str:
         <h2>Why agencies switch to 1891.</h2>
       </div>
       <div class="grid grid-3">
-        <div class="pillar">
+        <div class="pillar" data-reveal>
           <span class="pillar-num" aria-hidden="true">1</span>
           <h3>Built by the community it serves</h3>
           <p>The co-founders are a fifth-generation-Deaf builder and a certified Deaf interpreter who chaired an interpreting program — not consultants who took a workshop.</p>
-          <p><a href="{BASE_PATH}/about.html">Meet Anthony and Fallon →</a></p>
+          <p><a href="{BASE_PATH}/about">Meet Anthony and Fallon →</a></p>
         </div>
-        <div class="pillar">
+        <div class="pillar" data-reveal data-delay="100">
           <span class="pillar-num" aria-hidden="true">2</span>
           <h3>Universal design as default</h3>
           <p>Every screen ships keyboard-navigable, screen-reader-tested, captioned, and high-contrast on day one. Public VPAT updated every release.</p>
-          <p><a href="{BASE_PATH}/accessibility.html">Read the conformance log →</a></p>
+          <p><a href="{BASE_PATH}/accessibility">Read the conformance log →</a></p>
         </div>
-        <div class="pillar">
+        <div class="pillar" data-reveal data-delay="200">
           <span class="pillar-num" aria-hidden="true">3</span>
           <h3>Free forever for Deaf-owned agencies</h3>
           <p>Verified Deaf-owned? You pay nothing. Full features, unlimited interpreters, unlimited jobs, BAA included, no time limit.</p>
-          <p><a href="{BASE_PATH}/free-for-deaf-owned.html">See the verification process →</a></p>
+          <p><a href="{BASE_PATH}/free-for-deaf-owned">See the verification process →</a></p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="wrap">
+      <div class="center-text" style="margin-bottom:var(--1891int-s-6)">
+        <span class="eyebrow">Click and see it</span>
+        <h2 data-reveal>Four things you'd never quite believe in a screenshot.</h2>
+        <p class="lede" data-reveal data-delay="100" style="margin:0 auto">Each of these is real, shipped behavior. Mess with them.</p>
+      </div>
+      <div class="grid grid-2" style="gap:var(--1891int-s-6)">
+        <div data-reveal>
+          <span class="eyebrow">One client, every department</span>
+          <h3 style="margin-top:6px">Frederick Health → 4 departments → 6 locations → one billing office.</h3>
+          <p class="ink-soft">Click the client. The whole hierarchy unfolds. Invoices roll up however the client wants — by location, by specialist, or one consolidated statement per month.</p>
+          <div class="widget" data-widget="clients"></div>
+        </div>
+        <div data-reveal data-delay="100">
+          <span class="eyebrow">Bill side / pay side, live</span>
+          <h3 style="margin-top:6px">Pick a job. See what the client pays and what the interpreter earns — instantly.</h3>
+          <p class="ink-soft">Modifiers stack: evening +15%, weekend +25%, last-minute +25%. Interpreter pay-rate floors override the formula when their floor is higher.</p>
+          <div class="widget" data-widget="rates"></div>
+        </div>
+        <div data-reveal data-delay="200">
+          <span class="eyebrow">Cancellation tiers, no hidden math</span>
+          <h3 style="margin-top:6px">Slide the clock. See what the client pays + what the interpreter still earns.</h3>
+          <p class="ink-soft">≥48h: 0/0. 24-48h: 50/25. 12-24h: 100/50. &lt;12h: 100/100. The scheduler sees the same preview before they confirm a cancellation.</p>
+          <div class="widget" data-widget="cancel"></div>
+        </div>
+        <div data-reveal data-delay="300">
+          <span class="eyebrow">YES claims. NO declines.</span>
+          <h3 style="margin-top:6px">Interpreters can accept an offer by text. Try it.</h3>
+          <p class="ink-soft">Twilio webhook with signature verification. Idempotent on the message SID. STOP unsubscribes (TCPA-clean). PII never appears in the reply.</p>
+          <div class="widget" data-widget="sms"></div>
         </div>
       </div>
     </div>
@@ -311,32 +349,32 @@ def home_body() -> str:
         <p class="lede" style="margin:0 auto">Each role has a screen built for the work they actually do — not a permissions toggle on someone else's dashboard.</p>
       </div>
       <div class="grid grid-3">
-        <a class="card card-hoverable" href="{BASE_PATH}/for-agencies.html">
+        <a class="card card-hoverable" href="{BASE_PATH}/for-agencies">
           <h3>Agency owners</h3>
           <p class="ink-soft">Fewer schedulers per filled job. No per-seat tax. Your roster and your client list belong to you — export them any day.</p>
           <p class="text-bloom" style="font-weight:600">Math + data ownership →</p>
         </a>
-        <a class="card card-hoverable" href="{BASE_PATH}/for-schedulers.html">
+        <a class="card card-hoverable" href="{BASE_PATH}/for-schedulers">
           <h3>Schedulers</h3>
           <p class="ink-soft">The day-of view that doesn't make you swivel between five tabs. Keyboard-first. Conflict rules in plain English.</p>
           <p class="text-bloom" style="font-weight:600">Watch the day-of demo →</p>
         </a>
-        <a class="card card-hoverable" href="{BASE_PATH}/for-interpreters.html">
+        <a class="card card-hoverable" href="{BASE_PATH}/for-interpreters">
           <h3>Interpreters</h3>
           <p class="ink-soft">Claim a job in two taps. See what you'll be paid before you accept. Get paid the day the agency promised.</p>
           <p class="text-bloom" style="font-weight:600">Phone-first roster app →</p>
         </a>
-        <a class="card card-hoverable" href="{BASE_PATH}/for-requestors.html">
+        <a class="card card-hoverable" href="{BASE_PATH}/for-requestors">
           <h3>Requestors</h3>
           <p class="ink-soft">Book without learning new software. Reply to an email, fill a two-field form, or call. Same outcome.</p>
           <p class="text-bloom" style="font-weight:600">Three ways to book →</p>
         </a>
-        <a class="card card-hoverable" href="{BASE_PATH}/for-payers.html">
+        <a class="card card-hoverable" href="{BASE_PATH}/for-payers">
           <h3>Billing / AP / CFO</h3>
           <p class="ink-soft">Net-30. Consolidated billing. GL coding. NetSuite, QuickBooks, Xero, Bill.com exports. PHI redacted by default.</p>
           <p class="text-bloom" style="font-weight:600">See a sample invoice →</p>
         </a>
-        <a class="card card-hoverable" href="{BASE_PATH}/security.html">
+        <a class="card card-hoverable" href="{BASE_PATH}/security">
           <h3>Security &amp; compliance</h3>
           <p class="ink-soft">HIPAA-defensible. BAA included on every paid tier and on the Deaf-owned tier. Audit log exportable.</p>
           <p class="text-bloom" style="font-weight:600">Read the security posture →</p>
@@ -374,8 +412,8 @@ def home_body() -> str:
       </div>
       <p class="muted" style="font-size:13.5px; margin-top:var(--1891int-s-3)">We don't bash. We just show the math.</p>
       <div class="cluster" style="margin-top:var(--1891int-s-5)">
-        <a class="btn btn-primary" href="{BASE_PATH}/pricing.html">See all pricing tiers</a>
-        <a class="btn btn-ghost" href="{BASE_PATH}/for-agencies.html">Compare your current spend</a>
+        <a class="btn btn-primary" href="{BASE_PATH}/pricing">See all pricing tiers</a>
+        <a class="btn btn-ghost" href="{BASE_PATH}/for-agencies">Compare your current spend</a>
       </div>
     </div>
   </section>
@@ -393,7 +431,7 @@ def home_body() -> str:
             <li style="color:#DCE9E7">7-year audit log with hash-chain integrity.</li>
             <li style="color:#DCE9E7">Subprocessor list public; BAA on request, executed in days, not weeks.</li>
           </ul>
-          <p style="margin-top:var(--1891int-s-5)"><a class="btn btn-secondary" style="border-color:#fff;color:#fff" href="{BASE_PATH}/security.html">Read the security posture</a></p>
+          <p style="margin-top:var(--1891int-s-5)"><a class="btn btn-secondary" style="border-color:#fff;color:#fff" href="{BASE_PATH}/security">Read the security posture</a></p>
         </div>
         <div>
           <div class="card" style="background:var(--1891int-river-deep); border-color:var(--1891int-river-soft); color:var(--1891int-paper)">
@@ -416,7 +454,7 @@ def home_body() -> str:
       <span class="eyebrow">The 1891 lineage</span>
       <h2>Built in Frederick. Carried forward since 1891.</h2>
       <p class="lede" style="margin:0 auto">Five generations Deaf in one family. The lineage is the undercurrent, not the headline — universal-design framing leads. This page is reputation, not conversion.</p>
-      <p style="margin-top:var(--1891int-s-5)"><a class="btn btn-ghost" href="{BASE_PATH}/our-1891.html">Read the story →</a></p>
+      <p style="margin-top:var(--1891int-s-5)"><a class="btn btn-ghost" href="{BASE_PATH}/our-1891">Read the story →</a></p>
     </div>
   </section>
 
@@ -425,8 +463,8 @@ def home_body() -> str:
       <h2>Two ways to start.</h2>
       <p class="lede" style="margin:0 auto var(--1891int-s-6)">Either path gets you to a real person within one business day.</p>
       <div class="cluster" style="justify-content:center">
-        <a class="btn btn-primary btn-lg" href="{BASE_PATH}/get-a-demo.html">Get a demo</a>
-        <a class="btn btn-secondary btn-lg" href="{BASE_PATH}/free-for-deaf-owned.html">Start free if Deaf-owned</a>
+        <a class="btn btn-primary btn-lg" href="{BASE_PATH}/get-a-demo">Get a demo</a>
+        <a class="btn btn-secondary btn-lg" href="{BASE_PATH}/free-for-deaf-owned">Start free if Deaf-owned</a>
       </div>
     </div>
   </section>
@@ -440,10 +478,10 @@ def for_agencies_body() -> str:
     <div class="wrap">
       <span class="eyebrow">For agency owners</span>
       <h1>The math, and your data, in your hands.</h1>
-      <p class="lede">Fewer schedulers per filled job. No per-seat tax. Your interpreter roster and your client list belong to you — export them any day, in CSV or JSON, with one click.</p>
+      <p class="lede">Flat per agency, no per-seat tax, no per-job fee. Real Client → Requestor → Location → Specialist hierarchy. Hash-chained audit log. Roster, clients, invoices, and audit log export to CSV or JSON in one click.</p>
       <div class="cluster" style="margin-top:var(--1891int-s-6)">
         <a class="btn btn-primary btn-lg" href="#calculator">Compare your current spend</a>
-        <a class="btn btn-secondary btn-lg" href="{BASE_PATH}/get-a-demo.html">Talk to us</a>
+        <a class="btn btn-secondary btn-lg" href="{BASE_PATH}/get-a-demo">Talk to us</a>
       </div>
     </div>
   </section>
@@ -461,7 +499,7 @@ def for_agencies_body() -> str:
             <li>No per-call/per-minute fee on VRI or OPI. Call infrastructure is passed through at vendor cost and itemized.</li>
             <li>No payment-processing skim. Stripe fees are passed through at Stripe's published rate. We don't add bps.</li>
           </ul>
-          <p style="margin-top:var(--1891int-s-5)"><a class="btn btn-ghost" href="{BASE_PATH}/pricing.html">See all tiers</a></p>
+          <p style="margin-top:var(--1891int-s-5)"><a class="btn btn-ghost" href="{BASE_PATH}/pricing">See all tiers</a></p>
         </div>
         <div class="card card-warm" id="calculator">
           <span class="badge">Quick math</span>
@@ -515,21 +553,34 @@ def for_agencies_body() -> str:
             <li>Spoken languages — on-site, VRI, OPI.</li>
             <li>CART (NCRA-CRC) realtime captioning.</li>
             <li>Document translation with human-in-the-loop.</li>
-            <li>Live captions from speech (Deepgram default; vendor-abstracted).</li>
+            <li>Live captions from speech (Deepgram Nova-3 default; vendor-abstracted).</li>
           </ul>
         </div>
         <div>
           <h3>Billing</h3>
           <ul class="checks">
             <li>Per-hour, per-event, per-word — your rate cards.</li>
-            <li>Net-30 invoicing, consolidated by month/payer/department.</li>
-            <li>W-2 export to ADP/Gusto/Paychex/Rippling.</li>
-            <li>1099-NEC issuance via track1099.</li>
-            <li>Stripe Connect Express for interpreter payouts.</li>
+            <li>Net-30 invoicing with 5 consolidation modes (one_per_client / requestor / location / specialist / job).</li>
+            <li>Monotonic invoice numbers per tenant per year — <code>INV-2026-0001</code>.</li>
+            <li>1099-NEC issuance via track1099. Stripe Connect Express for payouts.</li>
             <li>GL coding to NetSuite, QuickBooks, Xero, Bill.com.</li>
+            <li>Payout PDF with separate Labor and Expenses tables and subtotals.</li>
           </ul>
         </div>
       </div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="wrap">
+      <span class="eyebrow">Agency health dashboard</span>
+      <h2>Roster, clients, jobs, and A/R — one screen.</h2>
+      <div class="grid grid-3 mt-5">
+        <div class="card"><h3 class="mt-0">Live roster signal</h3><p class="ink-soft">Roster active, available right now, doc-compliant percent. Catch a lapsed cert or expiring W-9 before it costs you a fill.</p></div>
+        <div class="card"><h3 class="mt-0">Operations metrics</h3><p class="ink-soft">Open jobs, fill rate, median time-to-fill, active clients, top clients by volume. Click any tile to drill in to the filtered dashboard.</p></div>
+        <div class="card"><h3 class="mt-0">Money in flight</h3><p class="ink-soft">Outstanding A/R rolled up across all clients, aged. Outstanding payouts owed to your interpreters. The number you actually want to see Monday morning.</p></div>
+      </div>
+      <p class="tag" style="margin-top:var(--1891int-s-4)">Audit log viewer at <code>/app/admin/audit</code>: filter by date / user / action, export to CSV. Hash-chained for integrity.</p>
     </div>
   </section>
 
@@ -538,22 +589,22 @@ def for_agencies_body() -> str:
       <div class="center-text">
         <h2>BAA included on every paid tier and on the Deaf-owned tier.</h2>
         <p class="lede" style="color:#DCE9E7; margin:0 auto">Signed in days, not weeks. Our standard BAA covers every product surface that touches PHI. Custom redlines welcome on Studio and Network.</p>
-        <p style="margin-top:var(--1891int-s-5)"><a class="btn btn-secondary" style="border-color:#fff;color:#fff" href="{BASE_PATH}/legal/baa.html">Read the BAA</a> <a class="btn btn-ghost" style="border-color:#FFE2D6;color:#fff" href="{BASE_PATH}/security.html">Security posture</a></p>
+        <p style="margin-top:var(--1891int-s-5)"><a class="btn btn-secondary" style="border-color:#fff;color:#fff" href="{BASE_PATH}/legal/baa">Read the BAA</a> <a class="btn btn-ghost" style="border-color:#FFE2D6;color:#fff" href="{BASE_PATH}/security">Security posture</a></p>
       </div>
     </div>
   </section>
 
-  {cta_band("Talk to us about your agency.", "Get a demo", f"{BASE_PATH}/get-a-demo.html", "Start free if Deaf-owned", f"{BASE_PATH}/free-for-deaf-owned.html")}
+  {cta_band("Talk to us about your agency.", "Get a demo", f"{BASE_PATH}/get-a-demo", "Start free if Deaf-owned", f"{BASE_PATH}/free-for-deaf-owned")}
 """
 
 
 def audience_switch(active: str) -> str:
     items = [
-        ("agencies",     "/for-agencies.html",     "Agencies"),
-        ("schedulers",   "/for-schedulers.html",   "Schedulers"),
-        ("interpreters", "/for-interpreters.html", "Interpreters"),
-        ("requestors",   "/for-requestors.html",   "Requestors"),
-        ("payers",       "/for-payers.html",       "Billing / AP"),
+        ("agencies",     "/for-agencies",     "Agencies"),
+        ("schedulers",   "/for-schedulers",   "Schedulers"),
+        ("interpreters", "/for-interpreters", "Interpreters"),
+        ("requestors",   "/for-requestors",   "Requestors"),
+        ("payers",       "/for-payers",       "Billing / AP"),
     ]
     parts = ['<div class="wrap" style="padding-top:var(--1891int-s-6);padding-bottom:0"><nav class="audience-switch" aria-label="Audience">']
     for key, href, label in items:
@@ -584,11 +635,11 @@ def for_schedulers_body() -> str:
   <section class="feature-hero">
     <div class="wrap">
       <span class="eyebrow">For schedulers</span>
-      <h1>The day-of view that doesn't make you swivel between five tabs.</h1>
-      <p class="lede">Open jobs, claimed jobs, cancellations, replacements-needed — one screen. Keyboard-first. Conflict rules in plain English. Smart-fill that explains itself.</p>
+      <h1>Six dashboards. One filter bar. Hit back, your filters survive.</h1>
+      <p class="lede">Jobs, Interpreters, Clients, Requestors, Invoices, Payouts — same search box, same status chips, same sort. State lives in the URL, so back-button, share-link, and tab-restore all just work.</p>
       <div class="cluster" style="margin-top:var(--1891int-s-6)">
-        <a class="btn btn-primary btn-lg" href="{BASE_PATH}/get-a-demo.html">Watch the day-of demo</a>
-        <a class="btn btn-ghost btn-lg" href="{BASE_PATH}/features/scheduling.html">Feature detail</a>
+        <a class="btn btn-primary btn-lg" href="{BASE_PATH}/get-a-demo">Watch the day-of demo</a>
+        <a class="btn btn-ghost btn-lg" href="{BASE_PATH}/features/scheduling">Feature detail</a>
       </div>
     </div>
   </section>
@@ -600,10 +651,10 @@ def for_schedulers_body() -> str:
           <h2>One board, every job in flight.</h2>
           <p class="ink-soft">Today's roster, today's jobs, today's exceptions — all in your viewport. Click a row to expand; press <kbd>/</kbd> to filter; press <kbd>j</kbd> and <kbd>k</kbd> to move through the queue. Multi-monitor: drag the day-of board to a second screen, keep job detail on the primary.</p>
           <ul class="checks">
-            <li>Filter by status, language, requestor, county, interpreter — combined.</li>
-            <li>Color-code by urgency (your rules — not ours).</li>
-            <li>Inline edit job details without opening a modal.</li>
-            <li>Bulk actions: send-offers, mark-confirmed, export-day.</li>
+            <li>Status-chip filters and search on every dashboard. Combine them; they survive a refresh.</li>
+            <li>Sort by any column — last click wins, persisted in the URL.</li>
+            <li>Inline edit on most fields without opening a modal.</li>
+            <li>Audit-log viewer at <code>/app/admin/audit</code> with date / user / action filters and CSV export.</li>
           </ul>
         </div>
         <div class="card card-warm">
@@ -613,7 +664,7 @@ def for_schedulers_body() -> str:
             <li><strong>No double-booking, ever.</strong> Hard block. Override requires explicit reason.</li>
             <li><strong>Back-to-back across counties.</strong> Soft warning with the drive-time estimate.</li>
             <li><strong>Skill mismatch.</strong> Warns when an interpreter's certs don't match what the venue requires.</li>
-            <li><strong>Consumer preference miss.</strong> Surfaces "this requestor has booked Maria 4× this quarter" before you send the offer.</li>
+            <li><strong>Consumer-preference miss.</strong> Surfaces "this requestor has booked this interpreter 4× this quarter" before you send the offer.</li>
             <li><strong>Team mismatch.</strong> Flags a CDI assignment with no voicer attached.</li>
           </ul>
         </div>
@@ -621,26 +672,68 @@ def for_schedulers_body() -> str:
     </div>
   </section>
 
+  <section class="section">
+    <div class="wrap">
+      <span class="eyebrow">Client hierarchy</span>
+      <h2>One Client. Many Requestors. Many Locations. Many Specialists. One bill.</h2>
+      <p class="lede">Frederick Health is one Client. Cardiology, ED, Peds, and Oncology are Requestors. Main Hospital, Urbana, Mt Airy, and Brunswick are Locations. The doctor on the chart is a Specialist. All roll to one billing office on one cycle — or split however the contract says.</p>
+      <div class="grid grid-3 mt-5">
+        <div class="card"><h3 class="mt-0">Five consolidation modes</h3><p class="ink-soft"><code>one_per_client</code>, <code>one_per_requestor</code>, <code>one_per_location</code>, <code>one_per_specialist</code>, <code>one_per_job</code>. Set per client; mix on the same Net-30 cycle.</p></div>
+        <div class="card"><h3 class="mt-0">Per-client document library</h3><p class="ink-soft">Contracts, BAAs, COIs, W-9s — uploaded once, surfaced on the Client view with expiry chips so nothing lapses on you.</p></div>
+        <div class="card"><h3 class="mt-0">Invoice line detail</h3><p class="ink-soft">Each line shows location + specialist + consumer initials + interpreter name (whichever the client requires). Invoice numbers are monotonic per tenant per year — <code>INV-2026-0001</code>.</p></div>
+      </div>
+    </div>
+  </section>
+
   <section class="section section-warm">
+    <div class="wrap">
+      <div class="grid grid-2" style="gap:var(--1891int-s-8); align-items:flex-start">
+        <div>
+          <span class="eyebrow">Cancellation modal</span>
+          <h2>Live tier preview before you confirm.</h2>
+          <p class="ink-soft">The cancel button doesn't fire-and-pray. The modal previews the exact charge against the client and the exact payout to each interpreter, per your tier rules, before you click confirm. <em>"Cancel now bills $X and pays $Y per interpreter."</em></p>
+        </div>
+        <div>
+          <span class="eyebrow">PII reveal-on-accept</span>
+          <h2>Redacted offer. Full detail unlocks on claim.</h2>
+          <p class="ink-soft">Interpreter browses the offer with consumer initials, generic venue, time, and rate. The moment they tap Accept, the full record opens — and the unlock is written to the audit log with their user ID and a timestamp.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section">
     <div class="wrap">
       <div class="center-text" style="margin-bottom:var(--1891int-s-7)">
         <span class="eyebrow">Smart-fill</span>
         <h2>Ranked candidates with a score breakdown — never a black box.</h2>
-        <p class="lede" style="margin:0 auto">Hover any score and see the components: certification fit, location proximity, requestor preference, workload balance, prior performance with this consumer.</p>
+        <p class="lede" style="margin:0 auto">Five factors: certification fit, location proximity, requestor preference, workload balance, prior performance with this consumer. Hover any score, see the math.</p>
       </div>
       <div class="grid grid-3">
         <div class="card">
           <h3 class="mt-0">Transparent weights</h3>
-          <p class="ink-soft">You can see — and tune — every weight in the ranking. Default weights are public.</p>
+          <p class="ink-soft">Every weight is visible and tunable in <code>/app/settings</code>. Default weights are public.</p>
         </div>
         <div class="card">
           <h3 class="mt-0">Cascade pattern</h3>
-          <p class="ink-soft">Parallel-3, first-claim-wins. Three top candidates get the offer simultaneously; whoever claims first locks the job.</p>
+          <p class="ink-soft">Parallel-3, first-claim-wins by default. Three top candidates get the offer simultaneously; whoever claims first locks the job.</p>
         </div>
         <div class="card">
           <h3 class="mt-0">Open marketplace</h3>
-          <p class="ink-soft">If cascade exhausts, the job opens to any qualified interpreter in your roster. First-claim, transparent log.</p>
+          <p class="ink-soft">If cascade exhausts, the job opens to any qualified interpreter in your roster. First-claim, written to the audit log.</p>
         </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section section-warm">
+    <div class="wrap">
+      <h2>Team invitations with a role-scoped allowlist.</h2>
+      <p class="lede">Open <code>/app/settings/team</code> and invite. Managers can invite schedulers, interpreters, and client / requestor / billing contacts — but never other managers (only an owner does that). Invitation tokens live 7 days, then expire.</p>
+      <div class="grid grid-3 mt-5">
+        <div class="card"><h3 class="mt-0">7-tier role hierarchy</h3><p class="ink-soft">platform_staff → owner → manager → scheduler, interpreter, client_contact, requestor_contact, billing_contact. The role on the invite scopes everything that user sees.</p></div>
+        <div class="card"><h3 class="mt-0">Magic-link sign-in</h3><p class="ink-soft">No passwords. Click the email link, you're in. Sessions are agency-scoped; multi-agency users pick which tenant on landing.</p></div>
+        <div class="card"><h3 class="mt-0">Agency health dashboard</h3><p class="ink-soft">Roster active, available right now, active clients, open jobs, fill rate, median time-to-fill, doc-compliant percent, top clients by volume, outstanding A/R rollup — one screen.</p></div>
       </div>
     </div>
   </section>
@@ -657,7 +750,7 @@ def for_schedulers_body() -> str:
     </div>
   </section>
 
-  {cta_band("See the board in motion.", "Watch the day-of demo", f"{BASE_PATH}/get-a-demo.html", "Feature detail", f"{BASE_PATH}/features/scheduling.html")}
+  {cta_band("See the board in motion.", "Watch the day-of demo", f"{BASE_PATH}/get-a-demo", "Feature detail", f"{BASE_PATH}/features/scheduling")}
 """
 
 
@@ -667,8 +760,8 @@ def for_interpreters_body() -> str:
   <section class="feature-hero">
     <div class="wrap">
       <span class="eyebrow">For interpreters</span>
-      <h1>Claim a job in two taps. See what you'll be paid before you accept.</h1>
-      <p class="lede">Phone-first. Quiet by default. Get paid on the day the agency promised, not "around the 15th of next month."</p>
+      <h1>Two-tap claim. SMS YES/NO works too. See your pay before you accept.</h1>
+      <p class="lede">Phone-friendly portal. Reply to a job offer by text if your hands are full. Close out with actual times, expenses, and receipts. Approved expenses roll into your next payout automatically.</p>
       <p class="ink-soft" style="margin-top:var(--1891int-s-3); font-size:15px"><strong>You're not the customer in the contract sense — agencies are.</strong> But you're the only reason the contract has any value, and the product treats you that way.</p>
     </div>
   </section>
@@ -679,12 +772,12 @@ def for_interpreters_body() -> str:
         <div>
           <h2>The phone app, in plain terms.</h2>
           <ul class="checks">
-            <li><strong>Two-tap claim.</strong> See the rate, the consumer's name (or initials per agency policy), the venue, the team. Tap "Claim." Tap "Confirm."</li>
-            <li><strong>See your pay before you accept.</strong> Hourly, per-event, mileage, premium pay, anything else — itemized.</li>
-            <li><strong>Quiet by default.</strong> You choose which job types ping you. Off-hours mode is one toggle.</li>
-            <li><strong>Workload balance is visible.</strong> See your own rotation slot in the queue and why a job did or didn't come to you.</li>
-            <li><strong>1099 year-to-date strip.</strong> Open the app, see your earnings in seconds.</li>
-            <li><strong>Get paid on the day the agency promised.</strong> Stripe Connect Express by default. Manual ACH fallback for long-tenured folks who prefer it.</li>
+            <li><strong>Two-tap claim.</strong> Offer shows the rate, initials of the consumer, generic venue, team — full record unlocks the moment you accept.</li>
+            <li><strong>SMS YES/NO works too.</strong> Reply <code>YES</code> to claim, <code>NO</code> to decline. Twilio inbound with signature verify; same audit trail as a tap.</li>
+            <li><strong>See your pay before you accept.</strong> Hourly, per-event, mileage, premium pay — itemized. Pay-side floor is 60% of the client charge; you see both numbers when your agency turns that on.</li>
+            <li><strong>Quiet by default.</strong> Per-event cadence per channel: immediate, daily 6am ET digest, weekly Monday 7am ET digest, or off. Email / SMS each independent. (Mobile push isn't shipped yet — email and SMS are.)</li>
+            <li><strong>1099 year-to-date strip.</strong> Open the app, see your earnings in seconds. Multi-agency interpreters see each agency's slice.</li>
+            <li><strong>Get paid on the day the agency promised.</strong> Stripe Connect Express by default; manual ACH fallback. 1099-NEC issued via track1099 each January.</li>
           </ul>
         </div>
         <div>
@@ -710,21 +803,34 @@ def for_interpreters_body() -> str:
 
   <section class="section section-warm">
     <div class="wrap">
-      <span class="eyebrow">Payment cadence</span>
-      <h2>Paid when the agency promised. Tracked when the agency hasn't.</h2>
+      <span class="eyebrow">Close-out modal</span>
+      <h2>Actual times, expenses, receipts — one screen.</h2>
+      <p class="lede">After the job, open the close-out: enter actual start and end times, add any expense lines (mileage / parking / tolls / supplies / meal / other), attach a receipt if needed, leave a note.</p>
       <div class="grid grid-3 mt-5">
-        <div class="card"><h3 class="mt-0">Default: Friday after the job</h3><p class="ink-soft">Most agencies pay on the Friday following the job week. We surface that date in the app the moment you claim.</p></div>
-        <div class="card"><h3 class="mt-0">Instant payouts (opt-in)</h3><p class="ink-soft">Where the agency enables it, you can opt-in per payout to receive funds same-day for a flat fee (Stripe's published rate, passed through).</p></div>
-        <div class="card"><h3 class="mt-0">Aging visible to you</h3><p class="ink-soft">Open invoices the agency hasn't paid show their aging in your dashboard. No more guessing where your money is.</p></div>
+        <div class="card"><h3 class="mt-0">Live divergence preview</h3><p class="ink-soft">If your actual time diverges from the scheduled time by 25% or more, the modal flags it so you can add a sentence of context before submitting. The scheduler sees the same flag on their side.</p></div>
+        <div class="card"><h3 class="mt-0">Receipts up to 8 MB</h3><p class="ink-soft">Image or PDF, attached to the expense line. Stored in Drive in v1 (works for low/medium scale; R2 migration is on the roadmap). The receipt is attached to the expense — not to the client.</p></div>
+        <div class="card"><h3 class="mt-0">Approved expenses roll forward</h3><p class="ink-soft">Once the scheduler approves your expense lines, they roll into your next Payout PDF automatically — pay-side only. Expenses are <strong>never</strong> billed back to the client.</p></div>
       </div>
     </div>
   </section>
 
   <section class="section">
+    <div class="wrap">
+      <span class="eyebrow">Payouts</span>
+      <h2>Labor and Expenses, side by side, on every Payout PDF.</h2>
+      <div class="grid grid-3 mt-5">
+        <div class="card"><h3 class="mt-0">Two tables, two subtotals</h3><p class="ink-soft">Labor lines (job, rate, hours) and Expense lines (category, receipt link) live in separate tables of the same PDF, each with its own subtotal. Grand total at the foot.</p></div>
+        <div class="card"><h3 class="mt-0">Stripe Connect Express</h3><p class="ink-soft">Direct deposit to the bank account on your Stripe Connect profile. Backend works today; the fully self-serve onboarding UI isn't finished yet — we walk new payees through the setup.</p></div>
+        <div class="card"><h3 class="mt-0">Aging visible to you</h3><p class="ink-soft">Open invoices the agency hasn't yet paid show their aging on your dashboard. No more guessing where your money is.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section section-warm">
     <div class="wrap-narrow">
       <h2>Fairness dashboard.</h2>
-      <p class="lede">You see your own data — how often you've been offered jobs, claim rate, fill rate, average rating, rotation position. Per D7 #8 of the PRD, this is yours to read; we don't gate it.</p>
-      <p style="margin-top:var(--1891int-s-5)"><a class="btn btn-ghost" href="{BASE_PATH}/about.html">Why this matters to us</a></p>
+      <p class="lede">You see your own data — how often you've been offered jobs, claim rate, fill rate, average rating, rotation position. This is yours to read; we don't gate it.</p>
+      <p style="margin-top:var(--1891int-s-5)"><a class="btn btn-ghost" href="{BASE_PATH}/about">Why this matters to us</a></p>
     </div>
   </section>
 
@@ -748,10 +854,11 @@ def for_requestors_body() -> str:
       <span class="eyebrow">Three ways</span>
       <h2>Pick the one that fits your day.</h2>
       <div class="grid grid-3 mt-5">
-        <div class="card"><h3 class="mt-0">Reply to email</h3><p class="ink-soft">If you've worked with an agency on 1891, replying to one of their job confirmations with a new request kicks off an intake. Our intake parser pulls language, date, location, modality. A scheduler confirms within the hour during business hours.</p></div>
-        <div class="card"><h3 class="mt-0">Two-field web form</h3><p class="ink-soft">Below. No login. No phone tree. The scheduler picks up the request and replies with options.</p></div>
-        <div class="card"><h3 class="mt-0">Call the agency's number</h3><p class="ink-soft">Studio and Network agencies have a per-location phone number. Voicemail intake is parsed and routed; you get a confirmation back the same day.</p></div>
+        <div class="card"><h3 class="mt-0">Reply to email</h3><p class="ink-soft">Replying to one of your agency's job confirmations with a new request kicks off an intake. The parser pulls language, date, location, and modality into a draft job. A scheduler reviews and confirms — usually within the hour during business hours.</p></div>
+        <div class="card"><h3 class="mt-0">Short web form</h3><p class="ink-soft">Below. No login. No phone tree. The scheduler picks up the request and replies with options.</p></div>
+        <div class="card"><h3 class="mt-0">Call the agency's number</h3><p class="ink-soft">Studio and Network agencies have a per-location phone number. Voicemail intake is parsed and routed; you get a confirmation back the same day. (Studio adds custom domain + SSO; Network adds white-label and SIEM.)</p></div>
       </div>
+      <p class="tag" style="margin-top:var(--1891int-s-3)">Drafts are always reviewed by a human before they reach an interpreter. Auto-confirmation on clinical or legal work is hard-gated off.</p>
     </div>
   </section>
 
@@ -806,13 +913,13 @@ def for_requestors_body() -> str:
           <textarea id="r_notes" name="notes" placeholder="e.g. preferred interpreter from prior bookings, room number for arrival, parking detail"></textarea>
         </div>
         <button class="btn btn-primary btn-lg" type="submit">Send request</button>
-        <p class="tag" style="margin-top:var(--1891int-s-3)">By submitting you agree to our <a href="{BASE_PATH}/legal/privacy.html">privacy notice</a>. We forward this to the agency you're working with; we don't keep your info beyond what's needed to route the request.</p>
+        <p class="tag" style="margin-top:var(--1891int-s-3)">By submitting you agree to our <a href="{BASE_PATH}/legal/privacy">privacy notice</a>. We forward this to the agency you're working with; we don't keep your info beyond what's needed to route the request.</p>
         <span class="form-status" aria-live="polite"></span>
       </form>
     </div>
   </section>
 
-  {cta_band("Ask your agency to use 1891.", "Get a demo", f"{BASE_PATH}/get-a-demo.html", "How agencies bill", f"{BASE_PATH}/for-payers.html")}
+  {cta_band("Ask your agency to use 1891.", "Get a demo", f"{BASE_PATH}/get-a-demo", "How agencies bill", f"{BASE_PATH}/for-payers")}
 """
 
 
@@ -822,8 +929,8 @@ def for_payers_body() -> str:
   <section class="feature-hero">
     <div class="wrap">
       <span class="eyebrow">For Billing, AP, and CFOs</span>
-      <h1>Net-30. Consolidated by month, payer, or department. GL-coded on day one.</h1>
-      <p class="lede">PHI is redacted from invoices by default. Detail lines are exportable to NetSuite, QuickBooks, Xero, and Bill.com. Sample-invoice anatomy below — no real data, all the structure.</p>
+      <h1>Net-30. Five consolidation modes per client. GL-coded on day one.</h1>
+      <p class="lede">PHI redacted from invoices by default. Each line shows location + specialist + consumer initials + interpreter name (whichever the client requires). Invoice numbers are monotonic per tenant per year (<code>INV-2026-0001</code>). Sample-invoice anatomy below — no real data, all the structure.</p>
     </div>
   </section>
 
@@ -871,17 +978,18 @@ def for_payers_body() -> str:
     <div class="wrap">
       <div class="grid grid-2" style="gap:var(--1891int-s-8); align-items:flex-start">
         <div>
-          <h2>Consolidation modes.</h2>
+          <h2>Five consolidation modes, set per client.</h2>
           <ul class="checks">
-            <li><strong>By month, by payer.</strong> Default — one invoice per payer per calendar month.</li>
-            <li><strong>By department / cost center.</strong> Split a single payer into multiple invoices, GL-coded distinctly.</li>
-            <li><strong>By project / case.</strong> For legal and ad-hoc engagements with a defined project code.</li>
-            <li><strong>Per-event.</strong> Conferences, single-day events with their own PO.</li>
-            <li><strong>Custom (Network tier).</strong> Combine any of the above with PO-matching rules.</li>
+            <li><code>one_per_client</code> — one invoice covers everything for the calendar month.</li>
+            <li><code>one_per_requestor</code> — one per department (Cardiology, ED, Peds, Oncology) on the same cycle.</li>
+            <li><code>one_per_location</code> — one per site (Main Hospital, Urbana, Mt Airy, Brunswick).</li>
+            <li><code>one_per_specialist</code> — one per doctor on the chart, when each provider gets billed separately.</li>
+            <li><code>one_per_job</code> — one invoice per event (conferences, single-shot legal engagements).</li>
           </ul>
+          <p class="ink-soft">Set the mode per client; mix freely on the same Net-30 cycle.</p>
         </div>
         <div>
-          <h2>Exports.</h2>
+          <h2>Exports + payouts.</h2>
           <ul class="checks">
             <li>QuickBooks Online — direct OAuth export.</li>
             <li>Xero — direct OAuth export.</li>
@@ -889,13 +997,15 @@ def for_payers_body() -> str:
             <li>Bill.com — vendor-bill push.</li>
             <li>Plain CSV / JSON — for everything else.</li>
             <li>1099-NEC and 1042-S issuance via track1099.</li>
+            <li>Payout PDF: separate Labor + Expenses tables with subtotals.</li>
+            <li>Invoice numbers monotonic per tenant per year — <code>INV-2026-0001</code>.</li>
           </ul>
         </div>
       </div>
     </div>
   </section>
 
-  {cta_band("Want a sample invoice + GL mapping?", "Get a demo", f"{BASE_PATH}/get-a-demo.html", "Read the BAA", f"{BASE_PATH}/legal/baa.html")}
+  {cta_band("Want a sample invoice + GL mapping?", "Get a demo", f"{BASE_PATH}/get-a-demo", "Read the BAA", f"{BASE_PATH}/legal/baa")}
 """
 
 
@@ -907,14 +1017,14 @@ def pricing_body() -> str:
           "BAA included",
           "Full feature parity with paid tiers",
           "No time limit, no payment method"],
-         "Apply for verification", "/free-for-deaf-owned.html", True),
+         "Apply for verification", "/free-for-deaf-owned", True),
         ("Solo", "$9", "/mo (annual)", "Individual freelance interpreters acting as their own agency.",
          ["1 user",
           "200 jobs/year",
           "1099 + invoicing",
           "Stripe Connect payouts",
           "BAA available on request"],
-         "Get a demo", "/get-a-demo.html", False),
+         "Get a demo", "/get-a-demo", False),
         ("Practice", "$249", "/mo (annual)", "Small agencies, up to 25 active interpreters.",
          ["Unlimited schedulers and requestors",
           "Standard AI intake",
@@ -922,7 +1032,7 @@ def pricing_body() -> str:
           "Document translation",
           "CART scheduling",
           "QuickBooks / Xero export"],
-         "Get a demo", "/get-a-demo.html", False),
+         "Get a demo", "/get-a-demo", False),
         ("Studio", "$749", "/mo (annual)", "Mid agencies, up to 100 active interpreters.",
          ["Everything in Practice",
           "SSO / SAML",
@@ -930,7 +1040,7 @@ def pricing_body() -> str:
           "Per-location phone numbers",
           "Advanced reporting",
           "NetSuite + Bill.com connectors"],
-         "Get a demo", "/get-a-demo.html", False),
+         "Get a demo", "/get-a-demo", False),
         ("Network", "from $2,400", "/mo (annual)", "Large agencies (100+ interpreters), multi-state.",
          ["Everything in Studio",
           "White-label tenant",
@@ -938,7 +1048,7 @@ def pricing_body() -> str:
           "Dedicated SLA + named CSM",
           "Custom integrations",
           "Multi-region option"],
-         "Talk to us", "/contact.html", False),
+         "Talk to us", "/contact", False),
     ]
     tier_html = []
     for name, price, unit, sub, features, cta, href, featured in tiers:
@@ -1035,13 +1145,13 @@ def pricing_body() -> str:
       <details class="card mt-5"><summary style="font-weight:700; cursor:pointer">What if I add more interpreters mid-year?</summary><p class="ink-soft" style="margin-top:var(--1891int-s-3)">If you stay within your tier's headcount cap, nothing changes. If you cross a cap, we move you up and prorate. We don't bill retroactively for the growth — we only bill from the day the next cap is crossed.</p></details>
       <details class="card mt-3"><summary style="font-weight:700; cursor:pointer">What counts as an "active" interpreter?</summary><p class="ink-soft" style="margin-top:var(--1891int-s-3)">An interpreter who claimed or was assigned a job in the trailing 90 days. Interpreters on your roster who haven't worked in 90+ days don't count toward the cap.</p></details>
       <details class="card mt-3"><summary style="font-weight:700; cursor:pointer">Are there setup fees?</summary><p class="ink-soft" style="margin-top:var(--1891int-s-3)">No. Onboarding is white-glove for Phase 0 and Network customers, included in the subscription price. Self-serve for Solo and Practice.</p></details>
-      <details class="card mt-3"><summary style="font-weight:700; cursor:pointer">What's the Deaf-owned verification process?</summary><p class="ink-soft" style="margin-top:var(--1891int-s-3)">A short application, documentation review by a board that includes Fallon Brizendine, decision within 5 business days. Full process is at <a href="{BASE_PATH}/free-for-deaf-owned.html">Free for Deaf-owned</a>.</p></details>
+      <details class="card mt-3"><summary style="font-weight:700; cursor:pointer">What's the Deaf-owned verification process?</summary><p class="ink-soft" style="margin-top:var(--1891int-s-3)">A short application, documentation review by a board that includes Fallon Brizendine, decision within 5 business days. Full process is at <a href="{BASE_PATH}/free-for-deaf-owned">Free for Deaf-owned</a>.</p></details>
       <details class="card mt-3"><summary style="font-weight:700; cursor:pointer">What if my ownership changes?</summary><p class="ink-soft" style="margin-top:var(--1891int-s-3)">If ownership changes such that you no longer qualify for Deaf-Owned, the badge comes down and you transition to the appropriate paid tier with 90 days' notice and no service interruption.</p></details>
       <details class="card mt-3"><summary style="font-weight:700; cursor:pointer">Do you offer discounts for nonprofits?</summary><p class="ink-soft" style="margin-top:var(--1891int-s-3)">Deaf-led nonprofits qualify for the Deaf-Owned tier through the same verification process. Other 501(c)(3) interpreting nonprofits get 30% off Practice and Studio.</p></details>
     </div>
   </section>
 
-  {cta_band("Pick a path.", "Get a demo", f"{BASE_PATH}/get-a-demo.html", "Start free if Deaf-owned", f"{BASE_PATH}/free-for-deaf-owned.html")}
+  {cta_band("Pick a path.", "Get a demo", f"{BASE_PATH}/get-a-demo", "Start free if Deaf-owned", f"{BASE_PATH}/free-for-deaf-owned")}
 """
 
 
@@ -1067,7 +1177,7 @@ def free_body() -> str:
         <li>NAD agency-member designation (where applicable to the agency's classification).</li>
         <li>A sworn attestation — used where no state pathway exists. One page, plain English. Fallon co-signs the program-level standard so the attestation is verifying against a clear definition, not a vibe.</li>
       </ul>
-      <p class="muted" style="font-size:14px">Full standard: <a href="{BASE_PATH}/legal/deaf-owned-verification-standard.html">HTML</a> · <a href="{BASE_PATH}/assets/docs/deaf-owned-verification-standard.pdf">PDF</a></p>
+      <p class="muted" style="font-size:14px">Full standard: <a href="{BASE_PATH}/legal/deaf-owned-verification-standard">HTML</a> · <a href="{BASE_PATH}/assets/docs/deaf-owned-verification-standard.pdf">PDF</a></p>
     </div>
   </section>
 
@@ -1110,7 +1220,7 @@ def free_body() -> str:
       <form class="form-card" data-form action="/api/lead" method="post" aria-label="Deaf-owned verification application">
         <input type="hidden" name="form_id" value="deaf_owned_application">
         <div class="consent-block">
-          <strong>What happens to this info:</strong> It goes to the verification board (Fallon Brizendine + two community advisors). We retain applications for 24 months from submission, longer if approved. See our <a href="{BASE_PATH}/legal/privacy.html">privacy notice</a>.
+          <strong>What happens to this info:</strong> It goes to the verification board (Fallon Brizendine + two community advisors). We retain applications for 24 months from submission, longer if approved. See our <a href="{BASE_PATH}/legal/privacy">privacy notice</a>.
         </div>
         <div class="field">
           <label for="dao_legal">Agency legal name <span aria-hidden="true">*</span></label>
@@ -1208,7 +1318,7 @@ def get_demo_body() -> str:
               <label for="d_helps">What would make this useful for you?</label>
               <textarea id="d_helps" name="helps"></textarea>
             </div>
-            <div class="consent-block">By submitting you agree to our <a href="{BASE_PATH}/legal/privacy.html">privacy notice</a>. We respond within one business day. We don't add you to a list or sell your data.</div>
+            <div class="consent-block">By submitting you agree to our <a href="{BASE_PATH}/legal/privacy">privacy notice</a>. We respond within one business day. We don't add you to a list or sell your data.</div>
             <button class="btn btn-primary btn-lg" type="submit">Send</button>
             <span class="form-status" aria-live="polite"></span>
           </form>
@@ -1224,7 +1334,7 @@ def get_demo_body() -> str:
           </ul>
           <h3>And then we hand you the keys.</h3>
           <p class="ink-soft">Trial accounts are real accounts on a real tenant. We don't show fake demos and pretend they're product.</p>
-          <p style="margin-top:var(--1891int-s-5)"><a class="btn btn-ghost" href="{BASE_PATH}/free-for-deaf-owned.html">Verified Deaf-owned? Skip the demo →</a></p>
+          <p style="margin-top:var(--1891int-s-5)"><a class="btn btn-ghost" href="{BASE_PATH}/free-for-deaf-owned">Verified Deaf-owned? Skip the demo →</a></p>
         </div>
       </div>
     </div>
@@ -1238,22 +1348,22 @@ def start_free_body() -> str:
     <div class="wrap">
       <span class="eyebrow">Start free</span>
       <h1>Verified Deaf-owned? Skip the demo. Start the application.</h1>
-      <p class="lede">"Start free" routes through the same verification process as <a href="{BASE_PATH}/free-for-deaf-owned.html">Free for Deaf-owned</a> — this page is for owners who already know they qualify and want to go straight to the form.</p>
+      <p class="lede">"Start free" routes through the same verification process as <a href="{BASE_PATH}/free-for-deaf-owned">Free for Deaf-owned</a> — this page is for owners who already know they qualify and want to go straight to the form.</p>
     </div>
   </section>
 
   <section class="section">
     <div class="wrap-narrow">
       <div class="cluster" style="justify-content:center">
-        <a class="btn btn-primary btn-lg" href="{BASE_PATH}/free-for-deaf-owned.html#apply">Open the application</a>
-        <a class="btn btn-secondary btn-lg" href="{BASE_PATH}/get-a-demo.html">Or get a demo first</a>
+        <a class="btn btn-primary btn-lg" href="{BASE_PATH}/free-for-deaf-owned#apply">Open the application</a>
+        <a class="btn btn-secondary btn-lg" href="{BASE_PATH}/get-a-demo">Or get a demo first</a>
       </div>
       <h2 style="margin-top:var(--1891int-s-7)">A few quick FAQs.</h2>
       <details class="card mt-3"><summary style="font-weight:700; cursor:pointer">Do I have to upload documentation immediately?</summary><p class="ink-soft" style="margin-top:var(--1891int-s-3)">No. You can submit the application now and email documentation after we acknowledge.</p></details>
       <details class="card mt-3"><summary style="font-weight:700; cursor:pointer">How fast is approval?</summary><p class="ink-soft" style="margin-top:var(--1891int-s-3)">Acknowledgment within 5 minutes, board review within 5 business days, decision the same day as review.</p></details>
       <details class="card mt-3"><summary style="font-weight:700; cursor:pointer">What if I'm denied?</summary><p class="ink-soft" style="margin-top:var(--1891int-s-3)">All denials come with written reasoning and a 30-day appeal window. Appeals are reviewed by the full board, not a single reviewer. You're welcome on a paid tier in the meantime.</p></details>
       <details class="card mt-3"><summary style="font-weight:700; cursor:pointer">Can I start using the platform before approval?</summary><p class="ink-soft" style="margin-top:var(--1891int-s-3)">Yes — a trial Practice account opens on the day you apply, and converts to Free Forever the day you're approved. No payment method asked while your application is pending.</p></details>
-      <p class="muted" style="margin-top:var(--1891int-s-6); font-size:14px">Need to talk to a human first? <a href="{BASE_PATH}/contact.html">Contact us</a>.</p>
+      <p class="muted" style="margin-top:var(--1891int-s-6); font-size:14px">Need to talk to a human first? <a href="{BASE_PATH}/contact">Contact us</a>.</p>
     </div>
   </section>
 """
@@ -1284,7 +1394,7 @@ def contact_body() -> str:
         </div>
         <div class="card">
           <h3 class="mt-0">Responsible disclosure</h3>
-          <p class="ink-soft">Found a security issue? Please don't post it — email us. Process and PGP key on the <a href="{BASE_PATH}/legal/responsible-disclosure.html">disclosure page</a>.</p>
+          <p class="ink-soft">Found a security issue? Please don't post it — email us. Process and PGP key on the <a href="{BASE_PATH}/legal/responsible-disclosure">disclosure page</a>.</p>
           <p><a href="mailto:security@madeby1891.com">security@madeby1891.com</a></p>
         </div>
       </div>
@@ -1308,7 +1418,7 @@ def contact_body() -> str:
           </select>
         </div>
         <div class="field"><label for="c_msg">Message <span aria-hidden="true">*</span></label><textarea id="c_msg" name="message" required aria-required="true"></textarea></div>
-        <div class="consent-block">By submitting you agree to our <a href="{BASE_PATH}/legal/privacy.html">privacy notice</a>. We respond within one business day during normal hours.</div>
+        <div class="consent-block">By submitting you agree to our <a href="{BASE_PATH}/legal/privacy">privacy notice</a>. We respond within one business day during normal hours.</div>
         <button class="btn btn-primary btn-lg" type="submit">Send</button>
         <span class="form-status" aria-live="polite"></span>
       </form>
@@ -1338,7 +1448,7 @@ def sign_in_body() -> str:
         <strong>We don't use passwords.</strong> Magic links expire in 15 minutes. Pro and Studio tiers can require a passkey (WebAuthn) on every sign-in. Free and Solo tiers have passkeys optional.
       </div>
       <p class="center-text muted" style="margin-top:var(--1891int-s-5); font-size:14px">
-        No account yet? <a href="{BASE_PATH}/get-a-demo.html">Get a demo</a> or <a href="{BASE_PATH}/free-for-deaf-owned.html">start free if Deaf-owned</a>.
+        No account yet? <a href="{BASE_PATH}/get-a-demo">Get a demo</a> or <a href="{BASE_PATH}/free-for-deaf-owned">start free if Deaf-owned</a>.
       </p>
     </div>
   </section>
@@ -1375,18 +1485,21 @@ def sign_in_body() -> str:
 
 def features_index_body() -> str:
     feats = [
-        ("scheduling.html",     "Scheduling",          "Day-of board, smart-fill, transparent ranking, cascade pattern, plain-English conflict rules."),
-        ("interpreter-app.html","Interpreter app",     "Phone-first. Two-tap claim. See-your-pay-first. Quiet by default. 1099 year-to-date strip."),
-        ("billing.html",        "Billing",             "Per-hour, per-event, per-word rate cards. Net-30 invoicing. GL coding. QuickBooks, Xero, NetSuite, Bill.com."),
+        ("scheduling.html",     "Scheduling",          "Six dashboards, one filter bar. URL-persisted state. Smart-fill with score breakdown. Cancellation modal with live tier preview."),
+        ("interpreter-app.html","Interpreter app",     "Two-tap claim or SMS YES/NO. See-your-pay-first. Close-out modal with actual times, expenses, and receipts."),
+        ("billing.html",        "Billing",             "Five consolidation modes per client. Monotonic invoice numbers. Payout PDF with Labor + Expenses tables. QuickBooks, Xero, NetSuite, Bill.com."),
         ("translation.html",    "Document translation","Human-in-the-loop. DeepL Pro where it supports the pair; Claude elsewhere. No pre-fill on medical or legal."),
-        ("ai-intake.html",      "AI intake",           "Natural-language intake parses email/voicemail to a draft job — every parse reviewable, never auto-confirmed for clinical work."),
+        ("ai-intake.html",      "AI intake",           "Natural-language intake parses email/voicemail to a draft job — every parse reviewable, never auto-confirmed for clinical work. PHI redacted before any model call."),
         ("vri-opi.html",        "VRI &amp; OPI",       "Built-in WebRTC video client; OPI bridge via Twilio. Per-minute infrastructure passed through at vendor cost."),
-        ("cart.html",           "CART",                "NCRA-CRC realtime captioning, in the same scheduling queue. Vendor-abstracted live-STT integration."),
-        ("reporting.html",      "Reporting",           "Read-only natural-language reporting DSL. Pre-built KPIs. Export to CSV, PDF, or the audit trail."),
-        ("integrations.html",   "Integrations",        "QuickBooks, Xero, NetSuite, Bill.com, ADP, Gusto, Paychex, Rippling, track1099, Plaid, Stripe, Postmark, Twilio."),
+        ("cart.html",           "CART",                "NCRA-CRC realtime captioning, in the same scheduling queue. Vendor-abstracted live-STT (Deepgram Nova-3 default)."),
+        ("reporting.html",      "Reporting",           "Read-only natural-language reporting. Pre-built KPIs (fill rate, time-to-fill, A/R aging). Export to CSV, PDF, or the audit trail."),
+        ("integrations.html",   "Integrations",        "QuickBooks, Xero, NetSuite, Bill.com, ADP, Gusto, Paychex, Rippling, track1099, Plaid, Stripe Connect, Postmark, Twilio."),
     ]
+    # Strip trailing .html for clean URLs in nav cards.
+    def _clean(slug: str) -> str:
+        return slug[:-len(".html")] if slug.endswith(".html") else slug
     cards = "".join(f"""
-        <a class="card card-hoverable" href="{BASE_PATH}/features/{p}">
+        <a class="card card-hoverable" href="{BASE_PATH}/features/{_clean(p)}">
           <h3 class="mt-0">{t}</h3>
           <p class="ink-soft">{d}</p>
           <p class="text-bloom" style="font-weight:600">Read more →</p>
@@ -1404,7 +1517,7 @@ def features_index_body() -> str:
       <div class="grid grid-3">{cards}</div>
     </div>
   </section>
-  {cta_band("Try it in a demo.", "Get a demo", f"{BASE_PATH}/get-a-demo.html", "See pricing", f"{BASE_PATH}/pricing.html")}
+  {cta_band("Try it in a demo.", "Get a demo", f"{BASE_PATH}/get-a-demo", "See pricing", f"{BASE_PATH}/pricing")}
 """
 
 
@@ -1427,7 +1540,7 @@ def feature_page_body(slug: str, title: str, eyebrow: str, lede: str, sections: 
     </div>
   </section>
 """)
-    body.append(cta_band(f"See {eyebrow.lower()} in motion.", "Get a demo", f"{BASE_PATH}/get-a-demo.html", "Back to all features", f"{BASE_PATH}/features/"))
+    body.append(cta_band(f"See {eyebrow.lower()} in motion.", "Get a demo", f"{BASE_PATH}/get-a-demo", "Back to all features", f"{BASE_PATH}/features/"))
     return "".join(body)
 
 
@@ -1466,7 +1579,7 @@ def about_body() -> str:
       <h2>Small team. Visible diffs. Slow growth on purpose.</h2>
       <div class="grid grid-3 mt-5">
         <div class="card"><h3 class="mt-0">Frederick, MD</h3><p class="ink-soft">Headquartered in Frederick. Remote-first. We hire across the US and into Canada in year 2.</p></div>
-        <div class="card"><h3 class="mt-0">Open changelog</h3><p class="ink-soft">Every release shows up at <a href="{BASE_PATH}/changelog.html">/changelog</a>. We ship; it's visible.</p></div>
+        <div class="card"><h3 class="mt-0">Open changelog</h3><p class="ink-soft">Every release shows up at <a href="{BASE_PATH}/changelog">/changelog</a>. We ship; it's visible.</p></div>
         <div class="card"><h3 class="mt-0">Open marketing site</h3><p class="ink-soft">This site is open source. Other Deaf-owned organizations can fork the verification-page template. Product itself stays private.</p></div>
       </div>
     </div>
@@ -1481,7 +1594,7 @@ def about_body() -> str:
     </div>
   </section>
 
-  {cta_band("Want to know more?", "Read our 1891 story", f"{BASE_PATH}/our-1891.html", "Get a demo", f"{BASE_PATH}/get-a-demo.html")}
+  {cta_band("Want to know more?", "Read our 1891 story", f"{BASE_PATH}/our-1891", "Get a demo", f"{BASE_PATH}/get-a-demo")}
 """
 
 
@@ -1535,8 +1648,8 @@ def security_body() -> str:
       <h1>HIPAA-defensible by default. Auditable on demand.</h1>
       <p class="lede">PHI is redacted before it ever reaches an AI model. Every PHI read writes to an append-only audit log. BAA included on every paid tier and on the Deaf-owned tier — signed in days, not weeks.</p>
       <div class="cluster" style="margin-top:var(--1891int-s-6)">
-        <a class="btn btn-primary" href="{BASE_PATH}/legal/baa.html">Read the BAA</a>
-        <a class="btn btn-secondary" href="{BASE_PATH}/legal/subprocessors.html">Subprocessor list</a>
+        <a class="btn btn-primary" href="{BASE_PATH}/legal/baa">Read the BAA</a>
+        <a class="btn btn-secondary" href="{BASE_PATH}/legal/subprocessors">Subprocessor list</a>
         <a class="btn btn-ghost" href="mailto:security@madeby1891.com">Responsible disclosure</a>
       </div>
     </div>
@@ -1585,11 +1698,24 @@ def security_body() -> str:
       <span class="eyebrow">Encryption + keys</span>
       <h2>Encrypted at rest and in transit. Tenant-isolated.</h2>
       <ul class="checks">
-        <li><strong>At rest:</strong> R2 server-side encryption. Per-tenant prefixes (<code>r2://1891-interpreter/&lt;tenant_id&gt;/...</code>) so a key compromise doesn't cross tenants.</li>
+        <li><strong>At rest (v1):</strong> Per-tenant Google Sheet ACLs plus initials-only mode for clinical fields. Sheets are protected and access-logged through Google Workspace; column-level AES is on the roadmap, not in v1.</li>
         <li><strong>In transit:</strong> TLS 1.3 everywhere. HSTS preload submitted; Strict-Transport-Security with includeSubDomains and preload directive.</li>
         <li><strong>Sheets-as-source-of-truth:</strong> Google Workspace BAA covers the per-agency Google Sheet. Each tenant Sheet has its own protected ranges and ACL.</li>
-        <li><strong>Tenant isolation:</strong> Durable Objects named <code>AgencyHub:&lt;tenant_id&gt;</code>. KV keys prefixed <code>&lt;tenant_id&gt;:</code>. Lint-enforced in workers/api/src/kv.ts.</li>
+        <li><strong>Receipt storage:</strong> Drive-backed in v1 (works for low and medium scale). R2 with per-tenant prefixes is the planned migration; tracked publicly in the changelog.</li>
+        <li><strong>Tenant isolation:</strong> Durable Objects named <code>AgencyHub:&lt;tenant_id&gt;</code>. KV keys prefixed <code>&lt;tenant_id&gt;:</code>. Prompt-cache keyed by tenant_id so model cache hits cannot cross tenants.</li>
       </ul>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="wrap">
+      <span class="eyebrow">Roles + sign-in</span>
+      <h2>7-tier role hierarchy. Magic-link sign-in. 7-day invitation TTL.</h2>
+      <div class="grid grid-3 mt-5">
+        <div class="card"><h3 class="mt-0">Seven roles, role-scoped UI</h3><p class="ink-soft">platform_staff → owner → manager → scheduler, interpreter, client_contact, requestor_contact, billing_contact. The role on the invite scopes everything that user sees in <code>/app/</code>.</p></div>
+        <div class="card"><h3 class="mt-0">Role-scoped invitation allowlist</h3><p class="ink-soft">Managers can invite the five contact-tier roles, but not other managers. Only owners create managers. The allowlist is enforced server-side; the UI in <code>/app/settings/team</code> just reflects it.</p></div>
+        <div class="card"><h3 class="mt-0">No passwords</h3><p class="ink-soft">Magic-link sign-in only. Invitation tokens live 7 days, then expire. Sessions are agency-scoped; multi-agency users pick which tenant on landing.</p></div>
+      </div>
     </div>
   </section>
 
@@ -1605,7 +1731,7 @@ def security_body() -> str:
         <li style="color:#DCE9E7"><strong>One-tap PAUSE</strong> for the chair / host — executive session, off-the-record, personnel matters.</li>
         <li style="color:#DCE9E7"><strong>Non-consenting lines flagged</strong> in the transcript, redacted from any public output.</li>
       </ul>
-      <p style="margin-top:var(--1891int-s-5)"><a class="btn btn-secondary" style="border-color:#fff;color:#fff" href="{BASE_PATH}/features/cart.html">CART feature detail</a></p>
+      <p style="margin-top:var(--1891int-s-5)"><a class="btn btn-secondary" style="border-color:#fff;color:#fff" href="{BASE_PATH}/features/cart">CART feature detail</a></p>
     </div>
   </section>
 
@@ -1638,14 +1764,14 @@ def security_body() -> str:
         <div class="card"><h3 class="mt-0">SOC 2</h3><p class="ink-soft">Type I targeted for Q4 2026; Type II for Q3 2027. We won't claim a Type II we don't have. Status is on this page when it changes.</p></div>
         <div class="card"><h3 class="mt-0">GDPR / UK GDPR</h3><p class="ink-soft">DPA available on request. EU/UK customers gated behind data-residency review until our EU presence is set up.</p></div>
         <div class="card"><h3 class="mt-0">FERPA</h3><p class="ink-soft">School-district customers have a FERPA-compatible DPA covering student records. K-12 settings default to no recording.</p></div>
-        <div class="card"><h3 class="mt-0">Section 508 / WCAG 2.2 AA</h3><p class="ink-soft">Public <a href="{BASE_PATH}/accessibility.html">VPAT and conformance log</a> updated every release.</p></div>
+        <div class="card"><h3 class="mt-0">Section 508 / WCAG 2.2 AA</h3><p class="ink-soft">Public <a href="{BASE_PATH}/accessibility">VPAT and conformance log</a> updated every release.</p></div>
         <div class="card"><h3 class="mt-0">PCI</h3><p class="ink-soft">No card data touches our servers. Payments are processed end-to-end by Stripe. We hold tokens, not PANs.</p></div>
       </div>
-      <p style="margin-top:var(--1891int-s-6)"><a class="btn btn-primary" href="{BASE_PATH}/legal/subprocessors.html">See the full subprocessor list</a></p>
+      <p style="margin-top:var(--1891int-s-6)"><a class="btn btn-primary" href="{BASE_PATH}/legal/subprocessors">See the full subprocessor list</a></p>
     </div>
   </section>
 
-  {cta_band("Need the BAA? It takes days, not weeks.", "Read the BAA", f"{BASE_PATH}/legal/baa.html", "Talk to us", f"{BASE_PATH}/contact.html")}
+  {cta_band("Need the BAA? It takes days, not weeks.", "Read the BAA", f"{BASE_PATH}/legal/baa", "Talk to us", f"{BASE_PATH}/contact")}
 """
 
 
@@ -1704,7 +1830,7 @@ def accessibility_body() -> str:
         <li>Accessibility features are in every tier. Never paywalled.</li>
         <li>We don't auto-caption ASL. That's a research problem, not a product feature. We do auto-caption English speech with vendor-abstracted live STT.</li>
       </ol>
-      <p style="margin-top:var(--1891int-s-5)"><a class="btn btn-primary" href="{BASE_PATH}/legal/accessibility-statement.html">Read the legal-form accessibility statement</a></p>
+      <p style="margin-top:var(--1891int-s-5)"><a class="btn btn-primary" href="{BASE_PATH}/legal/accessibility-statement">Read the legal-form accessibility statement</a></p>
     </div>
   </section>
 """
@@ -1785,7 +1911,7 @@ def fourohfour_body() -> str:
       <div class="cluster" style="justify-content:center; margin-top:var(--1891int-s-6)">
         <a class="btn btn-primary" href="{BASE_PATH}/">Home</a>
         <a class="btn btn-ghost" href="{BASE_PATH}/features/">Features</a>
-        <a class="btn btn-ghost" href="{BASE_PATH}/pricing.html">Pricing</a>
+        <a class="btn btn-ghost" href="{BASE_PATH}/pricing">Pricing</a>
       </div>
     </div>
   </section>
@@ -1802,7 +1928,7 @@ def build_pages() -> list[Page]:
     pages.append(Page(
         path="index.html",
         title="1891 Interpreter — The interpreting agency platform built by the community it serves",
-        description="Scheduling, interpreter app, billing, translation, and live captions in one tool. Spoken and signed languages, same tool, same price. Free forever for verified Deaf-owned agencies.",
+        description="Scheduling, interpreter app, billing, translation, and live captions in one tool. Six-dashboard board with URL-persisted filters. SMS YES/NO claim. Close-out modal with expenses. Five consolidation modes per client. Hash-chained audit log. Free forever for verified Deaf-owned agencies.",
         nav_active="",
         body=home_body(),
         og_title="1891 Interpreter — built by the community it serves",
@@ -1811,7 +1937,7 @@ def build_pages() -> list[Page]:
     pages.append(Page(
         path="for-agencies.html",
         title="For agency owners — 1891 Interpreter",
-        description="Flat monthly per agency. No per-seat tax. No per-job fee. Your roster and your client list belong to you — export them any day, in CSV or JSON.",
+        description="Flat per agency. No per-seat tax, no per-job fee. Real Client → Requestor → Location → Specialist hierarchy. Hash-chained audit log. Health dashboard at a glance. Export everything, one click.",
         nav_active="agencies",
         breadcrumb_html=breadcrumb(("Home", f"{BASE_PATH}/"), ("For agencies", "")),
         body=for_agencies_body(),
@@ -1819,7 +1945,7 @@ def build_pages() -> list[Page]:
     pages.append(Page(
         path="for-schedulers.html",
         title="For schedulers — 1891 Interpreter",
-        description="The day-of view that doesn't make you swivel between five tabs. Keyboard-first. Conflict rules in plain English. Smart-fill that explains itself.",
+        description="Six dashboards, one filter bar. Status-chip filters and URL-persisted state. Smart-fill with score breakdown. Cancellation modal with live tier preview. Audit log viewer at /app/admin/audit.",
         nav_active="schedulers",
         breadcrumb_html=breadcrumb(("Home", f"{BASE_PATH}/"), ("For schedulers", "")),
         body=for_schedulers_body(),
@@ -1827,7 +1953,7 @@ def build_pages() -> list[Page]:
     pages.append(Page(
         path="for-interpreters.html",
         title="For interpreters — 1891 Interpreter",
-        description="Claim a job in two taps. See what you'll be paid before you accept. Get paid on the day the agency promised.",
+        description="Two-tap claim. SMS YES/NO works too. See your pay before you accept. Close out with actual times, expenses, and receipts. Approved expenses roll into your next payout automatically.",
         nav_active="interpreters",
         breadcrumb_html=breadcrumb(("Home", f"{BASE_PATH}/"), ("For interpreters", "")),
         body=for_interpreters_body(),
@@ -1835,7 +1961,7 @@ def build_pages() -> list[Page]:
     pages.append(Page(
         path="for-requestors.html",
         title="For requestors — 1891 Interpreter",
-        description="Book an interpreter without learning new software. Reply to an email, fill a two-field form, or call. Same outcome.",
+        description="Book an interpreter without learning new software. Reply to an email, fill a short form, or call. Same outcome — confirmed interpreter, confirmation email, calendar invite — usually within the hour.",
         nav_active="",
         breadcrumb_html=breadcrumb(("Home", f"{BASE_PATH}/"), ("For requestors", "")),
         body=for_requestors_body(),
@@ -1843,7 +1969,7 @@ def build_pages() -> list[Page]:
     pages.append(Page(
         path="for-payers.html",
         title="For billing, AP, and CFOs — 1891 Interpreter",
-        description="Net-30. Consolidated billing. GL coding. NetSuite, QuickBooks, Xero, Bill.com. PHI redacted from invoices by default.",
+        description="Net-30. Five consolidation modes per client. Monotonic invoice numbers (INV-2026-0001). Per-line location + specialist + interpreter detail. PHI redacted by default. QuickBooks, Xero, NetSuite, Bill.com.",
         nav_active="",
         breadcrumb_html=breadcrumb(("Home", f"{BASE_PATH}/"), ("Billing & AP", "")),
         body=for_payers_body(),
@@ -1901,7 +2027,7 @@ def build_pages() -> list[Page]:
     pages.append(Page(
         path="features/index.html",
         title="Features — 1891 Interpreter",
-        description="Scheduling, interpreter app, billing, translation, AI intake, VRI/OPI, CART, reporting, integrations.",
+        description="Scheduling with smart-fill and cancellation tier preview, interpreter app with SMS YES/NO claim and close-out modal, billing with 5 consolidation modes, translation, AI intake, VRI/OPI, CART, reporting, integrations.",
         nav_active="features",
         breadcrumb_html=breadcrumb(("Home", f"{BASE_PATH}/"), ("Features", "")),
         body=features_index_body(),
@@ -1909,25 +2035,31 @@ def build_pages() -> list[Page]:
 
     feature_specs = [
         ("scheduling.html", "Scheduling", "Feature · Scheduling",
-         "Day-of board. Smart-fill with a score breakdown. Cascade pattern. Plain-English conflict rules.",
-         [("The day-of board", "<p>Open jobs, claimed jobs, cancellations, replacements-needed — one screen. Filter by status, language, requestor, county, interpreter (combined). Color-code by urgency on your rules, not ours. Keyboard-first navigation: <kbd>j</kbd>/<kbd>k</kbd>/<kbd>/</kbd>/<kbd>?</kbd>. Drag the board to a second monitor.</p>"),
-          ("Smart-fill with transparent ranking", "<p>Five-factor weighted score: certification fit, location proximity, requestor preference, workload balance, prior performance with this consumer. Every weight is visible and tunable. Hover any score and see the components. No black box.</p>"),
+         "Six dashboards, one filter bar. URL-persisted state. Smart-fill with a five-factor score breakdown. Cancellation modal with live tier preview. Plain-English conflict rules.",
+         [("Six dashboards, one filter bar", "<p>Jobs, Interpreters, Clients, Requestors, Invoices, Payouts — same search box, same status chips, same column sort. Combine filters; they live in the URL, so back-button, share-link, and tab-restore all just work. Keyboard-first navigation: <kbd>j</kbd>/<kbd>k</kbd>/<kbd>/</kbd>/<kbd>?</kbd>. Drag the board to a second monitor.</p>"),
+          ("Smart-fill with transparent ranking", "<p>Five-factor weighted score: certification fit, location proximity, requestor preference, workload balance, prior performance with this consumer. Every weight is visible and tunable in <code>/app/settings</code>. Hover any score and see the components. No black box.</p>"),
           ("Cascade pattern", "<p>Parallel-3, first-claim-wins by default. Three top candidates get the offer simultaneously; whoever claims first locks the job. Configurable per agency.</p>"),
+          ("Cancellation modal with tier preview", "<p>Before you confirm a cancel, the modal previews the exact charge against the client and the exact payout to each interpreter, per your tier rules. <em>\"Cancel now bills $X and pays $Y per interpreter.\"</em> No fire-and-pray.</p>"),
+          ("PII reveal-on-accept", "<p>Interpreters see a redacted offer — consumer initials, generic venue, time, rate. The moment they accept, the full record opens and the unlock is written to the audit log with user ID and timestamp.</p>"),
           ("Conflict rules in plain English", "<p>Every rule has a one-sentence reason next to it. No double-booking, ever. Back-to-back across counties warns with the drive-time estimate. Skill mismatch flags missing certs. Consumer-preference miss surfaces prior bookings. CDI assignment without a voicer flags the gap.</p>")]),
 
         ("interpreter-app.html", "Interpreter app", "Feature · Interpreter app",
-         "Phone-first. Two-tap claim. See-your-pay-first. Quiet by default.",
-         [("Two-tap claim", "<p>Tap the job. See the rate, the consumer (initials per agency policy), the venue, the team. Tap 'Claim.' Tap 'Confirm.' Done. The flow is identical for ASL, spoken-language, CART, and document-translation jobs.</p>"),
-          ("See-your-pay-first", "<p>Hourly, per-event, mileage, premium pay, anything else — itemized before you accept. No 'we'll figure it out after the job.'</p>"),
-          ("Quiet by default", "<p>Off-hours mode is one toggle. You choose which job types ping you (urgent only, all medical, none). Push notifications respect your settings — no override channels.</p>"),
-          ("1099 strip", "<p>Year-to-date 1099 totals visible in the app. Download the form on January 31 (sooner if requested). Multi-agency interpreters see each agency's slice.</p>")]),
+         "Phone-friendly portal. Two-tap claim, or reply SMS YES/NO. See your pay first. Close out with actual times, expenses, and receipts.",
+         [("Two-tap claim", "<p>Tap the offer. See the rate, the consumer's initials, the venue, the team. Tap 'Claim.' Done. Same flow for ASL, spoken-language, CART, and document-translation jobs.</p>"),
+          ("SMS YES/NO", "<p>Reply <code>YES</code> to claim, <code>NO</code> to decline. Twilio inbound with signature verify; same audit trail as a tap. Useful when your hands are full or you're between assignments.</p>"),
+          ("See-your-pay-first", "<p>Hourly, per-event, mileage, premium pay — itemized before you accept. Pay-side floor is 60% of the client charge when your agency enables transparency; you see both numbers.</p>"),
+          ("Close-out modal", "<p>After the job: actual start and end times, expense lines (mileage / parking / tolls / supplies / meal / other), optional receipt upload (≤ 8 MB image or PDF), notes. Live divergence preview warns at ≥ 25% from scheduled. Approved expenses roll into the next Payout PDF automatically.</p>"),
+          ("Quiet by default", "<p>Per-event cadence per channel: immediate, daily 6am ET digest, weekly Monday 7am ET digest, or off. Email and SMS each independent. Mobile push isn't shipped yet — email and SMS are.</p>"),
+          ("1099 strip", "<p>Year-to-date 1099 totals visible in the app. 1099-NEC issued each January via track1099. Multi-agency interpreters see each agency's slice.</p>")]),
 
         ("billing.html", "Billing", "Feature · Billing",
-         "Rate-card lexicon. Per-hour, per-event, per-word. Net-30 invoicing. GL coding to your accounting system.",
+         "Rate cards. Five consolidation modes. Monotonic invoice numbers. Payout PDFs with separate Labor + Expenses tables. PHI redacted by default.",
          [("Rate cards", "<p>Each agency configures rate cards by setting (medical, legal, K-12, conference) × modality (ASL, Spanish, etc.) × team config (solo, CDI+voicer, relief). Rate cards are versioned; old invoices retain the rate card that priced them.</p>"),
-          ("Invoicing modes", "<p>Consolidated by month/payer, by department/cost center, by project, per-event, or custom (Network tier). Sample-invoice anatomy is on the <a href=\"" + BASE_PATH + "/for-payers.html\">Billing & AP page</a>.</p>"),
-          ("PHI on invoices", "<p>Consumer identifiers are redacted to opaque tokens by default. Your AP team doesn't need the PHI, and HIPAA prefers it gone. Override available per-payer where the payer's contract requires unredacted detail.</p>"),
-          ("Payouts", "<p>Stripe Connect Express for 1099 contractors. W-2 hours export to ADP, Gusto, Paychex, Rippling. 1099-NEC and 1042-S issuance via track1099.</p>")]),
+          ("Five consolidation modes", "<p>Per client: <code>one_per_client</code>, <code>one_per_requestor</code>, <code>one_per_location</code>, <code>one_per_specialist</code>, <code>one_per_job</code>. Mix freely on the same Net-30 cycle. Sample-invoice anatomy is on the <a href=\"" + BASE_PATH + "/for-payers\">Billing & AP page</a>.</p>"),
+          ("Invoice numbering", "<p>Monotonic per tenant per year — <code>INV-2026-0001</code>, <code>INV-2026-0002</code>, never skipping. AP teams that audit by sequence don't have to chase gaps.</p>"),
+          ("Per-line detail", "<p>Each line shows location + specialist + consumer initials + interpreter name (whichever the client requires). PHI is redacted by default; consumer identifiers are opaque tokens unless the client contract requires otherwise.</p>"),
+          ("Payouts", "<p>Stripe Connect Express for 1099 contractors. Payout PDF has separate Labor and Expenses tables with their own subtotals and a grand total. Self-serve onboarding UI isn't finished yet (backend works); new payees get walked through setup.</p>"),
+          ("Tax + payroll", "<p>W-2 hours export to ADP, Gusto, Paychex, Rippling. 1099-NEC and 1042-S issuance via track1099.</p>")]),
 
         ("translation.html", "Document translation", "Feature · Document translation",
          "Human-in-the-loop. Translation memory. No pre-fill on medical or legal without review.",
@@ -1936,10 +2068,11 @@ def build_pages() -> list[Page]:
           ("Deliverables", "<p>PDF, Word, or HTML output, preserving source formatting where possible. Sworn translations (where required) include the translator's certification and signature page.</p>")]),
 
         ("ai-intake.html", "AI intake", "Feature · AI intake",
-         "Natural-language intake parses email, voicemail, and forms to a draft job. Every parse reviewable.",
-         [("How it works", "<p>Requestor sends an email or leaves a voicemail. Intake parser extracts: language, date, time, duration, location, modality, special requirements. Output is a <em>draft</em> job, never auto-confirmed for clinical or legal work. A scheduler reviews and accepts.</p>"),
-          ("PHI never reaches the model raw", "<p>Email subject and body are redacted by <code>lib/redact.ts</code> before any model call. Names → initials. Phone, MRN, DOB → tokens. Free-text clinical detail is scrubbed by regex + NER. The model sees a structured projection only.</p>"),
-          ("Reviewable, never auto-confirmed", "<p>Per PRD D7 #4, voicemail intake always routes to a scheduler for review. The parser's confidence is visible per field; low-confidence fields are highlighted in the scheduler's UI.</p>")]),
+         "Natural-language intake parses email, voicemail, and forms into a draft job. Every parse reviewable. PHI redacted before the model sees it.",
+         [("How it works", "<p>Requestor sends an email or leaves a voicemail. The intake parser extracts: language, date, time, duration, location, modality, special requirements. Output is a <em>draft</em> job, never auto-confirmed for clinical or legal work. A scheduler reviews and accepts.</p>"),
+          ("PHI never reaches the model raw", "<p>Email subject and body are redacted by <code>lib/redact.ts</code> before any model call. Names → initials. Phone, MRN, DOB → tokens. Free-text clinical detail is scrubbed by regex + NER. The model sees a structured projection only. Every call writes an AI_Audit row with input and output hashes.</p>"),
+          ("Reviewable, never auto-confirmed", "<p>Voicemail intake always routes to a scheduler for review. The parser's confidence is visible per field; low-confidence fields are highlighted in the scheduler's UI.</p>"),
+          ("Honest about state", "<p>The intake state machine and review surfaces are in production. Some downstream AI-assist calls (translation review, term polish) are wired but the model calls themselves may be stubbed in v1 — they return a fixed structure so the workflow tests end-to-end. We'll mark those clearly in the changelog as they land.</p>")]),
 
         ("vri-opi.html", "VRI &amp; OPI", "Feature · VRI &amp; OPI",
          "Video Remote Interpreting and Over-the-Phone Interpreting. Built-in WebRTC video client; OPI bridge via Twilio.",
@@ -1951,7 +2084,7 @@ def build_pages() -> list[Page]:
          "NCRA-CRC realtime captioning, in the same scheduling queue. Vendor-abstracted live-STT integration.",
          [("CRC integration", "<p>NCRA-CRC realtime captioning jobs schedule alongside ASL and spoken-language jobs. Same rate cards, same payouts, same invoicing.</p>"),
           ("Live STT for everything else", "<p>For sessions where a CRC isn't booked but live captions are needed (meetings, training, internal events), the platform calls a streaming STT vendor through the <code>StreamingStt</code> interface — Deepgram Nova-3 by default, AssemblyAI or Cloudflare Whisper as alternates. Vendor-abstracted at the Worker boundary; you can swap vendors without touching workflows.</p>"),
-          ("Consent and retention", "<p>Two-party consent baked in. RECORDING indicator on every shared screen. PAUSE for executive session. Raw audio 30 days, transcripts 1 year, approved minutes permanent. See the <a href=\"" + BASE_PATH + "/security.html\">security page</a> for the full table.</p>")]),
+          ("Consent and retention", "<p>Two-party consent baked in. RECORDING indicator on every shared screen. PAUSE for executive session. Raw audio 30 days, transcripts 1 year, approved minutes permanent. See the <a href=\"" + BASE_PATH + "/security\">security page</a> for the full table.</p>")]),
 
         ("reporting.html", "Reporting", "Feature · Reporting",
          "Read-only natural-language reporting DSL. Pre-built KPIs. Export to CSV, PDF, or the audit trail.",
@@ -1980,7 +2113,7 @@ def build_pages() -> list[Page]:
     pages.append(Page(
         path="security.html",
         title="Security &amp; compliance — 1891 Interpreter",
-        description="HIPAA-defensible by default. PHI redacted before any AI model call. Append-only audit log. BAA included on every paid tier and on the Deaf-owned tier.",
+        description="HIPAA-defensible by default. PHI redacted before any AI call. SHA-256 hash-chained audit log with 7-year retention. 7-tier role hierarchy, magic-link sign-in, 7-day invitation TTL. Maryland two-party consent baked in. BAA on every paid tier and the Deaf-owned tier.",
         nav_active="security",
         breadcrumb_html=breadcrumb(("Home", f"{BASE_PATH}/"), ("Security", "")),
         body=security_body(),
@@ -2053,7 +2186,7 @@ def build_pages() -> list[Page]:
     privacy_html = """
       <h2>What we collect — and what we don't.</h2>
       <p>The marketing site (this site) collects only what you submit through a form. We do not run third-party trackers, advertising pixels, or behavioral analytics. We do not set non-essential cookies. We do not fingerprint visitors.</p>
-      <p>The product (when you have an account) collects what's needed to do interpreting agency work: rosters, requestors, jobs, invoices, and — where it's necessary — minimal PHI tied to a job. We collect the least we can. We retain it for the periods documented on the <a href=\"""" + BASE_PATH + """/security.html\">security page</a>.</p>
+      <p>The product (when you have an account) collects what's needed to do interpreting agency work: rosters, requestors, jobs, invoices, and — where it's necessary — minimal PHI tied to a job. We collect the least we can. We retain it for the periods documented on the <a href=\"""" + BASE_PATH + """/security\">security page</a>.</p>
 
       <h2>Marketing forms.</h2>
       <p>When you fill a form on this site, the data is routed to a small team inbox (Anthony, Fallon, or the inbound queue). We retain inbound inquiries for 24 months from submission. We do not sell or share the data. We do not add you to a third-party newsletter list without your explicit opt-in.</p>
@@ -2065,10 +2198,10 @@ def build_pages() -> list[Page]:
       <p>You can request a copy of any personal data we hold about you, ask us to correct or delete it, or withdraw consent at any time. Email <a href=\"mailto:privacy@madeby1891.com\">privacy@madeby1891.com</a>. We respond within 30 days.</p>
 
       <h2>HIPAA.</h2>
-      <p>If you are a covered entity or business associate, our <a href=\"""" + BASE_PATH + """/legal/baa.html\">BAA</a> governs PHI handling and takes precedence over this privacy notice for PHI specifically.</p>
+      <p>If you are a covered entity or business associate, our <a href=\"""" + BASE_PATH + """/legal/baa\">BAA</a> governs PHI handling and takes precedence over this privacy notice for PHI specifically.</p>
 
       <h2>Where the data lives.</h2>
-      <p>Primary data residency is in the United States (Cloudflare R2 in US regions, Google Workspace US tenant). EU/UK data residency is targeted for 2027. See the <a href=\"""" + BASE_PATH + """/legal/subprocessors.html\">subprocessor list</a>.</p>
+      <p>Primary data residency is in the United States (Cloudflare R2 in US regions, Google Workspace US tenant). EU/UK data residency is targeted for 2027. See the <a href=\"""" + BASE_PATH + """/legal/subprocessors\">subprocessor list</a>.</p>
     """
     pages.append(Page(
         path="legal/privacy.html",
@@ -2087,14 +2220,14 @@ def build_pages() -> list[Page]:
 
       <h2>The free Deaf-owned tier.</h2>
       <p><em>Plain English:</em> Verified Deaf-owned agencies pay nothing. The verification standard is on the public site. If your ownership changes, the badge comes down.</p>
-      <p>Eligibility, verification process, and recertification are documented at <a href=\"""" + BASE_PATH + """/free-for-deaf-owned.html\">/free-for-deaf-owned</a>. Verification decisions are made by a board that includes Fallon Brizendine and rotating community advisors. Denials are reviewed by the full board on appeal.</p>
+      <p>Eligibility, verification process, and recertification are documented at <a href=\"""" + BASE_PATH + """/free-for-deaf-owned\">/free-for-deaf-owned</a>. Verification decisions are made by a board that includes Fallon Brizendine and rotating community advisors. Denials are reviewed by the full board on appeal.</p>
 
       <h2>Your data.</h2>
       <p><em>Plain English:</em> Your data is yours. Export it any day. We don't sell it. We don't ransom it on cancellation.</p>
       <p>You retain all right, title, and interest in customer data. We will provide a complete export in CSV and JSON within 5 business days of any request. Cancellation triggers an automatic export delivered to the account owner. We do not transfer or sell customer data to third parties for marketing or advertising purposes.</p>
 
       <h2>HIPAA.</h2>
-      <p>The <a href=\"""" + BASE_PATH + """/legal/baa.html\">BAA</a> governs all PHI processing and takes precedence over these Terms for PHI specifically.</p>
+      <p>The <a href=\"""" + BASE_PATH + """/legal/baa\">BAA</a> governs all PHI processing and takes precedence over these Terms for PHI specifically.</p>
 
       <h2>Payment.</h2>
       <p>Paid tiers are billed monthly or annually in advance. Refunds are available pro rata for unused service if you cancel; we don't make you wait for the term to end to recoup unused months.</p>
@@ -2129,10 +2262,10 @@ def build_pages() -> list[Page]:
       <p>We use PHI only to provide the Service: scheduling interpreters, generating invoices, producing transcripts and minutes for your sessions, and performing the audit logging required by HIPAA. We do not use PHI for marketing, sale, or any other purpose not explicitly required by the Service.</p>
 
       <h2>Safeguards we maintain.</h2>
-      <p>Technical, administrative, and physical safeguards as required by HIPAA Security Rule, including encryption at rest and in transit, role-based access, append-only audit logging with hash-chain integrity, retention defaults documented at <a href=\"""" + BASE_PATH + """/security.html\">/security</a>, and an annual risk assessment.</p>
+      <p>Technical, administrative, and physical safeguards as required by HIPAA Security Rule, including encryption at rest and in transit, role-based access, append-only audit logging with hash-chain integrity, retention defaults documented at <a href=\"""" + BASE_PATH + """/security\">/security</a>, and an annual risk assessment.</p>
 
       <h2>Subprocessors and PHI.</h2>
-      <p>We use subprocessors who have their own BAAs (Google Workspace, Cloudflare Enterprise, Anthropic, Twilio, Postmark). Full list and BAA status at <a href=\"""" + BASE_PATH + """/legal/subprocessors.html\">/legal/subprocessors</a>.</p>
+      <p>We use subprocessors who have their own BAAs (Google Workspace, Cloudflare Enterprise, Anthropic, Twilio, Postmark). Full list and BAA status at <a href=\"""" + BASE_PATH + """/legal/subprocessors\">/legal/subprocessors</a>.</p>
 
       <h2>Breach notification.</h2>
       <p>We notify you of any breach affecting your PHI within 30 days, with as much detail as we have. For low-risk events, we notify in our quarterly summary; for high-risk events, we notify within 24 hours and walk you through the response together.</p>
@@ -2156,7 +2289,7 @@ def build_pages() -> list[Page]:
       <p>Your organization is the data controller; 1891 LLC is the data processor. We process personal data only to provide the Service and only on your documented instructions.</p>
 
       <h2>Sub-processing.</h2>
-      <p>Our subprocessor list is public and we notify you 30 days before adding a new subprocessor that processes personal data. See <a href=\"""" + BASE_PATH + """/legal/subprocessors.html\">/legal/subprocessors</a>.</p>
+      <p>Our subprocessor list is public and we notify you 30 days before adding a new subprocessor that processes personal data. See <a href=\"""" + BASE_PATH + """/legal/subprocessors\">/legal/subprocessors</a>.</p>
 
       <h2>International transfers.</h2>
       <p>Primary data residency is US. EU/UK customer data is gated behind data-residency review until our EU presence is established (targeted 2027). Standard Contractual Clauses (SCCs) and UK IDTA apply where transfers occur.</p>
@@ -2206,7 +2339,7 @@ def build_pages() -> list[Page]:
       <p>1891 Interpreter targets WCAG 2.2 Level AA across the public marketing site and the product. Section 508 conformance follows from WCAG conformance per the 2018 ICT Refresh.</p>
 
       <h2>How we maintain conformance.</h2>
-      <p>Every release runs automated checks (axe-core), manual screen-reader testing (VoiceOver, NVDA, JAWS, TalkBack), and keyboard-only smoke tests. Releases block on regressions. The conformance log at <a href=\"""" + BASE_PATH + """/accessibility.html\">/accessibility</a> is updated per release.</p>
+      <p>Every release runs automated checks (axe-core), manual screen-reader testing (VoiceOver, NVDA, JAWS, TalkBack), and keyboard-only smoke tests. Releases block on regressions. The conformance log at <a href=\"""" + BASE_PATH + """/accessibility\">/accessibility</a> is updated per release.</p>
 
       <h2>How to report a barrier.</h2>
       <p>Email <a href=\"mailto:accessibility@madeby1891.com\">accessibility@madeby1891.com</a>. Reports go to a priority queue: response within 2 business days, target fix date within 5.</p>
@@ -2305,7 +2438,7 @@ def build_pages() -> list[Page]:
       <p>Fallon Brizendine (CDI, MA Interpretation, Gallaudet) plus two community advisors rotating annually. The community advisors are drawn from a pool with explicit standing in the Deaf agency-owner community. The board reviews every application within 5 business days. All denials are reviewed by the full board, not a single reviewer.</p>
 
       <h2>Edge cases.</h2>
-      <p>See <a href=\"""" + BASE_PATH + """/free-for-deaf-owned.html\">/free-for-deaf-owned</a> for the public edge-case table covering CODA-owned agencies, mixed-ownership at 51%, Deaf-led nonprofits, hearing-allied agencies, and ownership-vs-operational-control situations.</p>
+      <p>See <a href=\"""" + BASE_PATH + """/free-for-deaf-owned\">/free-for-deaf-owned</a> for the public edge-case table covering CODA-owned agencies, mixed-ownership at 51%, Deaf-led nonprofits, hearing-allied agencies, and ownership-vs-operational-control situations.</p>
 
       <h2>Recertification.</h2>
       <p>Annual, light. Once a year we email: 'still owned by the same person/people? Reply yes.' Documentation is not required again unless ownership changed.</p>
@@ -2366,11 +2499,9 @@ def write_sitemap(pages: list[Page]) -> Path:
     for page in pages:
         if page.path == "404.html":
             continue
-        # 1891 convention: canonical URLs only, no .html
-        url = page.canonical()
-        # Drop trailing .html for cleaner canonical (but keep for actual file)
-        # Sitemap entries use the actual URL the user hits — including .html as deployed.
-        urls.append(url)
+        # 1891 convention: clean URLs everywhere — no .html in sitemap.
+        # canonical() handles the path-to-URL conversion (including index → /).
+        urls.append(page.canonical())
     today = datetime.now().strftime("%Y-%m-%d")
     body = ['<?xml version="1.0" encoding="UTF-8"?>',
             '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">']

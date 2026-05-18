@@ -143,6 +143,8 @@
 
 <script src="/interpreter/assets/js/whitelabel.js" defer></script>
 <script src="/interpreter/assets/js/api.js" defer></script>
+<script src="/interpreter/assets/js/api-multitenant.js" defer></script>
+<script src="/interpreter/assets/js/app-header.js" defer></script>
 <script>
 (function () {
   'use strict';
@@ -160,9 +162,9 @@
   var STATES = ['DRAFT','OPEN','OFFERED','CLAIMED','CONFIRMED','EN_ROUTE','IN_PROGRESS','COMPLETED','BILLED','PAID'];
 
   function init() {
-    if (!IntApi.getSession()) { location.href = '/interpreter/sign-in.html'; return; }
+    if (!IntApi.getSession()) { location.href = '/interpreter/sign-in'; return; }
     IntApi.whoami().then(function (r) {
-      if (!r || !r.ok) { IntApi.clearSession(); location.href = '/interpreter/sign-in.html'; return; }
+      if (!r || !r.ok) { IntApi.clearSession(); location.href = '/interpreter/sign-in'; return; }
       $('who-name').textContent = r.user.display_name || r.user.email;
       if (window.IntTheme && r.agency) IntTheme.apply(r.agency);
       var params = new URLSearchParams(location.search);

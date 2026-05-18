@@ -4,6 +4,74 @@ Dated history of changes. Newest entries at the top. Note user-visible changes o
 
 ---
 
+## 2026-05-18 — v18.4: Marketing-site interactivity + 7 platform fixes (PHI encryption, calendar, live board, tenants, AI hardening, copy refresh, clean URLs)
+
+Big sweep. Five parallel agents + main-thread work on two security/AI items.
+
+### Marketing site — live and breathing
+
+- **New logo** (`assets/img/brand-mark.svg`) — etched-stamp style 1891 with two-fingertip ASL contact-point arc + bloom highlight. New favicon + OG card matched. Subtle `arc-pulse` keyframe on hover.
+- **Animation library** (`assets/css/marketing-interact.css` + `assets/js/marketing-interact.js`) — IntersectionObserver scroll-reveal with optional `data-delay` stagger, count-up stat animator, stronger `card-hoverable` lift, primary-button warm-glow, comparison-table row highlight, pillar-number pulse, hero-illustration `gentle-float`. `prefers-reduced-motion` honored throughout.
+- **Five interactive widgets** dropped into home:
+  - **Lifecycle** — auto-cycles OPEN → OFFERED → CLAIMED → CONFIRMED → IN_PROGRESS → COMPLETED on a 2.5s loop, pauses on hover. Replaces the static placeholder hero illustration.
+  - **Rate playground** — pick service / modality / time-band, live bill + pay calc with modifier chips.
+  - **Cancellation tier scrubber** — slide hours-before-job, see bill + pay percentages by tier.
+  - **SMS YES/NO simulator** — fake phone UI, type YES/NO/STOP/anything-else and see real-shipped responses.
+  - **Client hierarchy expandable** — click Frederick Health, watch 4 depts × 6 locations × 6 specialists unfold.
+- **Copy refresh** across every marketing page — replaced abstract prose with shipped-feature concretes (close-out flow, SMS YES/NO, client hierarchy, audit log, team invitations, dashboards search/sort, expense reimbursement).
+- **`.html` stripped from URLs site-wide** — `.htaccess` adds 301 redirects (`/foo.html` → `/foo`) + internal rewrites (`/foo` silently serves `foo.html`). Every internal `href` cleaned. Sitemap + canonical URLs updated. Smoke checks confirm `.html → 301`, clean URL → 200.
+
+### PHI encryption at rest (real this time)
+
+- **Worker** `src/phi.ts` (new) — AES-GCM via Web Crypto Subtle. Per-tenant DEK derived via HKDF-SHA256 from a master key that never leaves the Worker. Storage format: `v1:<iv_b64>:<ct_b64>`. Routes: `POST /v1/phi/encrypt`, `POST /v1/phi/decrypt`. Gated by `X-1891-Internal` shared secret.
+- **Apps Script** `Code_PHI.gs` (new) — `_phiEncrypt` / `_phiDecrypt` proxy helpers + `apiCreateConsumer` / `apiUpdateConsumer` / `apiRevealConsumer` / `apiListConsumers`. Default reads are masked (initials only); reveal is break-glass, requires `purpose_of_use` (treatment / billing / quality_review / legal_hold), every reveal audit-logged, interpreters can only reveal consumers they're on a claim for.
+- **Setup**: one-shot `wrangler secret put PHI_MASTER_KEY` (≥32 random bytes base64url). Currently 503s gracefully if unset.
+
+### Calendar ICS export (`Code_Calendar.gs`)
+
+- New `apiInterpreterIcs(e)` returns RFC-5545 `text/calendar` via per-user `calendar_token` (long-lived ULID, separate from session JWT).
+- **NO PII** in the feed — service_type + modality + language pair only; city/state for location (never street); description is just "Open the 1891 Interpreter portal."
+- Token rotate/clear endpoints + UI on `/app/me/notifications.html` with Copy / Generate / Disable + subscribe instructions for Google / iOS / Outlook.
+- Audit each fetch.
+
+### Tenant provisioning + switching (`/app/admin/tenants/`)
+
+- `apiProvisionTenant` extended: accepts `primary_owner_email`, `brand_color`, `billing_email`, auto-slugified tenant_id. Creates host Users row if owner doesn't exist + mints 7-day invitation. Returns sheet URL + invitation URL.
+- `apiWhoami` returns `available_tenants: [...]` so the UI can render a switcher.
+- `/app/admin/tenants/` rewritten: search/refresh, card grid (legal_name, tier, phi_mode, owner email, Sheet link, "Switch to" / "You are here"), provision modal with color picker.
+- New `site/assets/js/app-header.js` — drops a tenant dropdown into the `.app-header .who` block on every owner-side page when the user has >1 available tenants. Pure no-op for single-tenant users.
+
+### Live job board WebSocket
+
+- `JobBoardRoom` DO already existed; **client wasn't subscribing**. Now:
+  - Day-of board opens `wss://1891-interpreter-api.../v1/jobs/ws?session=<jwt>` after initial render. Exponential reconnect (1/2/4/8/30s); falls back to 30s polling after 3 fails.
+  - `live-indicator` chip near the Refresh button (green/amber/red/polling).
+  - On message: dispatches `job.created` / `job.status_change` / `job.cancelled` / `assignment.changed` / `closeout.*` with a `.card-flash` keyframe on the changed card.
+- **Apps Script side**: new `Code_LiveBoard.gs` with `_notifyJobChange_` + `_dispatchWithLiveBoard_` wrapper. Every job-state mutation (create / claim / cancel / offer / confirm / start / complete / accept / decline / closeout / dispute) fires a notify to `/v1/notify/job` via `X-1891-Internal`. Best-effort — never blocks the user.
+- **Tenant isolation verified** — DO id is `idFromName('tenant:' + tid)` on both subscribe + notify; tenant A's broadcast can never reach tenant B's socket. New vitest case `job-board.test.ts` proves it.
+
+### AI intake hardening
+
+- Per-user rate limit (30/hr) + per-tenant rate limit (200/hr) via sliding 1-hour CacheService window. 429 on hit.
+- Input cap (8KB) — rejects oversized pastes before model call.
+- 5xx single retry with 500ms pause on Anthropic side errors.
+- Cache failure fails open (don't block on Apps Script CacheService glitch).
+
+### AI translation verified — NOT vaporware
+
+Cleared from the vaporware list. `workers/api/src/translate.ts` is fully wired:
+- Real `claude-sonnet-4-5` API call with system prompt, tenant-scoped prompt cache.
+- Real DeepL fallback (`api.deepl.com` / `api-free.deepl.com`).
+- Hard-gated against medical/legal/government source types (these MUST go through human review, never AI-prefilled).
+
+### Deploy notes
+
+- Worker deployed (Version `42518fd3…`). PHI routes 503 until `PHI_MASTER_KEY` is set.
+- Apps Script pushed. **Still needs your 4-click "New version → Deploy"** for the new endpoints to go live on `/exec`: `list_consumers`, `reveal_consumer`, `create_consumer`, `update_consumer`, `interpreter_ics`, `rotate_calendar_token`, `clear_calendar_token`, `list_tenants` (refreshed), `provision_tenant` (refreshed), plus the WebSocket notify wrapping.
+- Site live, 19/19 smoke checks pass including the new clean-URL 301s.
+
+---
+
 ## 2026-05-18 — v18.3: Teammate invitations, per-client document library, payout PDF with expense lines
 
 Three queue items closed in one parallel sweep.

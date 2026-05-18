@@ -47,8 +47,8 @@
 
       <div class="cluster" style="margin-bottom:var(--1891int-s-4)">
         <a class="btn btn-ghost btn-sm" href="/interpreter/app/settings/">← Settings</a>
-        <a class="btn btn-ghost btn-sm" href="/interpreter/app/settings/rates.html">← Rates</a>
-        <a class="btn btn-ghost btn-sm" href="/interpreter/app/settings/team.html">Team →</a>
+        <a class="btn btn-ghost btn-sm" href="/interpreter/app/settings/rates">← Rates</a>
+        <a class="btn btn-ghost btn-sm" href="/interpreter/app/settings/team">Team →</a>
         <button class="btn btn-primary btn-sm" id="add-req">+ Add requirement</button>
       </div>
 
@@ -69,6 +69,8 @@
 
 <script src="/interpreter/assets/js/whitelabel.js"></script>
 <script src="/interpreter/assets/js/api.js"></script>
+<script src="/interpreter/assets/js/api-multitenant.js"></script>
+<script src="/interpreter/assets/js/app-header.js"></script>
 <script>
 (function () {
   'use strict';
@@ -79,9 +81,9 @@
   document.addEventListener('DOMContentLoaded', init);
 
   function init() {
-    if (!IntApi.getSession()) { location.href = '/interpreter/sign-in.html'; return; }
+    if (!IntApi.getSession()) { location.href = '/interpreter/sign-in'; return; }
     IntApi.whoami().then(function (r) {
-      if (!r || !r.ok) { IntApi.clearSession(); location.href = '/interpreter/sign-in.html'; return; }
+      if (!r || !r.ok) { IntApi.clearSession(); location.href = '/interpreter/sign-in'; return; }
       $('who-name').textContent = r.user.display_name || r.user.email;
       if (window.IntTheme && r.agency) IntTheme.apply(r.agency);
       load();

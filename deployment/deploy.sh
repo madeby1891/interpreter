@@ -77,6 +77,14 @@ echo "    OK — no PII patterns found."
 echo "==> Build…"
 python3 "$PROJECT_ROOT/_build/build.py"
 
+# Strip .html from internal href attrs site-wide. build.py already emits
+# clean URLs in marketing pages; this also catches the handwritten app/*
+# pages and any future drift.
+if [[ -f "$PROJECT_ROOT/_build/strip_html_urls.py" ]]; then
+  echo "==> Clean URLs (strip .html from hrefs)…"
+  python3 "$PROJECT_ROOT/_build/strip_html_urls.py"
+fi
+
 # --- Rsync ------------------------------------------------------------------
 echo "==> Ensure remote dir exists"
 if [[ $DRY_RUN -eq 0 ]]; then

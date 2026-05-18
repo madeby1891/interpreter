@@ -57,8 +57,8 @@
       <a href="/interpreter/app/">Day-of board</a>
       <a href="/interpreter/app/interpreters/">Interpreters</a>
       <a href="/interpreter/app/admin/">Admin</a>
-      <a href="/interpreter/app/admin/health.html" aria-current="page">Health</a>
-      <a href="/interpreter/app/admin/audit.html">Audit log</a>
+      <a href="/interpreter/app/admin/health" aria-current="page">Health</a>
+      <a href="/interpreter/app/admin/audit">Audit log</a>
       <a href="/interpreter/app/admin/tenants/">Tenants</a>
     </div>
   </nav>
@@ -148,6 +148,8 @@
 
 <script src="/interpreter/assets/js/whitelabel.js"></script>
 <script src="/interpreter/assets/js/api.js"></script>
+<script src="/interpreter/assets/js/api-multitenant.js"></script>
+<script src="/interpreter/assets/js/app-header.js"></script>
 <script>
 (function () {
   'use strict';
@@ -164,9 +166,9 @@
   document.addEventListener('DOMContentLoaded', init);
 
   function init() {
-    if (!IntApi.getSession()) { location.href = '/interpreter/sign-in.html'; return; }
+    if (!IntApi.getSession()) { location.href = '/interpreter/sign-in'; return; }
     IntApi.whoami().then(function (r) {
-      if (!r || !r.ok) { IntApi.clearSession(); location.href = '/interpreter/sign-in.html'; return; }
+      if (!r || !r.ok) { IntApi.clearSession(); location.href = '/interpreter/sign-in'; return; }
       $('who-name').textContent = r.user.display_name || r.user.email;
       if (window.IntTheme && r.agency) IntTheme.apply(r.agency);
       load();
@@ -289,7 +291,7 @@
         var sub = [doneLabel, openLabel].filter(Boolean).join(' · ');
         return '<div style="margin-bottom:10px">' +
           '<div style="display:flex;justify-content:space-between;font-size:13.5px;margin-bottom:2px">' +
-            '<a href="/interpreter/app/clients/profile.html?id=' + encodeURIComponent(c.client_id) + '" style="color:inherit;text-decoration:none;font-weight:600">' + esc(c.display_name) + '</a>' +
+            '<a href="/interpreter/app/clients/profile?id=' + encodeURIComponent(c.client_id) + '" style="color:inherit;text-decoration:none;font-weight:600">' + esc(c.display_name) + '</a>' +
             '<span style="color:var(--1891int-fog);font-variant-numeric:tabular-nums">' + c.job_count + (sub ? ' · ' + esc(sub) : '') + '</span>' +
           '</div>' +
           '<div style="background:var(--1891int-paper);border-radius:3px;height:8px;overflow:hidden">' +
@@ -308,7 +310,7 @@
     } else {
       $('clients-ar').innerHTML = ar.map(function (c) {
         return '<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--1891int-line);font-size:13.5px">' +
-          '<a href="/interpreter/app/clients/profile.html?id=' + encodeURIComponent(c.client_id) + '" style="color:inherit;text-decoration:none">' + esc(c.display_name) + '</a>' +
+          '<a href="/interpreter/app/clients/profile?id=' + encodeURIComponent(c.client_id) + '" style="color:inherit;text-decoration:none">' + esc(c.display_name) + '</a>' +
           '<span style="font-variant-numeric:tabular-nums;font-weight:600">' + dollars(c.outstanding_cents) + '</span>' +
         '</div>';
       }).join('');

@@ -75,8 +75,8 @@
       <a href="/interpreter/app/">Day-of board</a>
       <a href="/interpreter/app/interpreters/">Interpreters</a>
       <a href="/interpreter/app/admin/">Admin</a>
-      <a href="/interpreter/app/admin/health.html">Health</a>
-      <a href="/interpreter/app/admin/audit.html" aria-current="page">Audit log</a>
+      <a href="/interpreter/app/admin/health">Health</a>
+      <a href="/interpreter/app/admin/audit" aria-current="page">Audit log</a>
       <a href="/interpreter/app/admin/tenants/">Tenants</a>
     </div>
   </nav>
@@ -171,6 +171,8 @@
 
 <script src="/interpreter/assets/js/whitelabel.js"></script>
 <script src="/interpreter/assets/js/api.js"></script>
+<script src="/interpreter/assets/js/api-multitenant.js"></script>
+<script src="/interpreter/assets/js/app-header.js"></script>
 <script>
 (function () {
   'use strict';
@@ -210,9 +212,9 @@
   document.addEventListener('DOMContentLoaded', init);
 
   function init() {
-    if (!IntApi.getSession()) { location.href = '/interpreter/sign-in.html'; return; }
+    if (!IntApi.getSession()) { location.href = '/interpreter/sign-in'; return; }
     IntApi.whoami().then(function (r) {
-      if (!r || !r.ok) { IntApi.clearSession(); location.href = '/interpreter/sign-in.html'; return; }
+      if (!r || !r.ok) { IntApi.clearSession(); location.href = '/interpreter/sign-in'; return; }
       $('who-name').textContent = r.user.display_name || r.user.email;
       if (window.IntTheme && r.agency) IntTheme.apply(r.agency);
       // Role gate. We also gate server-side; this just spares a forbidden round-trip.

@@ -106,6 +106,8 @@ wrangler secret put PLAID_SECRET</pre>
 
 <script src="/interpreter/assets/js/whitelabel.js" defer></script>
 <script src="/interpreter/assets/js/api.js" defer></script>
+<script src="/interpreter/assets/js/api-multitenant.js" defer></script>
+<script src="/interpreter/assets/js/app-header.js" defer></script>
 <script src="/interpreter/assets/js/api-payments.js" defer></script>
 <script>
 (function () {
@@ -120,9 +122,9 @@ wrangler secret put PLAID_SECRET</pre>
   }
 
   function init() {
-    if (!IntApi.getSession()) { location.href = '/interpreter/sign-in.html'; return; }
+    if (!IntApi.getSession()) { location.href = '/interpreter/sign-in'; return; }
     IntApi.whoami().then(function (r) {
-      if (!r || !r.ok) { IntApi.clearSession(); location.href = '/interpreter/sign-in.html'; return; }
+      if (!r || !r.ok) { IntApi.clearSession(); location.href = '/interpreter/sign-in'; return; }
       $('who-name').textContent = (r.user && (r.user.display_name || r.user.email)) || 'unknown';
       if (window.IntTheme && r.agency) IntTheme.apply(r.agency);
       loadStatus();

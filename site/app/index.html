@@ -44,6 +44,10 @@
       <div class="toolbar">
         <h1 style="margin:0;font-size:28px">Today's jobs</h1>
         <div class="spacer"></div>
+        <span id="live-indicator" class="live-indicator" role="status" aria-live="polite" title="Live updates: connecting…">
+          <span class="live-dot" aria-hidden="true"></span>
+          <span class="live-label">Connecting…</span>
+        </span>
         <button class="btn btn-ghost btn-sm" type="button" id="refresh">Refresh</button>
         <button class="btn btn-primary" type="button" id="new-job">+ New job</button>
       </div>
@@ -179,6 +183,8 @@
 
 <script src="/interpreter/assets/js/whitelabel.js" defer></script>
 <script src="/interpreter/assets/js/api.js" defer></script>
+<script src="/interpreter/assets/js/api-multitenant.js" defer></script>
+<script src="/interpreter/assets/js/app-header.js" defer></script>
 <script src="/interpreter/assets/js/list-filter.js" defer></script>
 <script>
 (function () {
@@ -187,11 +193,22 @@
 
   var state = { jobs: [], me: null };
   var filter = null;
+  // Live-board pushes: live.ws is the open WebSocket (null until connected),
+  // live.attempt is the current reconnect attempt count for backoff, and
+  // live.pollTimer is set when WS has failed and we fall back to polling.
+  var live = { ws: null, attempt: 0, backoff: null, pollTimer: null, status: 'idle' };
+  var flashedIds = Object.create(null);
 
   function $(id) { return document.getElementById(id); }
   function escHtml(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
     return { '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c];
   }); }
+  // Safe-enough escaper for use inside an attribute-selector. Falls through to
+  // a manual whitelist if CSS.escape is missing (older Safari).
+  function cssEscape_(s) {
+    if (window.CSS && typeof window.CSS.escape === 'function') return window.CSS.escape(String(s));
+    return String(s).replace(/[^a-zA-Z0-9_\-]/g, '\\$&');
+  }
 
   function toast(msg, kind) {
     var t = $('toast');
@@ -202,13 +219,13 @@
 
   function init() {
     if (!IntApi.getSession()) {
-      location.href = '/interpreter/sign-in.html';
+      location.href = '/interpreter/sign-in';
       return;
     }
     IntApi.whoami().then(function (r) {
       if (!r || !r.ok) {
         IntApi.clearSession();
-        location.href = '/interpreter/sign-in.html';
+        location.href = '/interpreter/sign-in';
         return;
       }
       state.me = r.user;
@@ -255,17 +272,180 @@
     $('no-matches').style.display = 'none';
     $('filter-bar').style.display = 'none';
     // Pull the whole working set; status filtering happens client-side now.
-    IntApi.listJobs('').then(function (r) {
+    return IntApi.listJobs('').then(function (r) {
       $('loading').style.display = 'none';
       if (!r || !r.ok) { toast((r && r.error) || 'Load failed', 'error'); return; }
       state.jobs = r.jobs || [];
-      if (!state.jobs.length) { $('empty').style.display = ''; return; }
+      if (!state.jobs.length) { $('empty').style.display = ''; liveSubscribe(); return; }
       $('filter-bar').style.display = '';
       mountFilter(state.jobs);
+      // Initial render is up; subscribe to live updates. Idempotent.
+      liveSubscribe();
     }).catch(function () {
       $('loading').style.display = 'none';
       toast('Network error', 'error');
     });
+  }
+
+  // -----------------------------------------------------------------
+  // Live job board — WebSocket subscription to the per-tenant DO.
+  // -----------------------------------------------------------------
+  function liveWsUrl() {
+    // Strip the /v1/proxy/exec suffix off of IntApi.ENDPOINT and append the
+    // jobs/ws path. Token rides in the query string; the Worker pulls the
+    // tenant_id out of the verified session JWT.
+    var ep = IntApi.ENDPOINT || '';
+    var base = ep.replace(/\/v1\/proxy(\/.+)?$/, '');
+    var wsBase = base.replace(/^https:/i, 'wss:').replace(/^http:/i, 'ws:');
+    var sess = IntApi.getSession();
+    return wsBase + '/v1/jobs/ws?session=' + encodeURIComponent(sess);
+  }
+
+  function setLiveStatus(kind, label, title) {
+    live.status = kind;
+    var el = $('live-indicator');
+    if (!el) return;
+    el.className = 'live-indicator live-' + kind;
+    el.title = title || label;
+    var lab = el.querySelector('.live-label');
+    if (lab) lab.textContent = label;
+  }
+
+  function liveSubscribe() {
+    if (live.ws || live.status === 'polling-fallback') return;
+    if (!IntApi.getSession()) return;
+    // Some environments (older Safari, some corp proxies) don't expose
+    // WebSocket — fall straight to polling so the board still updates.
+    if (typeof WebSocket === 'undefined') { startPollingFallback(); return; }
+
+    setLiveStatus('connecting', 'Connecting…');
+    var ws;
+    try {
+      ws = new WebSocket(liveWsUrl());
+    } catch (err) {
+      scheduleReconnect();
+      return;
+    }
+    live.ws = ws;
+
+    ws.addEventListener('open', function () {
+      live.attempt = 0;
+      setLiveStatus('live', 'Live', 'Push updates active');
+    });
+    ws.addEventListener('message', function (evt) {
+      var msg;
+      try { msg = JSON.parse(evt.data); } catch (_) { return; }
+      handleLiveEvent(msg);
+    });
+    ws.addEventListener('close', function (evt) {
+      live.ws = null;
+      // 1008 / 4401-style codes from us would mean unauthorized — currently
+      // the Worker just returns 401 before upgrade, so close codes are mostly
+      // 1006. Treat any close as transient and reconnect.
+      if (evt && (evt.code === 1008 || evt.code === 4401)) {
+        setLiveStatus('error', 'Auth fail', 'Session expired — refresh to sign in');
+        return;
+      }
+      setLiveStatus('disconnected', 'Reconnecting…');
+      scheduleReconnect();
+    });
+    ws.addEventListener('error', function () {
+      // Most browsers fire close right after error; let close handle reconnect.
+      setLiveStatus('disconnected', 'Reconnecting…');
+    });
+  }
+
+  function scheduleReconnect() {
+    if (live.backoff) return;
+    live.attempt = Math.min(live.attempt + 1, 5);
+    // 1s, 2s, 4s, 8s, max 30s
+    var delay = Math.min(1000 * Math.pow(2, live.attempt - 1), 30000);
+    // After ~3 failed attempts, also start polling so the user gets *some*
+    // updates while we keep trying WebSocket.
+    if (live.attempt >= 3 && !live.pollTimer) startPollingFallback();
+    live.backoff = setTimeout(function () {
+      live.backoff = null;
+      liveSubscribe();
+    }, delay);
+  }
+
+  function startPollingFallback() {
+    if (live.pollTimer) return;
+    setLiveStatus('polling', 'Polling', 'WebSocket unavailable — polling every 30s');
+    live.pollTimer = setInterval(function () {
+      // Lightweight: re-pull the list and re-render via the filter.
+      IntApi.listJobs('').then(function (r) {
+        if (!r || !r.ok || !r.jobs) return;
+        state.jobs = r.jobs;
+        if (filter) filter.setItems(state.jobs);
+      }).catch(function () { /* swallow */ });
+    }, 30000);
+  }
+
+  function handleLiveEvent(msg) {
+    if (!msg || !msg.event) return;
+    var data = msg.data || {};
+    var jobId = data.job_id || '';
+    switch (msg.event) {
+      case 'hello':
+        return;
+      case 'job.created':
+        if (data.job) {
+          // Prepend if not already present.
+          if (!state.jobs.some(function (j) { return j.job_id === data.job.job_id; })) {
+            state.jobs.unshift(data.job);
+            flashedIds[data.job.job_id] = 1;
+            if (filter) filter.setItems(state.jobs); else mountFilter(state.jobs);
+          }
+        } else if (jobId) {
+          // No payload — fetch the row.
+          fetchAndUpsertJob_(jobId, true);
+        }
+        return;
+      case 'job.status_change':
+      case 'job.cancelled':
+        if (jobId) {
+          var found = false;
+          state.jobs = state.jobs.map(function (j) {
+            if (j.job_id === jobId) {
+              found = true;
+              flashedIds[jobId] = 1;
+              return Object.assign({}, j, data.status ? { status: data.status } : {});
+            }
+            return j;
+          });
+          if (!found) {
+            fetchAndUpsertJob_(jobId, true);
+            return;
+          }
+          if (filter) filter.setItems(state.jobs);
+        }
+        return;
+      case 'assignment.changed':
+        // Re-fetch the affected job to pick up the assignment row + status.
+        if (jobId) fetchAndUpsertJob_(jobId, true);
+        return;
+      case 'closeout.submitted':
+      case 'closeout.disputed':
+        if (jobId) fetchAndUpsertJob_(jobId, true);
+        return;
+      default:
+        return;
+    }
+  }
+
+  function fetchAndUpsertJob_(jobId, flash) {
+    IntApi.getJob(jobId).then(function (r) {
+      if (!r || !r.ok || !r.job) return;
+      var idx = -1;
+      for (var i = 0; i < state.jobs.length; i++) {
+        if (state.jobs[i].job_id === jobId) { idx = i; break; }
+      }
+      if (idx >= 0) state.jobs[idx] = r.job;
+      else state.jobs.unshift(r.job);
+      if (flash) flashedIds[jobId] = 1;
+      if (filter) filter.setItems(state.jobs); else mountFilter(state.jobs);
+    }).catch(function () { /* swallow */ });
   }
 
   function mountFilter(items) {
@@ -315,6 +495,22 @@
           board.innerHTML = rows.map(jobCard).join('');
           board.style.display = '';
           bindCardActions();
+          // Apply the flash class to any cards flagged by a live event.
+          // Each id is single-shot — we drop it from flashedIds after the
+          // animation starts so subsequent renders don't re-trigger it.
+          var ids = Object.keys(flashedIds);
+          if (ids.length) {
+            ids.forEach(function (id) {
+              var card = board.querySelector('[data-job-id="' + cssEscape_(id) + '"]');
+              if (!card) return;
+              // Restart the CSS animation by toggling the class off → on.
+              card.classList.remove('card-flash');
+              // Force a reflow so the next add re-triggers the keyframes.
+              void card.offsetWidth;
+              card.classList.add('card-flash');
+            });
+            flashedIds = Object.create(null);
+          }
         }
       });
     } else {
@@ -362,7 +558,7 @@
       divFlag = '<div style="position:absolute;top:8px;right:8px;background:#FDECEC;color:var(--1891int-err);font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;padding:3px 8px;border-radius:99px">disputed</div>';
     }
     return [
-      '<article class="job-card" data-status="' + escHtml(j.status) + '" style="position:relative">',
+      '<article class="job-card" data-status="' + escHtml(j.status) + '" data-job-id="' + escHtml(j.job_id) + '" style="position:relative">',
       '  <span class="status-strip" aria-hidden="true"></span>',
       divFlag,
       '  <div class="job-status">' + escHtml(j.status) + '</div>',
@@ -484,7 +680,7 @@
 
         var offerBtn = qual.qualified_strict
           ? '<button class="btn btn-primary btn-sm" data-offer="' + escHtml(c.interpreter_id) + '" data-job="' + escHtml(jobId) + '">Offer to ' + escHtml(c.display_name) + '</button>'
-          : '<button class="btn btn-ghost btn-sm" disabled title="Not qualified — see missing docs">Cannot offer</button> <a class="btn btn-ghost btn-sm" href="/interpreter/app/interpreters/profile.html?id=' + escHtml(c.interpreter_id) + '">View profile</a>';
+          : '<button class="btn btn-ghost btn-sm" disabled title="Not qualified — see missing docs">Cannot offer</button> <a class="btn btn-ghost btn-sm" href="/interpreter/app/interpreters/profile?id=' + escHtml(c.interpreter_id) + '">View profile</a>';
 
         return [
           '<div class="candidate">',

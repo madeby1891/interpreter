@@ -15,6 +15,7 @@ import { proxyToAppsScript } from "./proxy";
 import { verifyToken } from "./jwt";
 import { JobBoardRoom } from "./durable/JobBoardRoom";
 import { routeTranslate } from "./translate";
+import { routePhi } from "./phi";
 import { verifyInternalHeader } from "./internal";
 import { handleSmsSend, handleSmsInbound } from "./sms";
 import {
@@ -62,6 +63,9 @@ export interface Env {
   TWILIO_ACCOUNT_SID?: string;
   TWILIO_AUTH_TOKEN?: string;
   TWILIO_FROM_NUMBER?: string;
+  // PHI column-level encryption — set with `wrangler secret put PHI_MASTER_KEY`.
+  // Must be ≥32 random bytes, base64url-encoded. Never set in wrangler.toml.
+  PHI_MASTER_KEY?: string;
 }
 
 function corsConfig(env: Env): CorsConfig {
@@ -113,6 +117,12 @@ async function handle(req: Request, env: Env, ctx: ExecutionContext): Promise<Re
   // Document translation routes (PRD A4 §workers/translate).
   if (url.pathname.startsWith("/v1/translate/")) {
     const r = await routeTranslate(req, env);
+    if (r) return withCors(r, req, cfg);
+  }
+
+  // PHI column-level encryption (internal, X-1891-Internal-gated).
+  if (url.pathname.startsWith("/v1/phi/")) {
+    const r = await routePhi(req, env);
     if (r) return withCors(r, req, cfg);
   }
 
@@ -343,24 +353,34 @@ async function handleSubscribe(
 }
 
 async function handleNotify(req: Request, env: Env): Promise<Response> {
-  // Server-to-server auth: we accept either an `X-1891-Secret` header equal to
-  // JWT_SECRET (simplest; the Apps Script already knows this value), or a
-  // bearer JWT signed with the same secret. Either is fine for v1 — both rely
-  // on the same shared secret. The header form avoids minting a token per hop.
-  const header = req.headers.get("X-1891-Secret");
+  // Server-to-server auth from Apps Script. Canonical path: `X-1891-Internal`
+  // header equal to JWT_SECRET (this matches the rest of the internal API).
+  // We also accept the legacy `X-1891-Secret` header and a `Bearer <jwt>` for
+  // back-compat with earlier worker → AS callbacks; either path uses the same
+  // shared secret. Constant-time compare via verifyInternalHeader.
   let authorized = false;
-  if (header && header === env.JWT_SECRET) {
+  const internal = verifyInternalHeader(req, env.JWT_SECRET);
+  if (internal.authorized) {
     authorized = true;
   } else {
-    const auth = req.headers.get("Authorization") ?? "";
-    if (auth.startsWith("Bearer ")) {
-      const payload = await verifyToken(auth.slice(7), env.JWT_SECRET);
-      if (payload) authorized = true;
+    const legacy = req.headers.get("X-1891-Secret");
+    if (legacy && env.JWT_SECRET && legacy.length === env.JWT_SECRET.length) {
+      // constant-time
+      let diff = 0;
+      for (let i = 0; i < legacy.length; i++) diff |= legacy.charCodeAt(i) ^ env.JWT_SECRET.charCodeAt(i);
+      if (diff === 0) authorized = true;
+    }
+    if (!authorized) {
+      const auth = req.headers.get("Authorization") ?? "";
+      if (auth.startsWith("Bearer ")) {
+        const payload = await verifyToken(auth.slice(7), env.JWT_SECRET);
+        if (payload) authorized = true;
+      }
     }
   }
   if (!authorized) return json({ ok: false, error: "unauthorized" }, { status: 401 });
 
-  let body: { tenant_id?: string; event?: string; data?: unknown };
+  let body: { tenant_id?: string; event?: string; job_id?: string; data?: unknown; [k: string]: unknown };
   try {
     body = (await req.json()) as typeof body;
   } catch {
@@ -369,12 +389,21 @@ async function handleNotify(req: Request, env: Env): Promise<Response> {
   const tenantId = body.tenant_id;
   if (!tenantId) return json({ ok: false, error: "missing tenant_id" }, { status: 400 });
 
+  // Tenant isolation: the DO id is derived from tenant_id. Subscribers attach
+  // via handleSubscribe, which extracts tid from the verified JWT. A broadcast
+  // sent here for tenant A can only land on the DO instance keyed `tenant:A`,
+  // and only sockets that authenticated as tenant A are attached to that DO.
+  // Two tenants can never observe each other's events.
   const id = env.JOB_BOARD_ROOM.idFromName(`tenant:${tenantId}`);
   const stub = env.JOB_BOARD_ROOM.get(id);
+  // Echo the full payload (minus tenant_id) so the client gets every field the
+  // Apps Script chose to include (job_id, status, assignment_id, …).
+  const { tenant_id: _omit, event: ev, ...rest } = body;
+  void _omit;
   const fwd = await stub.fetch("https://room/broadcast", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ event: body.event ?? "job", data: body.data ?? body }),
+    body: JSON.stringify({ event: ev ?? "job", data: rest }),
   });
   return new Response(fwd.body, { status: fwd.status, headers: fwd.headers });
 }

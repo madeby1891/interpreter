@@ -41,17 +41,22 @@ check_unfollowed() {
 
 echo "==> Smoke: $BASE"
 check "/"                              "200" "Home loads"
-check "/pricing.html"                  "200" "Pricing loads"
-check "/free-for-deaf-owned.html"      "200" "Deaf-owned page loads"
-check "/for-agencies.html"             "200" "For agencies loads"
-check "/security.html"                 "200" "Security loads"
-check "/accessibility.html"            "200" "Accessibility loads"
+check "/pricing"                       "200" "Pricing (clean URL) loads"
+check "/free-for-deaf-owned"           "200" "Deaf-owned page (clean URL) loads"
+check "/for-agencies"                  "200" "For agencies (clean URL) loads"
+check "/security"                      "200" "Security (clean URL) loads"
+check "/accessibility"                 "200" "Accessibility (clean URL) loads"
 check "/features/"                     "200" "Features index loads"
-check "/features/scheduling.html"      "200" "Feature: scheduling loads"
-check "/legal/privacy.html"            "200" "Privacy notice loads"
-check "/legal/baa.html"                "200" "BAA page loads"
+check "/features/scheduling"           "200" "Feature: scheduling (clean URL) loads"
+check "/legal/privacy"                 "200" "Privacy notice (clean URL) loads"
+check "/legal/baa"                     "200" "BAA page (clean URL) loads"
 check "/sitemap.xml"                   "200" "Sitemap reachable"
 check "/robots.txt"                    "200" "Robots reachable"
+
+# .html → clean URL 301 redirects (the .html form should never serve a 200)
+check_unfollowed "/pricing.html"             "301" ".html → clean URL 301 (pricing)"
+check_unfollowed "/for-agencies.html"        "301" ".html → clean URL 301 (for-agencies)"
+check_unfollowed "/features/scheduling.html" "301" ".html → clean URL 301 (features/scheduling)"
 
 # Real 404 — not a soft 200
 check_unfollowed "/this-page-does-not-exist" "404" "Bad path returns real 404"

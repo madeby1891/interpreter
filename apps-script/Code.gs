@@ -159,9 +159,14 @@ function doGet(e) {
       // Close-out (v18.2)
       case 'list_job_expenses':  return _safeCall('apiListJobExpenses', e);
       case 'get_receipt':        return _safeCall('apiGetReceipt', e);
+      // Consumers / PHI (v18.4) — list is masked; reveal is heavy-audited break-glass
+      case 'list_consumers':     return _safeCall('apiListConsumers', e);
+      case 'reveal_consumer':    return _safeCall('apiRevealConsumer', e);
       // Client documents (v18.3)
       case 'list_client_documents': return _safeCall('apiListClientDocuments', e);
       case 'get_client_document':   return _safeCall('apiGetClientDocument', e);
+      // Calendar feed (v18.4) — raw text/calendar, NOT JSON-wrapped.
+      case 'interpreter_ics':    return apiInterpreterIcs(e);
       case 'switch_tenant':      return _safeCall('apiSwitchTenant', e);  // GET-path enables JSONP response read
       case '_rotate_hmac':       return apiRotateHmac(e);                  // one-shot Worker-secret sync
       case '_mail_debug':        return apiMailDebug(e);                   // diagnostic
@@ -186,9 +191,12 @@ function doPost(e) {
     switch (action) {
       case 'auth_request':       return apiAuthRequest(e);
       case 'auth_verify':        return apiAuthVerify(e);
-      case 'create_job':         return apiCreateJob(e);
-      case 'claim_job':          return apiClaimJob(e);
-      case 'cancel_job':         return apiCancelJob(e);
+      // Job state mutations route through the live-board dispatcher so the
+      // Cloudflare Worker fan-outs to every connected subscriber on success.
+      // The wrapper never blocks the response — notify failures are swallowed.
+      case 'create_job':         return _dispatchWithLiveBoard_('create_job', 'apiCreateJob', e);
+      case 'claim_job':          return _dispatchWithLiveBoard_('claim_job', 'apiClaimJob', e);
+      case 'cancel_job':         return _dispatchWithLiveBoard_('cancel_job', 'apiCancelJob', e);
       case 'smart_fill':         return apiSmartFill(e);
       case 'bootstrap':          return apiBootstrap(e);
       case 'create_interpreter': return apiCreateInterpreter(e);
@@ -196,10 +204,10 @@ function doPost(e) {
       case 'create_requestor':   return apiCreateRequestor(e);
       case 'update_agency':      return apiUpdateAgency(e);
       case 'update_setting':     return apiUpdateSetting(e);
-      case 'offer_job':          return apiOfferJob(e);
-      case 'confirm_job':        return apiConfirmJob(e);
-      case 'start_job':          return apiStartJob(e);
-      case 'complete_job':       return apiCompleteJob(e);
+      case 'offer_job':          return _dispatchWithLiveBoard_('offer_job', 'apiOfferJob', e);
+      case 'confirm_job':        return _dispatchWithLiveBoard_('confirm_job', 'apiConfirmJob', e);
+      case 'start_job':          return _dispatchWithLiveBoard_('start_job', 'apiStartJob', e);
+      case 'complete_job':       return _dispatchWithLiveBoard_('complete_job', 'apiCompleteJob', e);
       case 'ai_intake':          return apiAiIntake(e);
       // Invoicing & payouts
       case 'create_invoice':     return _safeCall('apiCreateInvoice', e);
@@ -237,8 +245,8 @@ function doPost(e) {
       case 'delete_requirement':        return _safeCall('apiDeleteRequirement', e);
       case 'update_interpreter_rates':  return _safeCall('apiUpdateInterpreterRates', e);
       // Offer / PII reveal
-      case 'accept_offer':              return _safeCall('apiAcceptOffer', e);
-      case 'decline_offer':             return _safeCall('apiDeclineOffer', e);
+      case 'accept_offer':              return _dispatchWithLiveBoard_('accept_offer', 'apiAcceptOffer', e);
+      case 'decline_offer':             return _dispatchWithLiveBoard_('decline_offer', 'apiDeclineOffer', e);
       case 'add_assignment_note':       return _safeCall('apiAddAssignmentNote', e);
       // Notifications
       case 'update_notification_pref':  return _safeCall('apiUpdateNotificationPref', e);
@@ -253,10 +261,13 @@ function doPost(e) {
       case 'upsert_specialist':         return _safeCall('apiUpsertSpecialist', e);
       case 'update_client_billing_rules': return _safeCall('apiUpdateClientBillingRules', e);
       // Close-out (v18.2)
-      case 'closeout_job':              return _safeCall('apiCloseOutJob', e);
+      case 'closeout_job':              return _dispatchWithLiveBoard_('closeout_job', 'apiCloseOutJob', e);
       case 'upload_receipt':            return _safeCall('apiUploadReceipt', e);
-      case 'dispute_closeout':          return _safeCall('apiDisputeCloseout', e);
+      case 'dispute_closeout':          return _dispatchWithLiveBoard_('dispute_closeout', 'apiDisputeCloseout', e);
       case 'update_expense_status':     return _safeCall('apiUpdateExpenseStatus', e);
+      // Consumers / PHI (v18.4)
+      case 'create_consumer':           return _safeCall('apiCreateConsumer', e);
+      case 'update_consumer':           return _safeCall('apiUpdateConsumer', e);
       // Client documents (v18.3)
       case 'upload_client_document':    return _safeCall('apiUploadClientDocument', e);
       case 'archive_client_document':   return _safeCall('apiArchiveClientDocument', e);
@@ -264,6 +275,9 @@ function doPost(e) {
       case 'invite_user':               return _safeCall('apiInviteUser', e);
       case 'cancel_invitation':         return _safeCall('apiCancelInvitation', e);
       case 'resend_invitation':         return _safeCall('apiResendInvitation', e);
+      // Calendar feed token management (v18.4)
+      case 'rotate_calendar_token':     return _safeCall('apiRotateCalendarToken', e);
+      case 'clear_calendar_token':      return _safeCall('apiClearCalendarToken', e);
       default:                   return _json({ ok:false, error:'Unknown action: ' + action }, 404);
     }
   } catch (err) {
@@ -589,6 +603,17 @@ function apiWhoami(e) {
   if (!user) return _json({ ok:false, error:'User no longer exists.' }, 401);
   // Pull tenant agency row for white-label theme application client-side
   var agency = _findAgencyRow(ss, session.payload.tid);
+
+  // Multi-tenant: list every tenant the signed-in user can switch into.
+  // Platform staff (and the legacy host-owner) see everything; everyone else
+  // sees the tenants they own via Tenant_Owners plus their current tenant.
+  // Soft-fail if the control Sheet isn't bootstrapped yet — single-tenant
+  // callers should still get a valid whoami response.
+  var availableTenants = [];
+  try {
+    availableTenants = _whoamiAvailableTenants(session, ss);
+  } catch (_) { availableTenants = []; }
+
   return _json({
     ok: true,
     user: user,
@@ -600,8 +625,80 @@ function apiWhoami(e) {
       timezone: agency.timezone,
       phi_mode: agency.phi_mode
     } : null,
+    available_tenants: availableTenants,
     session_exp: new Date(session.payload.exp).toISOString()
   });
+}
+
+/**
+ * Returns the list of tenants the signed-in user can switch into:
+ *   [{ tenant_id, legal_name, role_in_tenant, current }]
+ * Always includes the current session.tid (so the UI can highlight it as
+ * "you are here"). Platform staff get every active tenant in the control
+ * Sheet. Lives in Code.gs so apiWhoami can call it directly; the underlying
+ * tables live in Code_Multitenant.gs.
+ */
+function _whoamiAvailableTenants(session, hostSs) {
+  var sid = session.payload.tid;
+  var role = session.payload.role;
+  var out = [];
+  var seen = {};
+
+  function push(t) {
+    if (!t || !t.tenant_id || seen[t.tenant_id]) return;
+    seen[t.tenant_id] = true;
+    out.push(t);
+  }
+
+  // Always include the current tenant first so the UI can render it as
+  // selected even when the control Sheet is empty.
+  var curAgency = _findAgencyRow(hostSs, sid);
+  push({
+    tenant_id: sid,
+    legal_name: (curAgency && curAgency.legal_name) ||
+                (sid === 'host' ? '1891 Interpreter (host)' : sid),
+    role_in_tenant: role,
+    current: true
+  });
+
+  var crossTenant = (role === 'role_platform_staff') ||
+                    (sid === 'host' && role === 'role_owner');
+
+  if (crossTenant) {
+    try {
+      var ctrlRows = _readTenantsTable();
+      ctrlRows.forEach(function (t) {
+        if (t.status === 'suspended') return;
+        push({
+          tenant_id: t.tenant_id,
+          legal_name: t.legal_name || t.tenant_id,
+          role_in_tenant: role,
+          current: t.tenant_id === sid
+        });
+      });
+    } catch (_) { /* control sheet missing — fine */ }
+  } else {
+    try {
+      var owned = _tenantsForUser(session.payload.uid, session.payload.email);
+      if (owned.length) {
+        var ctrlRows2 = _readTenantsTable();
+        var byId = {};
+        ctrlRows2.forEach(function (t) { byId[t.tenant_id] = t; });
+        owned.forEach(function (o) {
+          var t = byId[o.tenant_id];
+          if (t && t.status === 'suspended') return;
+          push({
+            tenant_id: o.tenant_id,
+            legal_name: (t && t.legal_name) || o.tenant_id,
+            role_in_tenant: o.role === 'owner' ? 'role_owner' : (o.role || role),
+            current: o.tenant_id === sid
+          });
+        });
+      }
+    } catch (_) { /* fine */ }
+  }
+
+  return out;
 }
 
 function _findAgencyRow(ss, tenantId) {
@@ -834,6 +931,7 @@ function _ensureHostOwner(ss) {
     '',                                    // last_login_at
     JSON.stringify({ consumer:'masked' }), // pii_scope
     0, '',                                 // failed_login, sso
+    '',                                    // calendar_token
     new Date().toISOString(),
     new Date().toISOString()
   ]);
@@ -1957,11 +2055,33 @@ function apiTestAnthropic(e) {
   }
 }
 
+// Rate-limit ceilings for AI intake (sliding 1-hour window via CacheService).
+var AI_INTAKE_PER_USER_PER_HOUR   = 30;
+var AI_INTAKE_PER_TENANT_PER_HOUR = 200;
+var AI_INTAKE_MAX_INPUT_BYTES     = 8192; // ~8KB of free-text intake
+
 function apiAiIntake(e) {
   var s = _requireSession(e);
   if (!s.ok) return _json({ ok:false, error:s.error }, 401);
   var raw = e.parameter.text || '';
   if (!raw) return _json({ ok:false, error:'text required' });
+
+  // Input cap — defense against accidental large pastes / abuse
+  var inputBytes = Utilities.newBlob(raw).getBytes().length;
+  if (inputBytes > AI_INTAKE_MAX_INPUT_BYTES) {
+    return _json({ ok:false, error:'Intake text exceeds ' + AI_INTAKE_MAX_INPUT_BYTES + ' bytes; trim and resubmit.' });
+  }
+
+  // Rate-limit (sliding 1-hour window) — per user and per tenant
+  var rl = _aiIntakeRateCheck_(s.payload.tid, s.payload.uid);
+  if (!rl.ok) {
+    _logAudit('ai_intake_rate_limit', s.payload.tid, s.payload.uid, rl.scope + ' usage=' + rl.usage + '/' + rl.cap);
+    return _json({
+      ok:false,
+      error:'Rate limit hit (' + rl.scope + '): ' + rl.usage + '/' + rl.cap + ' this hour. Try again later.',
+      rate_limit: rl
+    }, 429);
+  }
 
   var key = _anthropicKey();
   if (!key) return _json({ ok:false, error:'No Anthropic API key configured. Set anthropic.api_key on the Settings page.' });
@@ -1993,7 +2113,8 @@ function apiAiIntake(e) {
   ].join('\n');
 
   try {
-    var res = UrlFetchApp.fetch('https://api.anthropic.com/v1/messages', {
+    // One retry on 5xx with 500ms pause — defensive against transient upstream issues.
+    var fetchOpts = {
       method: 'post',
       contentType: 'application/json',
       muteHttpExceptions: true,
@@ -2007,8 +2128,14 @@ function apiAiIntake(e) {
         system: 'tenant_id: ' + s.payload.tid + '\n\n' + sys,
         messages: [{ role: 'user', content: redacted.text }]
       })
-    });
+    };
+    var res = UrlFetchApp.fetch('https://api.anthropic.com/v1/messages', fetchOpts);
     var code = res.getResponseCode();
+    if (code >= 500 && code < 600) {
+      Utilities.sleep(500);
+      res = UrlFetchApp.fetch('https://api.anthropic.com/v1/messages', fetchOpts);
+      code = res.getResponseCode();
+    }
     var bodyTxt = res.getContentText();
     if (code !== 200) {
       _logAudit('ai_intake_error', s.payload.tid, s.payload.uid, 'status=' + code);
@@ -2047,6 +2174,31 @@ function _anthropicKey() {
   // Allow Settings-tab override (admin-managed)
   var ss = SpreadsheetApp.openById(SHEET_ID);
   return _getSetting(ss, 'anthropic.api_key');
+}
+
+// Sliding 1-hour rate-limit check for AI intake. CacheService TTL is 1 hour;
+// we store per-(user|tenant) counters and treat any cache miss as zero. Returns
+// { ok:true } on pass; { ok:false, scope:'user'|'tenant', usage, cap } on hit.
+function _aiIntakeRateCheck_(tenantId, userId) {
+  try {
+    var cache = CacheService.getScriptCache();
+    var userKey   = 'ai_intake:u:' + (userId || 'anon');
+    var tenantKey = 'ai_intake:t:' + (tenantId || 'unknown');
+    var userN   = Number(cache.get(userKey)   || 0);
+    var tenantN = Number(cache.get(tenantKey) || 0);
+    if (userN >= AI_INTAKE_PER_USER_PER_HOUR) {
+      return { ok:false, scope:'user', usage:userN, cap:AI_INTAKE_PER_USER_PER_HOUR };
+    }
+    if (tenantN >= AI_INTAKE_PER_TENANT_PER_HOUR) {
+      return { ok:false, scope:'tenant', usage:tenantN, cap:AI_INTAKE_PER_TENANT_PER_HOUR };
+    }
+    cache.put(userKey,   String(userN + 1),   3600);
+    cache.put(tenantKey, String(tenantN + 1), 3600);
+    return { ok:true, user_usage:userN + 1, tenant_usage:tenantN + 1 };
+  } catch (_) {
+    // Cache failure → fail open (don't block the user on Apps Script Cache issues)
+    return { ok:true, user_usage:-1, tenant_usage:-1 };
+  }
 }
 
 function _redactForModel(text) {
@@ -2217,7 +2369,7 @@ function bootstrapHostTenant() {
 function _tenantSchema() {
   return {
     Agencies: ['tenant_id','legal_name','tax_id_last4','tier','phi_mode','timezone','primary_owner_user_id','logo_r2_key','brand_color','billing_email','_created_at','_updated_at'],
-    Users: ['user_id','tenant_id','email','phone_e164','display_name','role_id','interpreter_id','status','mfa_enabled','webauthn_credential_ids','last_login_at','pii_scope','failed_login_count','sso_subject','_created_at','_updated_at'],
+    Users: ['user_id','tenant_id','email','phone_e164','display_name','role_id','interpreter_id','status','mfa_enabled','webauthn_credential_ids','last_login_at','pii_scope','failed_login_count','sso_subject','calendar_token','_created_at','_updated_at'],
     Roles: ['role_id','tenant_id','display_name','permissions','can_break_glass','max_pii_scope','_created_at','_updated_at'],
     Interpreters: ['interpreter_id','tenant_id','user_id','classification','legal_first','legal_last','pronouns','home_city','home_state','home_zip','service_radius_mi','has_vehicle','modalities','languages','certifications','skills','rate_card_id','min_call_hours','availability_prefs','availability_doc_id','payment_method','payment_details_encrypted','w9_doc_id','coi_doc_id','background_check_at','deaf','notes_internal','status','rid_member_number','bei_member_number','other_member_numbers','pay_rate_floors','cancellation_floors','evening_premium_pct','weekend_premium_pct','last_minute_premium_pct','holiday_premium_pct','mileage_rate_cents','travel_time_rate_cents','specialty_endorsements','availability_windows','onboarding_completed_at','_created_at','_updated_at','_rev'],
     Interpreter_Documents: ['doc_id','tenant_id','interpreter_id','doc_type','doc_name','status','required','issued_at','expires_at','reviewer_user_id','reviewed_at','file_r2_key','sha256','notes','_created_at','_updated_at'],

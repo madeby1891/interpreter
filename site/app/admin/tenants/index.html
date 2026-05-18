@@ -10,18 +10,31 @@
 <link rel="stylesheet" href="/interpreter/assets/css/site.css">
 <link rel="stylesheet" href="/interpreter/assets/css/app.css">
 <style>
-  .tenant-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(320px, 1fr)); gap:var(--1891int-s-4); margin-top:var(--1891int-s-4); }
-  .tenant-card { background:#fff; border:1px solid var(--1891int-line); border-radius:var(--1891int-r-2); padding:var(--1891int-s-5); display:flex; flex-direction:column; gap:var(--1891int-s-3); }
-  .tenant-card h3 { margin:0; font-size:18px; }
-  .tenant-card .id { font-family:var(--1891int-mono); font-size:12px; color:var(--1891int-fog); }
-  .tenant-card .tier { display:inline-block; padding:2px 8px; border-radius:999px; background:var(--1891int-sand, #faf7f3); border:1px solid var(--1891int-line); font-size:12px; }
-  .tenant-card dl.meta { display:grid; grid-template-columns:max-content 1fr; gap:4px 12px; margin:0; font-size:13px; }
-  .tenant-card dl.meta dt { color:var(--1891int-fog); }
-  .tenant-card .actions { display:flex; gap:var(--1891int-s-2); margin-top:auto; flex-wrap:wrap; }
-  .tenant-card .status-badge { display:inline-block; font-size:11px; padding:2px 8px; border-radius:999px; }
-  .status-active { background:#e6f4ea; color:#1e6e3f; }
-  .status-suspended { background:#fdecea; color:#a33324; }
-  .empty-state { text-align:center; padding:var(--1891int-s-7); color:var(--1891int-fog); }
+  .tenant-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(340px, 1fr)); gap:var(--1891int-s-4); margin-top:var(--1891int-s-4) }
+  .tenant-card { background:#fff; border:1px solid var(--1891int-line); border-radius:var(--1891int-r-2); padding:var(--1891int-s-5); display:flex; flex-direction:column; gap:var(--1891int-s-3) }
+  .tenant-card h3 { margin:0; font-size:18px }
+  .tenant-card .id { font-family:var(--1891int-mono, ui-monospace, SFMono-Regular, Menlo, monospace); font-size:11.5px; color:var(--1891int-fog); margin-top:2px }
+  .tenant-card .tier { display:inline-block; padding:2px 8px; border-radius:999px; background:var(--1891int-sand, #faf7f3); border:1px solid var(--1891int-line); font-size:11.5px; text-transform:capitalize }
+  .tenant-card dl.meta { display:grid; grid-template-columns:max-content 1fr; gap:4px 12px; margin:0; font-size:13px }
+  .tenant-card dl.meta dt { color:var(--1891int-fog) }
+  .tenant-card dl.meta dd { margin:0; word-break:break-word }
+  .tenant-card .actions { display:flex; gap:var(--1891int-s-2); margin-top:auto; flex-wrap:wrap }
+  .tenant-card .status-pill { display:inline-block; font-size:10.5px; padding:2px 8px; border-radius:999px; text-transform:uppercase; letter-spacing:.05em; font-weight:600 }
+  .status-active { background:#e6f4ea; color:#1e6e3f }
+  .status-suspended { background:#fdecea; color:#a33324 }
+  .empty-state { text-align:center; padding:var(--1891int-s-7); color:var(--1891int-fog) }
+  .search-input { padding:8px 10px; border:1px solid var(--1891int-line); border-radius:var(--1891int-r-1, 6px); font-size:14px; min-width:220px }
+  .prov-result { background:#f4faf4; border:1px solid #b9e0b9; border-radius:8px; padding:14px 16px; margin-top:var(--1891int-s-3); font-size:13.5px }
+  .prov-result h3 { margin:0 0 6px 0; font-size:15px; color:#1e6e3f }
+  .prov-result dl { display:grid; grid-template-columns:max-content 1fr; gap:4px 12px; margin:6px 0 0 0 }
+  .prov-result dt { color:var(--1891int-fog); font-size:12px }
+  .prov-result dd { margin:0; word-break:break-all }
+  .prov-result code { font-family:var(--1891int-mono, ui-monospace, SFMono-Regular, Menlo, monospace); font-size:12.5px }
+  .field-row { display:grid; grid-template-columns:1fr 1fr; gap:var(--1891int-s-4) }
+  @media (max-width: 540px) { .field-row { grid-template-columns:1fr } }
+  .swatch-row { display:flex; align-items:center; gap:8px }
+  .swatch-row input[type="color"] { width:42px; height:36px; padding:0; border:1px solid var(--1891int-line); border-radius:6px; background:#fff }
+  .swatch-row input[type="text"] { font-family:var(--1891int-mono, ui-monospace, SFMono-Regular, Menlo, monospace); font-size:13px }
 </style>
 </head>
 <body>
@@ -42,29 +55,42 @@
     <div class="wrap">
       <a href="/interpreter/app/">Day-of board</a>
       <a href="/interpreter/app/interpreters/">Interpreters</a>
-      <a href="/interpreter/app/requestors/">Requestors</a>
-      <a href="/interpreter/app/intake/">AI intake</a>
-      <a href="/interpreter/app/settings/">Settings</a>
       <a href="/interpreter/app/admin/">Admin</a>
+      <a href="/interpreter/app/admin/health">Health</a>
+      <a href="/interpreter/app/admin/audit">Audit log</a>
+      <a href="/interpreter/app/admin/tenants/" aria-current="page">Tenants</a>
     </div>
   </nav>
 
   <main id="main" class="app-main">
     <div class="wrap">
-      <div class="toolbar">
-        <h1 style="margin:0;font-size:28px">Tenants</h1>
-        <div class="spacer"></div>
-        <button class="btn btn-ghost btn-sm" type="button" id="refresh">Refresh</button>
-        <button class="btn btn-primary" type="button" id="new-tenant">+ Provision tenant</button>
+
+      <div id="forbidden" class="empty-state" style="display:none">
+        <h2>Platform staff only.</h2>
+        <p class="ink-soft">This page is for 1891 staff who provision agencies onto the platform. Owners and other roles don't have access — talk to your 1891 contact if you need a new tenant or to add an owner to an existing one.</p>
+        <a class="btn btn-primary" href="/interpreter/app/">Back to day-of board</a>
       </div>
 
-      <p class="muted" style="margin-top:var(--1891int-s-3)">Each tenant gets its own Google Sheet, named <code>1891-interpreter-&lt;slug&gt;</code>. The control Sheet maps tenant_id → spreadsheet_id and tracks which user accounts own which tenant.</p>
+      <div id="page" style="display:none">
+        <div class="toolbar">
+          <h1 style="margin:0;font-size:28px">Tenants</h1>
+          <div class="spacer"></div>
+          <input id="search" class="search-input" type="search" placeholder="Filter by name, slug, owner…" aria-label="Filter tenants">
+          <button class="btn btn-ghost btn-sm" type="button" id="refresh">Refresh</button>
+          <button class="btn btn-primary" type="button" id="new-tenant">+ Provision tenant</button>
+        </div>
 
-      <div id="loading" class="empty-state"><span class="spinner"></span> Loading tenants&hellip;</div>
-      <div id="grid" class="tenant-grid" style="display:none"></div>
-      <div id="empty" class="empty-state" style="display:none">
-        <h2>No tenants yet beyond the host.</h2>
-        <p>Tap "+ Provision tenant" to onboard the first agency.</p>
+        <p class="muted" style="margin-top:var(--1891int-s-3)">Each tenant gets its own Google Sheet, named <code>1891-interpreter-&lt;slug&gt;</code>. The control Sheet maps <code>tenant_id → spreadsheet_id</code> and tracks which user accounts own which tenants.</p>
+
+        <div id="loading" class="empty-state"><span class="spinner"></span> Loading tenants&hellip;</div>
+        <div id="grid" class="tenant-grid" style="display:none"></div>
+        <div id="empty" class="empty-state" style="display:none">
+          <h2>No tenants yet beyond the host.</h2>
+          <p>Tap "+ Provision tenant" to onboard the first agency.</p>
+        </div>
+        <div id="no-matches" class="empty-state" style="display:none">
+          <p>No tenants match your filter.</p>
+        </div>
       </div>
     </div>
   </main>
@@ -72,33 +98,28 @@
 
 <!-- Provision modal -->
 <div class="modal-backdrop" id="m-new" role="dialog" aria-modal="true" aria-labelledby="m-new-title">
-  <div class="modal">
+  <div class="modal" style="max-width:560px">
     <div class="modal-header">
       <h2 id="m-new-title">Provision a new tenant</h2>
       <button class="close" type="button" data-close>&times;</button>
     </div>
-    <form id="prov-form" class="modal-body">
+    <form id="prov-form" class="modal-body" autocomplete="off">
       <div class="field">
-        <label for="p-id">Tenant ID (slug)</label>
-        <input id="p-id" name="tenant_id" type="text" required pattern="[a-z0-9][a-z0-9-]{1,38}[a-z0-9]" placeholder="acme-interp" autocomplete="off">
-        <span class="hint">Lowercase letters, digits, and hyphens. 3–40 characters. Used in URLs and audit logs — pick something stable.</span>
+        <label for="p-name">Legal name <span class="muted">(required)</span></label>
+        <input id="p-name" name="legal_name" type="text" required placeholder="Acme Interpreting LLC">
       </div>
       <div class="field">
-        <label for="p-name">Agency legal name</label>
-        <input id="p-name" name="legal_name" type="text" required placeholder="Acme Interpreting LLC" autocomplete="off">
+        <label for="p-email">Primary owner email <span class="muted">(required)</span></label>
+        <input id="p-email" name="primary_owner_email" type="email" required placeholder="owner@acme.example">
+        <span class="hint">The owner gets a 7-day invitation link by email. If no Users row exists for this email yet, one is created with status="invited".</span>
       </div>
-      <div class="field">
-        <label for="p-email">Primary owner email</label>
-        <input id="p-email" name="owner_email" type="email" required placeholder="owner@acme.example" autocomplete="off">
-        <span class="hint">The owner gets a welcome email and full access on first sign-in.</span>
-      </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--1891int-s-4)">
+      <div class="field-row">
         <div class="field">
           <label for="p-tier">Tier</label>
           <select id="p-tier" name="tier">
-            <option value="pro" selected>Pro</option>
             <option value="deaf-owned-free">Deaf-owned (free)</option>
-            <option value="enterprise">Enterprise</option>
+            <option value="pro" selected>Pro</option>
+            <option value="enterprise">Enterprise (network)</option>
           </select>
         </div>
         <div class="field">
@@ -108,25 +129,45 @@
             <option value="full">Full PHI</option>
             <option value="disabled">Disabled</option>
           </select>
-          <span class="hint">Full PHI requires a signed BAA on a paid tier.</span>
+          <span class="hint">Full PHI requires a signed BAA.</span>
+        </div>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label for="p-tz">Time zone</label>
+          <select id="p-tz" name="timezone">
+            <option value="America/New_York" selected>America/New_York</option>
+            <option value="America/Chicago">America/Chicago</option>
+            <option value="America/Denver">America/Denver</option>
+            <option value="America/Los_Angeles">America/Los_Angeles</option>
+            <option value="America/Phoenix">America/Phoenix</option>
+            <option value="America/Anchorage">America/Anchorage</option>
+            <option value="Pacific/Honolulu">Pacific/Honolulu</option>
+            <option value="America/Puerto_Rico">America/Puerto_Rico</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="p-color">Brand color</label>
+          <div class="swatch-row">
+            <input id="p-color-picker" type="color" value="#C8553D" aria-label="Brand color picker">
+            <input id="p-color" name="brand_color" type="text" value="#C8553D" pattern="^#[0-9A-Fa-f]{6}$" required style="flex:1">
+          </div>
         </div>
       </div>
       <div class="field">
-        <label for="p-tz">Time zone</label>
-        <select id="p-tz" name="timezone">
-          <option value="America/New_York" selected>America/New_York</option>
-          <option value="America/Chicago">America/Chicago</option>
-          <option value="America/Denver">America/Denver</option>
-          <option value="America/Los_Angeles">America/Los_Angeles</option>
-          <option value="America/Phoenix">America/Phoenix</option>
-          <option value="America/Anchorage">America/Anchorage</option>
-          <option value="Pacific/Honolulu">Pacific/Honolulu</option>
-          <option value="America/Puerto_Rico">America/Puerto_Rico</option>
-        </select>
+        <label for="p-billing">Billing email <span class="muted">(optional)</span></label>
+        <input id="p-billing" name="billing_email" type="email" placeholder="(defaults to the owner email)">
       </div>
+      <div class="field" style="margin-top:var(--1891int-s-3)">
+        <label for="p-id">Tenant ID (slug) <span class="muted">(optional)</span></label>
+        <input id="p-id" name="tenant_id" type="text" pattern="[a-z0-9][a-z0-9-]{1,38}[a-z0-9]" placeholder="(auto-generated from legal name)">
+        <span class="hint">Lowercase letters, digits, and hyphens. 3–40 characters. Used in URLs and audit logs — leave blank to auto-generate from the legal name.</span>
+      </div>
+
+      <div id="prov-result" class="prov-result" style="display:none"></div>
     </form>
     <div class="modal-footer">
-      <button class="btn btn-ghost" type="button" data-close>Cancel</button>
+      <button class="btn btn-ghost" type="button" data-close>Close</button>
       <button class="btn btn-primary" type="button" id="save-tenant">Provision tenant</button>
     </div>
   </div>
@@ -134,6 +175,7 @@
 
 <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
+<script src="/interpreter/assets/js/whitelabel.js"></script>
 <script src="/interpreter/assets/js/api.js"></script>
 <script src="/interpreter/assets/js/api-multitenant.js"></script>
 <script>
@@ -141,7 +183,7 @@
   'use strict';
   document.addEventListener('DOMContentLoaded', init);
 
-  var state = { tenants: [], me: null };
+  var state = { tenants: [], users: [], me: null, filter: '' };
 
   function $(id) { return document.getElementById(id); }
   function escHtml(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
@@ -157,31 +199,43 @@
 
   function init() {
     if (!IntApi.getSession()) {
-      location.href = '/interpreter/sign-in.html';
+      location.href = '/interpreter/sign-in';
       return;
     }
     IntApi.whoami().then(function (r) {
       if (!r || !r.ok) {
         IntApi.clearSession();
-        location.href = '/interpreter/sign-in.html';
+        location.href = '/interpreter/sign-in';
         return;
       }
-      if (!r.user || r.user.role_id !== 'role_owner' || r.user.tenant_id !== 'host') {
-        location.href = '/interpreter/app/';
+      var u = r.user || {};
+      // Platform staff only. Legacy host-owner (tid=host, role_owner) also accepted
+      // for backward compat — the backend allowlist matches.
+      var isPlatformStaff = u.role_id === 'role_platform_staff' ||
+                            (u.tenant_id === 'host' && u.role_id === 'role_owner');
+      if (!isPlatformStaff) {
+        $('forbidden').style.display = '';
+        $('who-name').textContent = u.display_name || u.email || 'unknown';
         return;
       }
-      state.me = r.user;
-      $('who-name').textContent = (r.user && (r.user.display_name || r.user.email)) || 'unknown';
+      state.me = u;
+      $('who-name').textContent = u.display_name || u.email || 'unknown';
       if (window.IntTheme && r.agency) IntTheme.apply(r.agency);
+      $('page').style.display = '';
       loadTenants();
+      loadUsers();
     }).catch(function () { toast('Could not reach the server.', 'error'); });
 
-    $('refresh').addEventListener('click', loadTenants);
+    $('refresh').addEventListener('click', function () { loadTenants(); loadUsers(); });
     $('new-tenant').addEventListener('click', openProvisionModal);
     $('save-tenant').addEventListener('click', saveTenant);
     $('signout').addEventListener('click', function () {
       IntApi.clearSession();
       location.href = '/interpreter/';
+    });
+    $('search').addEventListener('input', function (e) {
+      state.filter = String(e.target.value || '').toLowerCase().trim();
+      render();
     });
     document.querySelectorAll('[data-close]').forEach(function (b) {
       b.addEventListener('click', function () {
@@ -191,12 +245,21 @@
     document.addEventListener('keydown', function (e) {
       if (e.key === 'Escape') document.querySelectorAll('.modal-backdrop.open').forEach(function (m) { m.classList.remove('open'); });
     });
+
+    // Brand-color swatch ↔ text input sync.
+    var picker = $('p-color-picker');
+    var text   = $('p-color');
+    picker.addEventListener('input', function () { text.value = picker.value.toUpperCase(); });
+    text.addEventListener('input', function () {
+      if (/^#[0-9A-Fa-f]{6}$/.test(text.value)) picker.value = text.value;
+    });
   }
 
   function loadTenants() {
     $('loading').style.display = '';
     $('grid').style.display = 'none';
     $('empty').style.display = 'none';
+    $('no-matches').style.display = 'none';
     IntApiMultitenant.listTenants().then(function (r) {
       $('loading').style.display = 'none';
       if (!r || !r.ok) { toast((r && r.error) || 'Load failed.', 'error'); return; }
@@ -208,15 +271,49 @@
     });
   }
 
+  // Pull the host Users table once so we can resolve primary_owner_user_id
+  // → email on each card. Optional — cards still render without it.
+  function loadUsers() {
+    if (!IntApi.listUsers) return;
+    IntApi.listUsers().then(function (r) {
+      if (r && r.ok && r.users) state.users = r.users;
+      render();
+    }).catch(function () { /* non-fatal */ });
+  }
+
+  function ownerEmailFor(t) {
+    // The control Sheet doesn't store the owner email directly on the
+    // Tenants row, but Tenant_Owners does. For v1, we surface whichever email
+    // the listUsers cache resolves via primary_owner_user_id.
+    if (!t.primary_owner_user_id) return '';
+    var match = (state.users || []).filter(function (u) { return u.user_id === t.primary_owner_user_id; })[0];
+    return match ? (match.email || '') : '';
+  }
+
   function render() {
     if (!state.tenants.length) {
       $('empty').style.display = '';
       $('grid').style.display = 'none';
+      $('no-matches').style.display = 'none';
       return;
     }
-    var html = state.tenants.map(tenantCard).join('');
-    $('grid').innerHTML = html;
+    var f = state.filter;
+    var rows = !f ? state.tenants : state.tenants.filter(function (t) {
+      var owner = ownerEmailFor(t);
+      return [t.legal_name, t.tenant_id, t.tier, t.status, owner]
+        .map(function (x) { return String(x || '').toLowerCase(); })
+        .some(function (x) { return x.indexOf(f) >= 0; });
+    });
+    if (!rows.length) {
+      $('grid').style.display = 'none';
+      $('empty').style.display = 'none';
+      $('no-matches').style.display = '';
+      return;
+    }
+    $('grid').innerHTML = rows.map(tenantCard).join('');
     $('grid').style.display = '';
+    $('empty').style.display = 'none';
+    $('no-matches').style.display = 'none';
     bindCardActions();
   }
 
@@ -228,45 +325,48 @@
   }
 
   function tenantCard(t) {
-    var sheetLink = t.spreadsheet_id
-      ? '<a href="https://docs.google.com/spreadsheets/d/' + encodeURIComponent(t.spreadsheet_id) + '/edit" target="_blank" rel="noopener">Open Sheet ↗</a>'
-      : '<span class="muted">Sheet ID hidden</span>';
     var statusClass = t.status === 'active' ? 'status-active' : 'status-suspended';
+    var sheetLink = t.spreadsheet_id
+      ? '<a href="https://docs.google.com/spreadsheets/d/' + encodeURIComponent(t.spreadsheet_id) + '/" target="_blank" rel="noopener">Open Sheet &#8599;</a>'
+      : '<span class="muted">hidden</span>';
+    var ownerEmail = ownerEmailFor(t);
+    var isCurrent = state.me && t.tenant_id === state.me.tenant_id;
     return [
-      '<article class="tenant-card">',
+      '<article class="tenant-card" data-id="' + escHtml(t.tenant_id) + '">',
       '  <div>',
-      '    <h3>' + escHtml(t.legal_name || t.tenant_id) + '</h3>',
+      '    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">',
+      '      <h3>' + escHtml(t.legal_name || t.tenant_id) + '</h3>',
+      '      <span class="status-pill ' + statusClass + '">' + escHtml(t.status || '—') + '</span>',
+      '    </div>',
       '    <div class="id">' + escHtml(t.tenant_id) + '</div>',
       '  </div>',
       '  <div>',
-      '    <span class="tier">' + escHtml(t.tier || '—') + '</span> ',
-      '    <span class="status-badge ' + statusClass + '">' + escHtml(t.status || '—') + '</span>',
+      '    <span class="tier">' + escHtml(t.tier || '—') + '</span>' +
+      (t.phi_mode ? ' <span class="tier">PHI: ' + escHtml(t.phi_mode) + '</span>' : ''),
       '  </div>',
       '  <dl class="meta">',
+      ownerEmail ? '    <dt>Owner</dt><dd>' + escHtml(ownerEmail) + '</dd>' : '',
       '    <dt>Created</dt><dd>' + escHtml(formatDate(t.created_at)) + '</dd>',
       '    <dt>Sheet</dt><dd>' + sheetLink + '</dd>',
       '  </dl>',
       '  <div class="actions">',
-      '    <button class="btn btn-primary btn-sm" data-act="switch" data-id="' + escHtml(t.tenant_id) + '">Switch into</button>',
+      isCurrent
+        ? '    <span class="muted" style="font-size:12.5px">You are here</span>'
+        : '    <button class="btn btn-primary btn-sm" data-act="switch" data-id="' + escHtml(t.tenant_id) + '">Switch to</button>',
       '  </div>',
       '</article>'
-    ].join('\n');
+    ].filter(Boolean).join('\n');
   }
 
   function bindCardActions() {
     document.querySelectorAll('[data-act="switch"]').forEach(function (b) {
       b.addEventListener('click', function () {
         var id = b.getAttribute('data-id');
-        if (id === 'host') {
-          // Already on host; just go to the board.
-          location.href = '/interpreter/app/';
-          return;
-        }
         if (!confirm('Switch your active session into tenant "' + id + '"? You will see that tenant\'s board until you switch back.')) return;
         b.disabled = true; b.textContent = 'Switching…';
         IntApiMultitenant.switchTenant(id).then(function (r) {
           if (!r || !r.ok || !r.session) {
-            b.disabled = false; b.textContent = 'Switch into';
+            b.disabled = false; b.textContent = 'Switch to';
             toast((r && r.error) || 'Switch failed.', 'error');
             return;
           }
@@ -274,7 +374,7 @@
           toast('Switched. Reloading…', 'ok');
           setTimeout(function () { location.href = '/interpreter/app/'; }, 600);
         }).catch(function () {
-          b.disabled = false; b.textContent = 'Switch into';
+          b.disabled = false; b.textContent = 'Switch to';
           toast('Switch failed.', 'error');
         });
       });
@@ -283,8 +383,15 @@
 
   function openProvisionModal() {
     $('prov-form').reset();
+    $('p-color').value = '#C8553D';
+    $('p-color-picker').value = '#C8553D';
+    $('prov-result').style.display = 'none';
+    $('prov-result').innerHTML = '';
+    var btn = $('save-tenant');
+    btn.disabled = false;
+    btn.textContent = 'Provision tenant';
     $('m-new').classList.add('open');
-    setTimeout(function () { $('p-id').focus(); }, 50);
+    setTimeout(function () { $('p-name').focus(); }, 50);
   }
 
   function saveTenant() {
@@ -292,27 +399,57 @@
     if (!form.reportValidity()) return;
     var fd = new FormData(form);
     var fields = {};
-    fd.forEach(function (v, k) { fields[k] = v; });
-    fields.tenant_id = String(fields.tenant_id || '').trim().toLowerCase();
-    if (!/^[a-z0-9][a-z0-9-]{1,38}[a-z0-9]$/.test(fields.tenant_id)) {
-      toast('Slug must be 3–40 lowercase chars / digits / hyphens.', 'error');
-      return;
+    fd.forEach(function (v, k) {
+      if (v === '' || v == null) return;
+      fields[k] = v;
+    });
+    // Slug is optional now; backend slugifies from legal_name when blank.
+    if (fields.tenant_id) {
+      fields.tenant_id = String(fields.tenant_id).trim().toLowerCase();
+      if (!/^[a-z0-9][a-z0-9-]{1,38}[a-z0-9]$/.test(fields.tenant_id)) {
+        toast('Slug must be 3–40 lowercase chars / digits / hyphens.', 'error');
+        return;
+      }
     }
     var btn = $('save-tenant');
     btn.disabled = true; btn.textContent = 'Provisioning…';
-    IntApiMultitenant.provisionTenant(fields).then(function () {
-      // POST is no-cors fire-and-forget; we can't read the response.
-      // Re-poll the list to confirm.
-      setTimeout(function () {
+    IntApiMultitenant.provisionTenant(fields).then(function (r) {
+      if (!r || !r.ok) {
         btn.disabled = false; btn.textContent = 'Provision tenant';
-        $('m-new').classList.remove('open');
-        toast('Provisioning request sent. Refreshing…', 'ok');
-        loadTenants();
-      }, 2500);
+        toast((r && r.error) || 'Provision failed.', 'error');
+        return;
+      }
+      showProvResult(r);
+      btn.textContent = 'Provisioned ✓';
+      // Refresh the list in the background.
+      loadTenants();
+      loadUsers();
     }).catch(function () {
       btn.disabled = false; btn.textContent = 'Provision tenant';
       toast('Provision request failed.', 'error');
     });
+  }
+
+  function showProvResult(r) {
+    var t = r.tenant || {};
+    var sheetUrl = r.spreadsheet_url || (t.spreadsheet_id
+      ? 'https://docs.google.com/spreadsheets/d/' + t.spreadsheet_id + '/' : '');
+    var owner = r.primary_owner || {};
+    var html = [
+      '<h3>Tenant provisioned</h3>',
+      '<dl>',
+      '  <dt>Tenant ID</dt><dd><code>' + escHtml(t.tenant_id || '') + '</code></dd>',
+      '  <dt>Legal name</dt><dd>' + escHtml(t.legal_name || '') + '</dd>',
+      sheetUrl ? '  <dt>Sheet</dt><dd><a href="' + escHtml(sheetUrl) + '" target="_blank" rel="noopener">' + escHtml(sheetUrl) + '</a></dd>' : '',
+      owner.email ? '  <dt>Owner</dt><dd>' + escHtml(owner.email) + '</dd>' : '',
+      r.invitation_url
+        ? '  <dt>Invitation URL</dt><dd><a href="' + escHtml(r.invitation_url) + '" target="_blank" rel="noopener">' + escHtml(r.invitation_url) + '</a><br><span class="muted" style="font-size:12px">Send this to the owner — expires in 7 days. We also emailed it.</span></dd>'
+        : '',
+      '</dl>'
+    ].filter(Boolean).join('\n');
+    var box = $('prov-result');
+    box.innerHTML = html;
+    box.style.display = '';
   }
 })();
 </script>

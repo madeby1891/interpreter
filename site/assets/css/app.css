@@ -283,6 +283,56 @@
 }
 @keyframes spin { to { transform: rotate(360deg); } }
 
+/* Live-board push: when a job changes, the matching .job-card gets the
+   `.card-flash` class for a single playthrough of cardFlash. The bloom-tint
+   bloom fades back to transparent over 1.2s. Honors prefers-reduced-motion:
+   reduce — in that mode the update is instant with no flash. */
+.card-flash { animation: cardFlash 1.2s ease-out 1; }
+@keyframes cardFlash {
+  0%   { background-color: var(--1891int-bloom-tint, #FFE9D6); }
+  60%  { background-color: var(--1891int-bloom-tint, #FFE9D6); }
+  100% { background-color: transparent; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .card-flash { animation: none; }
+}
+
+/* Live-update indicator (sits in the day-of board toolbar). */
+.live-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--1891int-ink-soft, #4a4a4a);
+  margin-right: var(--1891int-s-2, 8px);
+  user-select: none;
+}
+.live-indicator .live-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--1891int-ink-soft, #4a4a4a);
+  flex: 0 0 auto;
+}
+.live-indicator.live-live .live-dot {
+  background: var(--1891int-ok, #1f7a3f);
+  box-shadow: 0 0 0 0 rgba(31, 122, 63, 0.55);
+  animation: livePulse 2.4s ease-out infinite;
+}
+.live-indicator.live-connecting .live-dot,
+.live-indicator.live-disconnected .live-dot { background: #D89B2A; /* amber */ }
+.live-indicator.live-error .live-dot { background: var(--1891int-err, #C8553D); }
+.live-indicator.live-polling .live-dot { background: var(--1891int-river, #406E8E); }
+@keyframes livePulse {
+  0%   { box-shadow: 0 0 0 0 rgba(31, 122, 63, 0.55); }
+  70%  { box-shadow: 0 0 0 6px rgba(31, 122, 63, 0);  }
+  100% { box-shadow: 0 0 0 0 rgba(31, 122, 63, 0);    }
+}
+@media (prefers-reduced-motion: reduce) {
+  .live-indicator.live-live .live-dot { animation: none; }
+}
+
 /* Mobile-first interpreter view */
 .claim-shell {
   max-width: 480px;

@@ -39,13 +39,13 @@
         <h1 style="margin:0;font-size:28px">Payments</h1>
         <div class="spacer"></div>
         <button class="btn btn-ghost btn-sm" type="button" id="refresh">Refresh</button>
-        <a class="btn btn-ghost btn-sm" href="/interpreter/app/payments/setup.html">Configure</a>
+        <a class="btn btn-ghost btn-sm" href="/interpreter/app/payments/setup">Configure</a>
       </div>
 
       <!-- Setup banner — surfaces when STRIPE_API_KEY / TRACK1099_API_KEY are unset. -->
       <div id="setup-banner" class="card" style="display:none;border-left:4px solid var(--1891int-bloom);margin-bottom:var(--1891int-s-5)">
         <h2 class="mt-0">Finish payment setup</h2>
-        <p class="ink-soft" style="font-size:14.5px">One or more payment gateways aren't connected yet. Connect them in <a href="/interpreter/app/payments/setup.html">Configure</a> before sending invoices or paying interpreters via Stripe.</p>
+        <p class="ink-soft" style="font-size:14.5px">One or more payment gateways aren't connected yet. Connect them in <a href="/interpreter/app/payments/setup">Configure</a> before sending invoices or paying interpreters via Stripe.</p>
         <ul id="setup-missing" style="font-size:14px;color:var(--1891int-fog)"></ul>
       </div>
 
@@ -138,6 +138,8 @@
 
 <script src="/interpreter/assets/js/whitelabel.js" defer></script>
 <script src="/interpreter/assets/js/api.js" defer></script>
+<script src="/interpreter/assets/js/api-multitenant.js" defer></script>
+<script src="/interpreter/assets/js/app-header.js" defer></script>
 <script src="/interpreter/assets/js/api-payments.js" defer></script>
 <script>
 (function () {
@@ -158,9 +160,9 @@
   }
 
   function init() {
-    if (!IntApi.getSession()) { location.href = '/interpreter/sign-in.html'; return; }
+    if (!IntApi.getSession()) { location.href = '/interpreter/sign-in'; return; }
     IntApi.whoami().then(function (r) {
-      if (!r || !r.ok) { IntApi.clearSession(); location.href = '/interpreter/sign-in.html'; return; }
+      if (!r || !r.ok) { IntApi.clearSession(); location.href = '/interpreter/sign-in'; return; }
       $('who-name').textContent = (r.user && (r.user.display_name || r.user.email)) || 'unknown';
       if (window.IntTheme && r.agency) IntTheme.apply(r.agency);
       loadAll();

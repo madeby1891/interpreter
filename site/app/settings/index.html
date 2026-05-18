@@ -39,7 +39,7 @@
       <!-- AI / Anthropic -->
       <section class="card" style="margin-bottom:var(--1891int-s-6)">
         <h2 class="mt-0">AI intake — Anthropic API key</h2>
-        <p class="ink-soft" style="font-size:14.5px">The AI intake parser at <a href="/interpreter/app/intake/">/app/intake/</a> uses the Anthropic API directly. Paste your key here and it's stored in the tenant's Settings tab (admin-readable only). PHI is redacted from the input before any model call — see <a href="/interpreter/security.html">/security</a> for the contract.</p>
+        <p class="ink-soft" style="font-size:14.5px">The AI intake parser at <a href="/interpreter/app/intake/">/app/intake/</a> uses the Anthropic API directly. Paste your key here and it's stored in the tenant's Settings tab (admin-readable only). PHI is redacted from the input before any model call — see <a href="/interpreter/security">/security</a> for the contract.</p>
         <form id="anthropic-form" style="margin-top:var(--1891int-s-4)">
           <div class="field">
             <label for="ant-key">API key</label>
@@ -108,16 +108,16 @@
         <h2 class="mt-0">Advanced configuration</h2>
         <p class="ink-soft" style="font-size:14.5px">The quick rate-card editor above covers basic per-hour rates. For the full two-sided rate engine with evening / weekend / last-minute / holiday modifiers, and for per-service onboarding requirements, see:</p>
         <div class="cluster">
-          <a class="btn btn-secondary" href="/interpreter/app/settings/rates.html">Rate engine (bill + pay sides) →</a>
-          <a class="btn btn-secondary" href="/interpreter/app/settings/requirements.html">Onboarding requirements →</a>
-          <a class="btn btn-secondary" href="/interpreter/app/settings/team.html">Team &amp; invitations →</a>
+          <a class="btn btn-secondary" href="/interpreter/app/settings/rates">Rate engine (bill + pay sides) →</a>
+          <a class="btn btn-secondary" href="/interpreter/app/settings/requirements">Onboarding requirements →</a>
+          <a class="btn btn-secondary" href="/interpreter/app/settings/team">Team &amp; invitations →</a>
         </div>
       </section>
 
       <!-- Subprocessors -->
       <section class="card">
         <h2 class="mt-0">Subprocessors</h2>
-        <p class="ink-soft" style="font-size:14.5px">The third parties this tenant is using. Documented publicly at <a href="/interpreter/legal/subprocessors.html">/legal/subprocessors</a>.</p>
+        <p class="ink-soft" style="font-size:14.5px">The third parties this tenant is using. Documented publicly at <a href="/interpreter/legal/subprocessors">/legal/subprocessors</a>.</p>
         <ul class="xs">
           <li><strong>Google Workspace</strong> — Sheets as system of record (BAA + DPA)</li>
           <li><strong>Anthropic</strong> — AI intake parser (redacted inputs only, BAA on direct API)</li>
@@ -132,6 +132,8 @@
 
 <script src="/interpreter/assets/js/whitelabel.js" defer></script>
 <script src="/interpreter/assets/js/api.js" defer></script>
+<script src="/interpreter/assets/js/api-multitenant.js" defer></script>
+<script src="/interpreter/assets/js/app-header.js" defer></script>
 <script>
 (function () {
   'use strict';
@@ -140,9 +142,9 @@
   function toast(msg, kind) { var t = $('toast'); t.textContent = msg; t.className = 'toast show' + (kind ? ' ' + kind : ''); setTimeout(function () { t.className = 'toast'; }, 3500); }
 
   function init() {
-    if (!IntApi.getSession()) { location.href = '/interpreter/sign-in.html'; return; }
+    if (!IntApi.getSession()) { location.href = '/interpreter/sign-in'; return; }
     IntApi.whoami().then(function (r) {
-      if (!r || !r.ok) { IntApi.clearSession(); location.href = '/interpreter/sign-in.html'; return; }
+      if (!r || !r.ok) { IntApi.clearSession(); location.href = '/interpreter/sign-in'; return; }
       $('who-name').textContent = r.user.display_name || r.user.email;
       if (window.IntTheme && r.agency) IntTheme.apply(r.agency);
       loadSettings();

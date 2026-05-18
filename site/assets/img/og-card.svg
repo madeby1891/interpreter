@@ -1,46 +1,63 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" role="img" aria-label="1891 Interpreter — The interpreting agency platform built by the community it serves.">
   <title>1891 Interpreter — The interpreting agency platform built by the community it serves.</title>
   <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+    <linearGradient id="og-bg" x1="0" y1="0" x2="1" y2="1">
       <stop offset="0" stop-color="#FAFAF7"/>
       <stop offset="1" stop-color="#F2EEE3"/>
     </linearGradient>
-    <radialGradient id="bloom" cx="0.85" cy="0.1" r="0.55">
+    <radialGradient id="og-bloom" cx="0.85" cy="0.1" r="0.55">
       <stop offset="0" stop-color="#F6E5DE"/>
       <stop offset="1" stop-color="#F2EEE3" stop-opacity="0"/>
     </radialGradient>
-    <radialGradient id="river" cx="0" cy="1" r="0.55">
+    <radialGradient id="og-river" cx="0" cy="1" r="0.55">
       <stop offset="0" stop-color="#DCE9E7"/>
       <stop offset="1" stop-color="#F2EEE3" stop-opacity="0"/>
     </radialGradient>
+    <linearGradient id="og-plate" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#161C22"/>
+      <stop offset="1" stop-color="#0B0F13"/>
+    </linearGradient>
+    <linearGradient id="og-glyph" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FFFDF6"/>
+      <stop offset="1" stop-color="#E9E3D3"/>
+    </linearGradient>
   </defs>
 
-  <rect width="1200" height="630" fill="url(#bg)"/>
-  <rect width="1200" height="630" fill="url(#bloom)"/>
-  <rect width="1200" height="630" fill="url(#river)"/>
+  <rect width="1200" height="630" fill="url(#og-bg)"/>
+  <rect width="1200" height="630" fill="url(#og-bloom)"/>
+  <rect width="1200" height="630" fill="url(#og-river)"/>
 
-  <!-- Top brand strip -->
+  <!-- Top brand strip — new stronger mark -->
   <g transform="translate(80,80)">
-    <rect width="64" height="64" rx="14" fill="#0F1419"/>
-    <g fill="#FAFAF7" font-family="Iowan Old Style, Palatino Linotype, Palatino, Georgia, serif" font-weight="700" font-size="22" text-anchor="middle">
-      <text x="14" y="29">1</text><text x="50" y="29">1</text>
-      <text x="26" y="50">8</text><text x="38" y="50">9</text>
+    <rect width="80" height="80" rx="16" fill="url(#og-plate)"/>
+    <rect x="4.5" y="4.5" width="71" height="71" rx="13" fill="none" stroke="#FAFAF7" stroke-opacity="0.08" stroke-width="0.8"/>
+    <g fill="url(#og-glyph)" font-family="Iowan Old Style, Palatino Linotype, Palatino, Georgia, serif" font-weight="700" text-anchor="middle">
+      <text x="22" y="36" font-size="26">1</text>
+      <text x="46" y="36" font-size="26">8</text>
+      <text x="22" y="66" font-size="26">9</text>
+      <text x="46" y="66" font-size="26">1</text>
     </g>
-    <path d="M30,46 Q32,40 34,46" stroke="#C8553D" stroke-width="2.4" fill="none" stroke-linecap="round"/>
-    <circle cx="32" cy="42" r="1.6" fill="#C8553D"/>
+    <!-- ASL contact dot -->
+    <g transform="translate(60,22)">
+      <circle r="9" fill="#C8553D" fill-opacity="0.18"/>
+      <path d="M-4 0 Q0 -4 4 0" stroke="#C8553D" stroke-width="2.2" fill="none" stroke-linecap="round"/>
+      <circle cx="-4" cy="0.4" r="1.8" fill="#C8553D"/>
+      <circle cx="4" cy="0.4" r="1.8" fill="#C8553D"/>
+      <circle cx="0" cy="-3.2" r="1.2" fill="#FFD8C7"/>
+    </g>
 
-    <text x="84" y="34" font-family="Iowan Old Style, Palatino Linotype, Palatino, Georgia, serif" font-weight="700" font-size="26" fill="#0F1419">1891</text>
-    <text x="84" y="56" font-family="system-ui, -apple-system, sans-serif" font-weight="500" font-size="18" fill="#5C6670">Interpreter</text>
+    <text x="100" y="38" font-family="Iowan Old Style, Palatino Linotype, Palatino, Georgia, serif" font-weight="700" font-size="30" fill="#0F1419">1891</text>
+    <text x="100" y="66" font-family="system-ui, -apple-system, sans-serif" font-weight="500" font-size="20" fill="#5C6670">Interpreter</text>
   </g>
 
   <!-- Eyebrow chip -->
-  <g transform="translate(80,220)">
-    <rect width="430" height="36" rx="18" fill="#F6E5DE" stroke="#E8B9AC"/>
-    <text x="215" y="24" font-family="system-ui, -apple-system, sans-serif" font-weight="600" font-size="14" fill="#9E3F2C" text-anchor="middle">Built in Frederick · Carried forward since 1891</text>
+  <g transform="translate(80,230)">
+    <rect width="460" height="38" rx="19" fill="#F6E5DE" stroke="#E8B9AC"/>
+    <text x="230" y="25" font-family="system-ui, -apple-system, sans-serif" font-weight="600" font-size="15" fill="#9E3F2C" text-anchor="middle">Built in Frederick · Carried forward since 1891</text>
   </g>
 
   <!-- Hero headline -->
-  <g transform="translate(80,290)" font-family="Iowan Old Style, Palatino Linotype, Palatino, Georgia, serif" fill="#0F1419">
+  <g transform="translate(80,300)" font-family="Iowan Old Style, Palatino Linotype, Palatino, Georgia, serif" fill="#0F1419">
     <text x="0" y="0" font-size="60" font-weight="700">The interpreting agency</text>
     <text x="0" y="70" font-size="60" font-weight="700">platform built by the</text>
     <text x="0" y="140" font-size="60" font-weight="700">community it serves.</text>

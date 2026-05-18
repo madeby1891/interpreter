@@ -163,9 +163,11 @@ function _tenantsForUser(userId, userEmail) {
 function _isHostOwner(session) {
   // Host-owner role is the only account that can see every tenant + provision
   // new ones. Encoded as: session.tid === 'host' AND role === 'role_owner'.
-  return session && session.payload &&
-         session.payload.tid === 'host' &&
-         session.payload.role === 'role_owner';
+  // Also accepts role_platform_staff as the modern equivalent — multi-tenant
+  // operators sometimes carry role_platform_staff in non-host tenants.
+  if (!session || !session.payload) return false;
+  if (session.payload.role === 'role_platform_staff') return true;
+  return session.payload.tid === 'host' && session.payload.role === 'role_owner';
 }
 
 function _isValidSlug(s) {
@@ -321,18 +323,35 @@ function apiListTenantOwners(e) {
 // WRITES — provision_tenant / switch_tenant / add_tenant_owner
 // ============================================================================
 
+/**
+ * Authorisation: any caller whose session role is 'role_platform_staff' or
+ * who is the legacy host-owner (session.tid === 'host' && role === 'role_owner').
+ * Both shapes existed in different vintages of the codebase; this gate accepts
+ * either so the UI can route platform staff to /admin/tenants/ uniformly.
+ */
+function _canProvisionTenant(session) {
+  if (!session || !session.payload) return false;
+  if (session.payload.role === 'role_platform_staff') return true;
+  return _isHostOwner(session);
+}
+
 function apiProvisionTenant(e) {
   var s = _requireSession(e);
   if (!s.ok) return _json({ ok:false, error:s.error }, 401);
-  if (!_isHostOwner(s)) return _json({ ok:false, error:'Host owner only.' }, 403);
+  if (!_canProvisionTenant(s)) return _json({ ok:false, error:'Platform staff only.' }, 403);
 
   var p = e.parameter || {};
-  var tenantId   = String(p.tenant_id || '').trim().toLowerCase();
+  // Slug: derived from legal_name if not supplied, so platform staff don't
+  // have to hand-pick a unique key (UI hides this field by default).
   var legalName  = String(p.legal_name || '').trim();
-  var ownerEmail = String(p.owner_email || '').trim().toLowerCase();
+  var tenantId   = String(p.tenant_id || '').trim().toLowerCase() ||
+                   _slugifyForTenant(legalName);
+  var ownerEmail = String(p.primary_owner_email || p.owner_email || '').trim().toLowerCase();
   var tier       = String(p.tier || 'pro').trim();
   var phiMode    = String(p.phi_mode || 'initials-only').trim();
   var timezone   = String(p.timezone || 'America/New_York').trim();
+  var brandColor = String(p.brand_color || '#C8553D').trim();
+  var billingEmail = String(p.billing_email || ownerEmail).trim().toLowerCase();
 
   if (!_isValidSlug(tenantId)) {
     return _json({ ok:false, error:'tenant_id must be a lowercase slug (3–40 chars, a–z 0–9 -)' });
@@ -341,13 +360,32 @@ function apiProvisionTenant(e) {
     return _json({ ok:false, error:'tenant_id "host" is reserved.' });
   }
   if (!legalName) return _json({ ok:false, error:'legal_name required' });
-  if (!_isValidEmail(ownerEmail)) return _json({ ok:false, error:'owner_email is not a valid address' });
+  if (!_isValidEmail(ownerEmail)) return _json({ ok:false, error:'primary_owner_email is not a valid address' });
+  // Tier list: the canonical accepted values today are deaf-owned-free | pro
+  // | enterprise. The UI surfaces friendlier labels and aliases them.
+  var TIER_ALIASES = {
+    'free': 'deaf-owned-free',
+    'deaf-owned': 'deaf-owned-free',
+    'deaf-owned-free': 'deaf-owned-free',
+    'starter': 'pro',
+    'pro': 'pro',
+    'network': 'enterprise',
+    'enterprise': 'enterprise'
+  };
+  if (TIER_ALIASES[tier]) tier = TIER_ALIASES[tier];
   if (['deaf-owned-free','pro','enterprise'].indexOf(tier) < 0) {
     return _json({ ok:false, error:'tier must be deaf-owned-free | pro | enterprise' });
   }
+  // Accept both initials_only (Python-ish) and initials-only (existing) for
+  // forward-compat with the SPEECH_PROCESSING.md spec.
+  if (phiMode === 'initials_only') phiMode = 'initials-only';
   if (['full','initials-only','disabled'].indexOf(phiMode) < 0) {
     return _json({ ok:false, error:'phi_mode must be full | initials-only | disabled' });
   }
+  if (billingEmail && !_isValidEmail(billingEmail)) {
+    return _json({ ok:false, error:'billing_email is not a valid address' });
+  }
+  if (!/^#[0-9A-Fa-f]{6}$/.test(brandColor)) brandColor = '#C8553D';
 
   _ensureControlSheet();
 
@@ -367,8 +405,8 @@ function apiProvisionTenant(e) {
     phi_mode: phiMode,
     timezone: timezone,
     primary_owner_email: ownerEmail,
-    brand_color: '#C8553D',
-    billing_email: ownerEmail
+    brand_color: brandColor,
+    billing_email: billingEmail || ownerEmail
   });
 
   // 3. Record in control Sheet's Tenants table.
@@ -393,8 +431,19 @@ function apiProvisionTenant(e) {
   });
   _logAudit('tenant.provision', tenantId, s.payload.uid, 'sid=' + sid);
 
-  // 6. Welcome email (best-effort).
-  var signInUrl = SITE_BASE + '/sign-in.html?email=' + encodeURIComponent(ownerEmail);
+  // 6. Mint an invitation URL for the new owner. _bootstrapTenantOn writes
+  // a Users row inside the tenant Sheet with status='invited'; here we
+  // additionally seed an invitation token in the host's Auth_Tokens table
+  // (where apiAuthVerify reads from), so the owner can redeem the link and
+  // land directly inside their tenant.
+  var invitationUrl = '';
+  try {
+    invitationUrl = _mintTenantOwnerInvitation_(tenantId, ownerUid, ownerEmail);
+  } catch (err) {
+    _logAudit('tenant.invitation_failed', tenantId, s.payload.uid, String(err));
+  }
+
+  // 7. Welcome email (best-effort).
   var body =
     'Welcome to 1891 Interpreter.\n\n' +
     'Your agency tenant is provisioned:\n\n' +
@@ -402,8 +451,9 @@ function apiProvisionTenant(e) {
     '  Tenant:    ' + tenantId + '\n' +
     '  Tier:      ' + tier + '\n' +
     '  Time zone: ' + timezone + '\n\n' +
-    'Sign in to get started — we will email you a one-time link:\n' +
-    signInUrl + '\n\n' +
+    (invitationUrl
+       ? 'Click this one-time link to set up your account:\n' + invitationUrl + '\n\nThis link expires in 7 days.\n\n'
+       : 'Sign in at ' + SITE_BASE + '/sign-in.html and we will email you a one-time link.\n\n') +
     'Built in Frederick. Carried forward since 1891.\n' +
     '— 1891 Interpreter';
   try {
@@ -426,8 +476,80 @@ function apiProvisionTenant(e) {
       status: 'active',
       created_at: nowIso
     },
-    spreadsheet_url: tenantSs.getUrl()
+    spreadsheet_url: tenantSs.getUrl(),
+    invitation_url: invitationUrl,
+    primary_owner: {
+      email: ownerEmail,
+      user_id: ownerUid
+    }
   });
+}
+
+/**
+ * Slugify a legal name into a tenant_id. Lowercase, alphanumerics + single
+ * hyphens, trimmed to <= 40 chars, padded to >= 3.
+ */
+function _slugifyForTenant(name) {
+  var s = String(name || '').toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 40);
+  if (s.length < 3) s = (s + '-tenant').slice(0, 40);
+  // Slug rule requires non-hyphen at start AND end.
+  s = s.replace(/^-+/, '').replace(/-+$/, '');
+  if (s.length < 3) s = 'tenant-' + Math.floor(Math.random() * 9999);
+  return s;
+}
+
+/**
+ * Mint an invitation token for the freshly-provisioned tenant's owner and
+ * append it to the host's Auth_Tokens table. This is the same table
+ * apiAuthVerify reads, so the URL works as a magic-link sign-in. The tenant
+ * is encoded into the token row's tenant_id column so apiAuthVerify mints
+ * a session scoped to the new tenant, not the host.
+ *
+ * Returns the invitation URL (empty string on failure).
+ */
+function _mintTenantOwnerInvitation_(tenantId, ownerUid, ownerEmail) {
+  if (!ownerUid || !ownerEmail) return '';
+  var hostSs = SpreadsheetApp.openById(SHEET_ID);
+  // Auth_Tokens lives on the host Sheet; ensure it exists.
+  var tokensSh = hostSs.getSheetByName(T.AuthTokens);
+  if (!tokensSh) {
+    tokensSh = _getOrCreateSheet(hostSs, T.AuthTokens,
+      ['issued_at','email','token_hash','user_id','tenant_id','expires_at','consumed_at','ip','user_agent']);
+  }
+  // Make sure a `purpose` column exists if the host Sheet has been migrated.
+  // _ensureAuthTokensPurpose_ is the Code_Invitations.gs helper; safe-call
+  // it via globalThis so this file doesn't require it at load time.
+  try {
+    if (typeof _ensureAuthTokensPurpose_ === 'function') _ensureAuthTokensPurpose_(hostSs);
+  } catch (_) { /* fine */ }
+
+  var token = _newToken();
+  var hash  = _sha256Hex(token);
+  // 7-day TTL — same as Code_Invitations.gs INVITATION_TOKEN_TTL_MS.
+  var expIso = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+  var nowIso = new Date().toISOString();
+
+  var hdr = tokensSh.getRange(1, 1, 1, tokensSh.getLastColumn()).getValues()[0];
+  var rowArr = hdr.map(function (col) {
+    switch (col) {
+      case 'issued_at':  return nowIso;
+      case 'email':      return ownerEmail;
+      case 'token_hash': return hash;
+      case 'user_id':    return ownerUid;
+      case 'tenant_id':  return tenantId;
+      case 'expires_at': return expIso;
+      case 'consumed_at':return '';
+      case 'ip':         return '';
+      case 'user_agent': return '';
+      case 'purpose':    return 'invitation';
+      default:           return '';
+    }
+  });
+  tokensSh.appendRow(rowArr);
+  return SITE_BASE + '/app/callback.html?token=' + encodeURIComponent(token);
 }
 
 function apiSwitchTenant(e) {
@@ -594,6 +716,7 @@ function _bootstrapTenantOn(ss, tenantId, agencyConfig) {
       JSON.stringify({ consumer: 'masked' }),   // pii_scope
       0,
       '',                                       // sso_subject
+      '',                                       // calendar_token
       nowIso2,
       nowIso2
     ]);

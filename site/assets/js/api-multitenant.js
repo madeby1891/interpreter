@@ -48,9 +48,34 @@
     });
   }
 
+  // CORS-mode POST that reads the response — needed for actions whose result
+  // includes data the page needs immediately (e.g. provisionTenant returns
+  // tenant_id, spreadsheet_url, invitation_url). The Worker proxy at the
+  // ENDPOINT URL adds the Access-Control-Allow-Origin header.
+  function _postCors(action, fields) {
+    var body = new URLSearchParams();
+    body.append('action', action);
+    Object.keys(fields || {}).forEach(function (k) {
+      var v = fields[k];
+      if (v === null || v === undefined) return;
+      body.append(k, String(v));
+    });
+    var s = Api.getSession();
+    if (s) body.append('session', s);
+    return fetch(Api.ENDPOINT, {
+      method: 'POST',
+      body: body,
+      mode: 'cors',
+      headers: { 'Accept': 'application/json' }
+    }).then(function (r) { return r.json(); });
+  }
+
   function provisionTenant(fields) {
-    // fields = { tenant_id, legal_name, owner_email, tier, phi_mode, timezone }
-    return _post('provision_tenant', fields);
+    // fields = { legal_name, primary_owner_email, tier, phi_mode, timezone,
+    //            brand_color, billing_email, tenant_id? }
+    // Returns the JSON response (so the UI can show tenant_id +
+    // spreadsheet_url + invitation_url) instead of no-cors fire-and-forget.
+    return _postCors('provision_tenant', fields);
   }
 
   // switch_tenant needs the response body (the new session JWT), so we read

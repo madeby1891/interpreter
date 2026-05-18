@@ -49,7 +49,7 @@
   <nav class="app-nav" aria-label="App sections">
     <div class="wrap">
       <a href="/interpreter/app/me/" aria-current="page">My offers</a>
-      <a href="/interpreter/app/me/notifications.html">Notifications</a>
+      <a href="/interpreter/app/me/notifications">Notifications</a>
       <a href="/interpreter/app/" id="staff-nav-board" style="display:none">Day-of board</a>
       <a href="/interpreter/app/interpreters/" id="staff-nav-roster" style="display:none">Roster</a>
     </div>
@@ -73,7 +73,7 @@
       <div id="list"></div>
       <div id="empty" class="empty-state" style="display:none">
         <h2>You're all caught up.</h2>
-        <p>No outstanding offers right now. We'll email and (optionally) text you when a new one comes in. <a href="/interpreter/app/me/notifications.html">Adjust notification preferences →</a></p>
+        <p>No outstanding offers right now. We'll email and (optionally) text you when a new one comes in. <a href="/interpreter/app/me/notifications">Adjust notification preferences →</a></p>
       </div>
       <div id="not-interp" class="empty-state" style="display:none">
         <h2>You don't have an interpreter profile linked.</h2>
@@ -159,9 +159,9 @@
   document.addEventListener('DOMContentLoaded', init);
 
   function init() {
-    if (!IntApi.getSession()) { location.href = '/interpreter/sign-in.html'; return; }
+    if (!IntApi.getSession()) { location.href = '/interpreter/sign-in'; return; }
     IntApi.whoami().then(function (r) {
-      if (!r || !r.ok) { IntApi.clearSession(); location.href = '/interpreter/sign-in.html'; return; }
+      if (!r || !r.ok) { IntApi.clearSession(); location.href = '/interpreter/sign-in'; return; }
       $('who-name').textContent = r.user.display_name || r.user.email;
       if (window.IntTheme && r.agency) IntTheme.apply(r.agency);
       // Show staff nav if applicable

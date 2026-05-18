@@ -94,13 +94,13 @@
 
   function init() {
     if (!IntApi.getSession()) {
-      location.href = '/interpreter/sign-in.html';
+      location.href = '/interpreter/sign-in';
       return;
     }
     IntApi.whoami().then(function (r) {
       if (!r || !r.ok) {
         IntApi.clearSession();
-        location.href = '/interpreter/sign-in.html';
+        location.href = '/interpreter/sign-in';
         return;
       }
       $('who-name').textContent = (r.user && (r.user.display_name || r.user.email)) || 'unknown';

@@ -70,12 +70,12 @@
           <p>List, provision, and switch into agency tenants.</p>
           <div class="big" id="card-tenants">—</div>
         </a>
-        <a class="admin-card" href="/interpreter/app/admin/audit.html">
+        <a class="admin-card" href="/interpreter/app/admin/audit">
           <h3>Audit log</h3>
           <p>Every authenticated action on the host Sheet, filterable and exportable.</p>
           <div class="big">→</div>
         </a>
-        <a class="admin-card" href="/interpreter/app/admin/health.html">
+        <a class="admin-card" href="/interpreter/app/admin/health">
           <h3>Health</h3>
           <p>Roster, fill rate, utilization, doc compliance, A/R.</p>
           <div class="big">→</div>
@@ -94,6 +94,8 @@
 
 <script src="/interpreter/assets/js/api.js"></script>
 <script src="/interpreter/assets/js/api-multitenant.js"></script>
+<script src="/interpreter/assets/js/app-header.js"></script>
+<script src="/interpreter/assets/js/api-multitenant.js"></script>
 <script>
 (function () {
   'use strict';
@@ -110,13 +112,13 @@
 
   function init() {
     if (!IntApi.getSession()) {
-      location.href = '/interpreter/sign-in.html';
+      location.href = '/interpreter/sign-in';
       return;
     }
     IntApi.whoami().then(function (r) {
       if (!r || !r.ok) {
         IntApi.clearSession();
-        location.href = '/interpreter/sign-in.html';
+        location.href = '/interpreter/sign-in';
         return;
       }
       // Host-owner-only gate. Anyone else gets bounced to the day-of board.

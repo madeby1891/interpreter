@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="1891 Interpreter">
+  <title>1891 Interpreter</title>
+  <rect width="64" height="64" rx="13" fill="#0F1419"/>
+  <!-- Simplified 1891 — heavier strokes, no filters, no gradients (favicon-safe) -->
+  <g fill="#FAFAF7" font-family="Georgia, serif" font-weight="700" text-anchor="middle">
+    <!-- Use heavy text glyphs at small render sizes for clarity -->
+    <text x="18" y="30" font-size="22">1</text>
+    <text x="38" y="30" font-size="22">8</text>
+    <text x="18" y="54" font-size="22">9</text>
+    <text x="38" y="54" font-size="22">1</text>
+  </g>
+  <!-- ASL contact dot, bloom -->
+  <circle cx="54" cy="14" r="6" fill="#C8553D"/>
+</svg>

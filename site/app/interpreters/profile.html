@@ -101,7 +101,7 @@
                 <div class="spacer"></div>
                 <span id="docs-summary" class="muted" style="font-size:13px"></span>
               </div>
-              <p class="ink-soft" style="font-size:13.5px;margin-bottom:var(--1891int-s-3)">Required by the agency's <a href="/interpreter/app/settings/requirements.html">policy</a>. Reviewers can change status; expirations show automatically.</p>
+              <p class="ink-soft" style="font-size:13.5px;margin-bottom:var(--1891int-s-3)">Required by the agency's <a href="/interpreter/app/settings/requirements">policy</a>. Reviewers can change status; expirations show automatically.</p>
               <div id="docs"></div>
               <div style="margin-top:var(--1891int-s-3);padding-top:var(--1891int-s-3);border-top:1px solid var(--1891int-line)">
                 <details>
@@ -160,7 +160,7 @@
             <!-- Premiums -->
             <div class="card" style="margin-top:var(--1891int-s-4)">
               <h2 class="mt-0" style="font-size:20px;margin-bottom:var(--1891int-s-2)">Premium %</h2>
-              <p class="ink-soft" style="font-size:13.5px;margin-bottom:var(--1891int-s-3)">These supplement agency-wide rate modifiers; tenant-level rules in <a href="/interpreter/app/settings/rates.html">Settings → Rates</a> still apply.</p>
+              <p class="ink-soft" style="font-size:13.5px;margin-bottom:var(--1891int-s-3)">These supplement agency-wide rate modifiers; tenant-level rules in <a href="/interpreter/app/settings/rates">Settings → Rates</a> still apply.</p>
               <div class="premium-grid"><span>Evening</span><input type="number" id="prem-ev" min="0" max="200">%</div>
               <div class="premium-grid"><span>Weekend</span><input type="number" id="prem-wk" min="0" max="200">%</div>
               <div class="premium-grid"><span>Last-minute (&lt;24h)</span><input type="number" id="prem-lm" min="0" max="200">%</div>
@@ -215,6 +215,8 @@
 
 <script src="/interpreter/assets/js/whitelabel.js"></script>
 <script src="/interpreter/assets/js/api.js"></script>
+<script src="/interpreter/assets/js/api-multitenant.js"></script>
+<script src="/interpreter/assets/js/app-header.js"></script>
 <script>
 (function () {
   'use strict';
@@ -236,12 +238,12 @@
   document.addEventListener('DOMContentLoaded', init);
 
   function init() {
-    if (!IntApi.getSession()) { location.href = '/interpreter/sign-in.html'; return; }
+    if (!IntApi.getSession()) { location.href = '/interpreter/sign-in'; return; }
     var id = new URLSearchParams(location.search).get('id');
     if (!id) { $('loading').style.display = 'none'; $('not-found').style.display = ''; return; }
     state.id = id;
     IntApi.whoami().then(function (r) {
-      if (!r || !r.ok) { IntApi.clearSession(); location.href = '/interpreter/sign-in.html'; return; }
+      if (!r || !r.ok) { IntApi.clearSession(); location.href = '/interpreter/sign-in'; return; }
       $('who-name').textContent = r.user.display_name || r.user.email;
       if (window.IntTheme && r.agency) IntTheme.apply(r.agency);
       loadAll();
