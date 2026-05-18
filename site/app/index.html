@@ -383,26 +383,53 @@
   function openSmartFill(jobId) {
     $('candidates').innerHTML = '<div class="empty-state"><span class="spinner"></span> Ranking interpreters…</div>';
     $('m-fill').classList.add('open');
-    IntApi.smartFill(jobId).then(function (r) {
+    IntApi.jsonp({ action: 'smart_fill_qualified', job_id: jobId }).then(function (r) {
       if (!r || !r.ok) { $('candidates').innerHTML = '<p class="muted">' + escHtml((r && r.error) || 'Smart-fill failed') + '</p>'; return; }
       if (!r.candidates || !r.candidates.length) {
-        $('candidates').innerHTML = '<p class="muted">No interpreters on your roster yet. Add some on the Interpreters tab in the Sheet.</p>';
+        $('candidates').innerHTML = '<p class="muted">No interpreters on your roster yet.</p>';
         return;
       }
+      function fmtCents(c) { return '$' + (Number(c || 0) / 100).toFixed(2); }
       var html = r.candidates.map(function (c) {
         var b = c.score.breakdown;
+        var qual = c.qualification || {};
+        var qualLabel = '';
+        if (qual.qualified_strict) qualLabel = '<span class="badge" style="background:#DDF1E5;color:#0F5C2E">qualified</span>';
+        else if (qual.missing_docs && qual.missing_docs.length) qualLabel = '<span class="badge" style="background:#FCE0E0;color:#A8170D">missing ' + qual.missing_docs.length + ' doc' + (qual.missing_docs.length === 1 ? '' : 's') + '</span>';
+        else if (qual.expired_docs && qual.expired_docs.length) qualLabel = '<span class="badge" style="background:#FCE0E0;color:#A8170D">' + qual.expired_docs.length + ' expired</span>';
+        else if (!qual.has_language) qualLabel = '<span class="badge" style="background:#FFF5CC;color:#7D5C00">language gap</span>';
+        else qualLabel = '<span class="badge" style="background:#FFF5CC;color:#7D5C00">warnings</span>';
+
+        var floorBadge = c.pay_floor_enforced ? ' <span class="badge" style="background:var(--1891int-bloom-tint);color:var(--1891int-bloom-deep);font-size:10px">pay floor enforced</span>' : '';
+        var details = '';
+        if (qual.missing_docs && qual.missing_docs.length) {
+          details += '<div style="font-size:11.5px;color:var(--1891int-err);margin-top:4px">Missing: ' + qual.missing_docs.map(function (d) { return escHtml(d.display_name || d.doc_type); }).join(', ') + '</div>';
+        }
+        if (qual.expired_docs && qual.expired_docs.length) {
+          details += '<div style="font-size:11.5px;color:var(--1891int-err);margin-top:4px">Expired: ' + qual.expired_docs.map(function (d) { return escHtml(d.display_name || d.doc_type); }).join(', ') + '</div>';
+        }
+        if (qual.expiring_soon && qual.expiring_soon.length) {
+          details += '<div style="font-size:11.5px;color:#7D5C00;margin-top:4px">Expiring soon: ' + qual.expiring_soon.map(function (d) { return escHtml(d.display_name) + ' (' + d.days + 'd)'; }).join(', ') + '</div>';
+        }
+
+        var offerBtn = qual.qualified_strict
+          ? '<button class="btn btn-primary btn-sm" data-offer="' + escHtml(c.interpreter_id) + '" data-job="' + escHtml(jobId) + '">Offer to ' + escHtml(c.display_name) + '</button>'
+          : '<button class="btn btn-ghost btn-sm" disabled title="Not qualified — see missing docs">Cannot offer</button> <a class="btn btn-ghost btn-sm" href="/interpreter/app/interpreters/profile.html?id=' + escHtml(c.interpreter_id) + '">View profile</a>';
+
         return [
           '<div class="candidate">',
           '  <div>',
-          '    <div class="name">' + escHtml(c.display_name || c.interpreter_id) + (c.deaf ? ' <span class="badge">CDI eligible</span>' : '') + '</div>',
+          '    <div class="name">' + escHtml(c.display_name || c.interpreter_id) + (c.deaf ? ' <span class="badge">CDI</span>' : '') + ' ' + qualLabel + '</div>',
           '    <div class="langs">' + escHtml((c.languages || '').replace(/[\[\]"]/g, '')) + '</div>',
+          '    <div style="font-size:12.5px;margin-top:4px"><strong>Pay quote:</strong> ' + fmtCents(c.pay_quote_cents) + ' @ ' + (c.pay_hourly_cents/100).toFixed(0) + '/hr' + floorBadge + ' · <strong>Bill:</strong> ' + fmtCents(c.bill_quote_cents) + '</div>',
+          details,
           '  </div>',
           '  <div class="score" title="cert ' + b.certification + ' / loc ' + b.location + ' / pref ' + b.preference + ' / workload ' + b.workload + ' / perf ' + b.performance + '">',
           '    ' + c.score.total + '<small>/' + c.score.max + '</small>',
           '  </div>',
           '  <div class="breakdown">cert ' + b.certification + ' &middot; loc ' + b.location + ' &middot; pref ' + b.preference + ' &middot; workload ' + b.workload + ' &middot; perf ' + b.performance + '</div>',
           '  <div style="grid-column:1/-1;margin-top:8px">',
-          '    <button class="btn btn-primary btn-sm" data-offer="' + escHtml(c.interpreter_id) + '" data-job="' + escHtml(jobId) + '">Offer to ' + escHtml(c.display_name) + '</button>',
+          '    ' + offerBtn,
           '  </div>',
           '</div>'
         ].join('\n');

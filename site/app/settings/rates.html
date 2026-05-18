@@ -1,0 +1,327 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Rates — 1891 Interpreter</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#C8553D">
+<link rel="icon" type="image/svg+xml" href="/interpreter/assets/img/favicon.svg">
+<link rel="stylesheet" href="/interpreter/assets/css/site.css">
+<link rel="stylesheet" href="/interpreter/assets/css/app.css">
+<style>
+  .side-tabs { display:inline-flex; background:var(--1891int-paper-deep); padding:3px; border-radius:8px }
+  .side-tabs button { background:transparent; border:0; padding:6px 14px; border-radius:6px; font-weight:600; font-size:13px; color:var(--1891int-fog); cursor:pointer }
+  .side-tabs button.on { background:var(--1891int-paper); color:var(--1891int-bloom-deep); box-shadow:0 1px 2px rgba(0,0,0,.05) }
+  table.rate-table { width:100%; border-collapse:collapse; font-size:13.5px }
+  table.rate-table th { text-align:left; padding:8px 10px; border-bottom:2px solid var(--1891int-ink); font-size:11px; text-transform:uppercase; letter-spacing:.08em }
+  table.rate-table td { padding:8px 10px; border-bottom:1px solid var(--1891int-line); vertical-align:middle }
+  table.rate-table td.right { text-align:right; font-variant-numeric:tabular-nums }
+  table.rate-table input[type="number"], table.rate-table select, table.rate-table input[type="text"] { padding:4px 8px; border:1px solid var(--1891int-line); border-radius:4px; font-size:12.5px }
+  .kind-chip { display:inline-block; padding:2px 8px; border-radius:999px; font-size:11px; font-weight:600; background:var(--1891int-paper-deep); color:var(--1891int-ink-soft); text-transform:uppercase; letter-spacing:.06em }
+  .trigger-preview { font-family:var(--1891int-mono); font-size:12px; color:var(--1891int-fog) }
+  .quote-card { background:var(--1891int-paper-warm); border:1px solid var(--1891int-line); border-radius:8px; padding:16px; font-size:14px }
+  .quote-line { display:flex; justify-content:space-between; padding:4px 0; font-variant-numeric:tabular-nums }
+  .quote-line.bold { font-weight:700; border-top:2px solid var(--1891int-ink); padding-top:8px; margin-top:8px }
+  .quote-line.muted { color:var(--1891int-fog); font-size:13px }
+</style>
+</head>
+<body>
+<a href="#main" class="skip">Skip to main content</a>
+
+<div class="app-shell">
+  <header class="app-header">
+    <div class="wrap">
+      <a href="/interpreter/app/" class="brand"><img src="/interpreter/assets/img/brand-mark.svg" alt="" width="32" height="32"><span>1891 <span class="brand-sub">Scheduler</span></span></a>
+      <div class="who"><span>Signed in as </span><strong id="who-name">…</strong><button id="signout" type="button">Sign out</button></div>
+    </div>
+  </header>
+  <nav class="app-nav" aria-label="App sections">
+    <div class="wrap">
+      <a href="/interpreter/app/">Day-of board</a>
+      <a href="/interpreter/app/interpreters/">Interpreters</a>
+      <a href="/interpreter/app/requestors/">Requestors</a>
+      <a href="/interpreter/app/intake/">AI intake</a>
+      <a href="/interpreter/app/invoices/">Invoices</a>
+      <a href="/interpreter/app/payouts/">Payouts</a>
+      <a href="/interpreter/app/payments/">Payments</a>
+      <a href="/interpreter/app/settings/" aria-current="page">Settings</a>
+    </div>
+  </nav>
+
+  <main id="main" class="app-main">
+    <div class="wrap">
+      <h1 style="margin:0 0 var(--1891int-s-3);font-size:30px">Rates</h1>
+      <p class="ink-soft" style="font-size:14.5px;max-width:64ch">Two-sided rate engine. Bill side is what payers pay; pay side is what interpreters earn. Modifiers stack: evening + weekend + last-minute add up. Each interpreter's own rate floor (set on their profile) overrides the pay-side total when higher.</p>
+
+      <div class="cluster" style="margin-bottom:var(--1891int-s-4)">
+        <div class="side-tabs" id="side-tabs">
+          <button data-side="bill" class="on">Bill side</button>
+          <button data-side="pay">Pay side</button>
+        </div>
+        <a class="btn btn-ghost btn-sm" href="/interpreter/app/settings/">← Settings</a>
+        <a class="btn btn-ghost btn-sm" href="/interpreter/app/settings/requirements.html">Requirements →</a>
+      </div>
+
+      <!-- Live quote preview -->
+      <section class="card" style="margin-bottom:var(--1891int-s-5)">
+        <h2 class="mt-0">Live rate quote preview</h2>
+        <p class="ink-soft" style="font-size:13.5px">Pick a service type and time; the engine computes both sides with all modifiers applied.</p>
+        <div style="display:grid;grid-template-columns:160px 130px 130px 1fr 110px;gap:8px;margin-bottom:var(--1891int-s-3);align-items:flex-end">
+          <div><label style="font-size:11px;color:var(--1891int-fog);text-transform:uppercase;letter-spacing:.08em">Service</label><select id="q-svc"><option>medical</option><option>mental-health</option><option>legal</option><option>education</option><option>community</option><option>corporate</option><option>gov</option></select></div>
+          <div><label style="font-size:11px;color:var(--1891int-fog);text-transform:uppercase;letter-spacing:.08em">Modality</label><select id="q-mod"><option>on-site</option><option>VRI</option><option>OPI</option></select></div>
+          <div><label style="font-size:11px;color:var(--1891int-fog);text-transform:uppercase;letter-spacing:.08em">Team</label><select id="q-team"><option>solo</option><option>team-of-2</option><option>cdi+hearing</option><option>voicer+signer</option></select></div>
+          <div><label style="font-size:11px;color:var(--1891int-fog);text-transform:uppercase;letter-spacing:.08em">Start</label><input id="q-start" type="datetime-local"></div>
+          <div><label style="font-size:11px;color:var(--1891int-fog);text-transform:uppercase;letter-spacing:.08em">Duration (hr)</label><input id="q-dur" type="number" min=".5" step=".5" value="1.5"></div>
+        </div>
+        <div style="display:grid;grid-template-columns:120px 1fr;gap:8px;margin-bottom:var(--1891int-s-3);align-items:center">
+          <label style="font-size:11px;color:var(--1891int-fog);text-transform:uppercase;letter-spacing:.08em">Interpreter (optional, for pay-floor)</label>
+          <select id="q-interp"><option value="">— Skip floor check —</option></select>
+        </div>
+        <div class="cluster"><button class="btn btn-primary btn-sm" type="button" id="q-go">Quote</button><span id="q-status" class="muted" style="font-size:13.5px"></span></div>
+        <div id="q-result" style="display:none;margin-top:var(--1891int-s-4)"></div>
+      </section>
+
+      <!-- Rate cards -->
+      <section class="card" style="margin-bottom:var(--1891int-s-5)">
+        <div class="toolbar" style="margin-bottom:var(--1891int-s-3)">
+          <h2 class="mt-0" style="margin:0">Base rate cards</h2>
+          <div class="spacer"></div>
+          <button class="btn btn-ghost btn-sm" id="add-card">+ Add card</button>
+        </div>
+        <div style="overflow:auto">
+          <table class="rate-table" id="cards-table">
+            <thead><tr><th>Service</th><th>Modality</th><th>Team</th><th class="right">Hourly (¢)</th><th class="right">Min hours</th><th class="right">Round (min)</th><th>Notes</th><th></th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- Rate modifiers -->
+      <section class="card">
+        <div class="toolbar" style="margin-bottom:var(--1891int-s-3)">
+          <h2 class="mt-0" style="margin:0">Rate modifiers</h2>
+          <div class="spacer"></div>
+          <button class="btn btn-ghost btn-sm" id="add-mod">+ Add modifier</button>
+        </div>
+        <div style="overflow:auto">
+          <table class="rate-table" id="mods-table">
+            <thead><tr><th>Name</th><th>Kind</th><th>Trigger</th><th>Service</th><th>Modality</th><th class="right">+%</th><th class="right">+¢</th><th class="right">Pri</th><th>Status</th><th></th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+  </main>
+</div>
+
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+<script src="/interpreter/assets/js/whitelabel.js"></script>
+<script src="/interpreter/assets/js/api.js"></script>
+<script>
+(function () {
+  'use strict';
+  var state = { side: 'bill', cards: [], mods: [], interpreters: [] };
+  function $(id) { return document.getElementById(id); }
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' })[c]; }); }
+  function toast(msg, kind) { var t = $('toast'); t.textContent = msg; t.className = 'toast show' + (kind ? ' ' + kind : ''); setTimeout(function () { t.className = 'toast'; }, 3200); }
+
+  document.addEventListener('DOMContentLoaded', init);
+
+  function init() {
+    if (!IntApi.getSession()) { location.href = '/interpreter/sign-in.html'; return; }
+    IntApi.whoami().then(function (r) {
+      if (!r || !r.ok) { IntApi.clearSession(); location.href = '/interpreter/sign-in.html'; return; }
+      $('who-name').textContent = r.user.display_name || r.user.email;
+      if (window.IntTheme && r.agency) IntTheme.apply(r.agency);
+      // Default quote start: next hour at 0
+      var d = new Date();
+      d.setMinutes(0, 0, 0);
+      d.setHours(d.getHours() + 1);
+      $('q-start').value = d.toISOString().slice(0, 16);
+      loadAll();
+    });
+    $('signout').addEventListener('click', function () { IntApi.clearSession(); location.href = '/interpreter/'; });
+    $('side-tabs').querySelectorAll('button').forEach(function (b) {
+      b.addEventListener('click', function () {
+        state.side = b.getAttribute('data-side');
+        $('side-tabs').querySelectorAll('button').forEach(function (x) { x.classList.toggle('on', x === b); });
+        renderAll();
+      });
+    });
+    $('add-card').addEventListener('click', addCard);
+    $('add-mod').addEventListener('click', addMod);
+    $('q-go').addEventListener('click', runQuote);
+  }
+
+  function loadAll() {
+    Promise.all([
+      IntApi.jsonp({ action:'list_rate_cards' }),
+      IntApi.jsonp({ action:'list_rate_modifiers' }),
+      IntApi.listInterpreters()
+    ]).then(function (results) {
+      state.cards = (results[0] && results[0].rate_cards) || [];
+      state.mods = (results[1] && results[1].modifiers) || [];
+      state.interpreters = (results[2] && results[2].interpreters) || [];
+      // Populate interpreter dropdown for the quote
+      var sel = $('q-interp');
+      state.interpreters.forEach(function (i) {
+        var opt = document.createElement('option');
+        opt.value = i.interpreter_id;
+        opt.textContent = (i.legal_first || '') + ' ' + (i.legal_last || '');
+        sel.appendChild(opt);
+      });
+      renderAll();
+    });
+  }
+
+  function renderAll() {
+    renderCards();
+    renderMods();
+  }
+
+  function renderCards() {
+    var rows = state.cards.filter(function (c) { return c.side === state.side; }).map(function (c) {
+      return '<tr data-id="' + esc(c.rate_card_id) + '">' +
+        '<td>' + esc(c.service_type) + '</td>' +
+        '<td>' + esc(c.modality) + '</td>' +
+        '<td>' + esc(c.team_config) + '</td>' +
+        '<td class="right"><input type="number" value="' + esc(c.base_hourly_cents) + '" data-field="base_hourly_cents" min="0" step="100" style="width:80px"></td>' +
+        '<td class="right"><input type="number" value="' + esc(c.minimum_hours) + '" data-field="minimum_hours" min="0" step="0.25" style="width:60px"></td>' +
+        '<td class="right"><input type="number" value="' + esc(c.rounding_minutes) + '" data-field="rounding_minutes" min="0" max="60" style="width:60px"></td>' +
+        '<td><input type="text" value="' + esc((c.notes || '').replace('[SEED] ', '')) + '" data-field="notes" style="width:100%;min-width:120px"></td>' +
+        '<td style="text-align:right"><button class="btn btn-primary btn-sm" type="button" data-act="save">Save</button></td>' +
+      '</tr>';
+    }).join('');
+    var tbody = document.querySelector('#cards-table tbody');
+    tbody.innerHTML = rows || '<tr><td colspan="8" class="muted" style="text-align:center;padding:24px">No rate cards on this side. Click "+ Add card".</td></tr>';
+    tbody.querySelectorAll('[data-act="save"]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var row = b.closest('tr');
+        var id = row.getAttribute('data-id');
+        var payload = { rate_card_id: id, side: state.side };
+        row.querySelectorAll('[data-field]').forEach(function (input) {
+          payload[input.getAttribute('data-field')] = input.value;
+        });
+        IntApi.jsonp({ action:'upsert_rate_card', ...payload }).then(function (r) {
+          if (!r.ok) { toast(r.error || 'Save failed', 'error'); return; }
+          toast('Saved.', 'ok');
+        });
+      });
+    });
+  }
+
+  function renderMods() {
+    var rows = state.mods.filter(function (m) { return m.side === state.side; }).sort(function (a, b) { return Number(a.priority || 100) - Number(b.priority || 100); }).map(function (m) {
+      var trigger = (m.trigger || '{}').replace(/^"|"$/g, '');
+      return '<tr data-id="' + esc(m.modifier_id) + '">' +
+        '<td><input type="text" value="' + esc(m.name) + '" data-field="name" style="width:100%;min-width:140px"></td>' +
+        '<td><span class="kind-chip">' + esc(m.kind) + '</span></td>' +
+        '<td><span class="trigger-preview">' + esc(trigger.slice(0, 50)) + '</span></td>' +
+        '<td>' + esc(m.applies_to_service_type) + '</td>' +
+        '<td>' + esc(m.applies_to_modality) + '</td>' +
+        '<td class="right"><input type="number" value="' + esc(m.modifier_pct) + '" data-field="modifier_pct" step="1" style="width:55px"></td>' +
+        '<td class="right"><input type="number" value="' + esc(m.modifier_cents) + '" data-field="modifier_cents" step="100" style="width:65px"></td>' +
+        '<td class="right"><input type="number" value="' + esc(m.priority) + '" data-field="priority" style="width:50px"></td>' +
+        '<td><select data-field="status"><option value="active"' + (m.status === 'active' ? ' selected' : '') + '>active</option><option value="archived"' + (m.status === 'archived' ? ' selected' : '') + '>archived</option></select></td>' +
+        '<td style="text-align:right;white-space:nowrap"><button class="btn btn-primary btn-sm" type="button" data-act="save">Save</button> <button class="btn btn-ghost btn-sm" type="button" data-act="delete">×</button></td>' +
+      '</tr>';
+    }).join('');
+    var tbody = document.querySelector('#mods-table tbody');
+    tbody.innerHTML = rows || '<tr><td colspan="10" class="muted" style="text-align:center;padding:24px">No modifiers on this side.</td></tr>';
+    tbody.querySelectorAll('[data-act="save"]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var row = b.closest('tr');
+        var id = row.getAttribute('data-id');
+        var payload = { modifier_id: id };
+        row.querySelectorAll('[data-field]').forEach(function (input) { payload[input.getAttribute('data-field')] = input.value; });
+        IntApi.jsonp({ action:'upsert_rate_modifier', ...payload }).then(function (r) {
+          if (!r.ok) { toast(r.error || 'Save failed', 'error'); return; }
+          toast('Saved.', 'ok');
+        });
+      });
+    });
+    tbody.querySelectorAll('[data-act="delete"]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        if (!confirm('Delete this modifier?')) return;
+        var row = b.closest('tr');
+        IntApi.jsonp({ action:'delete_rate_modifier', modifier_id: row.getAttribute('data-id') }).then(function (r) {
+          if (!r.ok) { toast(r.error || 'Failed', 'error'); return; }
+          toast('Deleted.', 'ok');
+          setTimeout(loadAll, 500);
+        });
+      });
+    });
+  }
+
+  function addCard() {
+    var svc = prompt('Service type? (medical, legal, education, …)') || '';
+    if (!svc) return;
+    IntApi.jsonp({ action:'upsert_rate_card', side: state.side, service_type: svc, modality:'*', team_config:'*', base_hourly_cents:9500, minimum_hours:2, rounding_minutes:15 })
+      .then(function (r) { if (!r.ok) { toast(r.error, 'error'); return; } toast('Added.', 'ok'); setTimeout(loadAll, 500); });
+  }
+
+  function addMod() {
+    var name = prompt('Modifier name? (e.g., "Evening (after 6pm)")') || '';
+    if (!name) return;
+    var kind = prompt('Kind? (evening|overnight|weekend|holiday|last_minute|rush|cdi_surcharge)', 'evening') || 'evening';
+    var pct = Number(prompt('Percent surcharge (e.g., 15)', '15') || 0);
+    IntApi.jsonp({ action:'upsert_rate_modifier', side: state.side, kind: kind, name: name, trigger:'{}', modifier_pct: pct, modifier_cents: 0, applies_to_service_type:'*', applies_to_modality:'*', priority: 100 })
+      .then(function (r) { if (!r.ok) { toast(r.error, 'error'); return; } toast('Added.', 'ok'); setTimeout(loadAll, 500); });
+  }
+
+  function runQuote() {
+    var start = new Date($('q-start').value);
+    var dur = Number($('q-dur').value || 1);
+    var end = new Date(start.getTime() + dur * 3600000);
+    $('q-status').textContent = 'Computing…';
+    $('q-result').style.display = 'none';
+    IntApi.jsonp({
+      action: 'compute_rate_quote',
+      service_type: $('q-svc').value,
+      modality: $('q-mod').value,
+      team_config: $('q-team').value,
+      scheduled_start: start.toISOString(),
+      scheduled_end: end.toISOString(),
+      interpreter_id: $('q-interp').value
+    }).then(function (r) {
+      if (!r || !r.ok) { $('q-status').textContent = (r && r.error) || 'Failed'; return; }
+      $('q-status').textContent = '';
+      renderQuote(r.quote);
+    });
+  }
+
+  function renderQuote(q) {
+    function fmt(c) { return '$' + (Number(c || 0) / 100).toFixed(2); }
+    function pct(n) { return (n > 0 ? '+' : '') + n + '%'; }
+    function side(s, label) {
+      var modLines = (s.modifiers || []).map(function (m) {
+        var detail = (m.pct ? pct(m.pct) : '') + (m.cents ? ' +' + fmt(m.cents) : '');
+        return '<div class="quote-line muted"><span>· ' + esc(m.name) + '</span><span>' + detail + '</span></div>';
+      }).join('');
+      var floorBadge = s.floor_enforced ? ' <span class="kind-chip" style="background:var(--1891int-bloom-tint);color:var(--1891int-bloom-deep)">floor enforced</span>' : '';
+      return '<div class="quote-card">' +
+        '<h3 class="mt-0" style="font-size:14px;text-transform:uppercase;letter-spacing:.08em;color:var(--1891int-fog);margin-bottom:8px">' + label + floorBadge + '</h3>' +
+        '<div class="quote-line"><span>Base ' + s.base_hourly_cents + '¢/hr × ' + s.hours + ' hr' + (s.minimum_hours_applied ? ' (min ' + s.minimum_hours + 'h applied)' : '') + '</span><span>' + fmt(s.subtotal_cents) + '</span></div>' +
+        modLines +
+        '<div class="quote-line bold"><span>Total</span><span>' + fmt(s.total_cents) + '</span></div>' +
+      '</div>';
+    }
+    var meta = q.meta;
+    var metaTags = [];
+    if (meta.is_evening) metaTags.push('evening');
+    if (meta.is_overnight) metaTags.push('overnight');
+    if (meta.is_weekend) metaTags.push('weekend');
+    if (meta.is_holiday) metaTags.push('holiday');
+    if (meta.is_last_minute) metaTags.push('last-minute');
+    if (meta.is_rush) metaTags.push('rush');
+    var html = '<div class="grid grid-2" style="gap:var(--1891int-s-3)">' + side(q.bill, 'Bill (charge to payer)') + side(q.pay, 'Pay (to interpreter)') + '</div>' +
+      '<p class="muted" style="font-size:13px;margin-top:var(--1891int-s-3)">Quote context: ' + (metaTags.join(' · ') || 'standard hours, weekday') + ' · lead time ' + meta.lead_hours + 'h</p>';
+    $('q-result').innerHTML = html;
+    $('q-result').style.display = '';
+  }
+})();
+</script>
+</body>
+</html>

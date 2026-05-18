@@ -62,7 +62,12 @@ var T = {
   // 1891-specific tabs (not in A3 but needed)
   Inbound: 'Inbound',
   DeafOwnedApplications: 'Deaf_Owned_Applications',
-  AuthTokens: 'Auth_Tokens'  // magic-link issuance log
+  AuthTokens: 'Auth_Tokens',  // magic-link issuance log
+  // Rate engine + onboarding
+  InterpreterDocuments: 'Interpreter_Documents',
+  TenantRequirements: 'Tenant_Requirements',
+  RateModifiers: 'Rate_Modifiers',
+  RateCards: 'Rate_Cards'
 };
 
 var AUTH_TOKEN_TTL_MS = 15 * 60 * 1000;        // magic link valid for 15 min
@@ -112,6 +117,15 @@ function doGet(e) {
       case 'list_stripe_accounts': return _safeCall('apiListStripeAccounts', e);
       case 'list_1099_forms':    return _safeCall('apiList1099Forms', e);
       case 'payment_setup_status': return _safeCall('apiPaymentSetupStatus', e);
+      // Rate engine + docs + qualifications
+      case 'compute_rate_quote': return _safeCall('apiComputeRateQuote', e);
+      case 'compute_cancel_quote': return _safeCall('apiComputeCancellationQuote', e);
+      case 'list_rate_modifiers':return _safeCall('apiListRateModifiers', e);
+      case 'list_rate_cards':    return _safeCall('apiListRateCards', e);
+      case 'list_requirements':  return _safeCall('apiListRequirements', e);
+      case 'list_interpreter_docs': return _safeCall('apiListInterpreterDocs', e);
+      case 'qualification_check': return _safeCall('apiQualificationCheck', e);
+      case 'smart_fill_qualified': return _safeCall('apiSmartFillQualified', e);
       case 'switch_tenant':      return _safeCall('apiSwitchTenant', e);  // GET-path enables JSONP response read
       case '_rotate_hmac':       return apiRotateHmac(e);                  // one-shot Worker-secret sync
       case '_mail_debug':        return apiMailDebug(e);                   // diagnostic
@@ -178,6 +192,14 @@ function doPost(e) {
       case 'setup_stripe_credentials':  return _safeCall('apiSetupStripeCredentials', e);
       case 'setup_track1099_credentials': return _safeCall('apiSetupTrack1099Credentials', e);
       case 'setup_plaid_credentials':   return _safeCall('apiSetupPlaidCredentials', e);
+      // Rate engine + docs + requirements
+      case 'upsert_rate_modifier':      return _safeCall('apiUpsertRateModifier', e);
+      case 'delete_rate_modifier':      return _safeCall('apiDeleteRateModifier', e);
+      case 'upsert_rate_card':          return _safeCall('apiUpsertRateCard', e);
+      case 'upsert_interpreter_doc':    return _safeCall('apiUpsertInterpreterDoc', e);
+      case 'upsert_requirement':        return _safeCall('apiUpsertRequirement', e);
+      case 'delete_requirement':        return _safeCall('apiDeleteRequirement', e);
+      case 'update_interpreter_rates':  return _safeCall('apiUpdateInterpreterRates', e);
       default:                   return _json({ ok:false, error:'Unknown action: ' + action }, 404);
     }
   } catch (err) {
@@ -1807,7 +1829,11 @@ function _tenantSchema() {
     Agencies: ['tenant_id','legal_name','tax_id_last4','tier','phi_mode','timezone','primary_owner_user_id','logo_r2_key','brand_color','billing_email','_created_at','_updated_at'],
     Users: ['user_id','tenant_id','email','phone_e164','display_name','role_id','interpreter_id','status','mfa_enabled','webauthn_credential_ids','last_login_at','pii_scope','failed_login_count','sso_subject','_created_at','_updated_at'],
     Roles: ['role_id','tenant_id','display_name','permissions','can_break_glass','max_pii_scope','_created_at','_updated_at'],
-    Interpreters: ['interpreter_id','tenant_id','user_id','classification','legal_first','legal_last','pronouns','home_city','home_state','home_zip','service_radius_mi','has_vehicle','modalities','languages','certifications','skills','rate_card_id','min_call_hours','availability_prefs','availability_doc_id','payment_method','payment_details_encrypted','w9_doc_id','coi_doc_id','background_check_at','deaf','notes_internal','status','_created_at','_updated_at','_rev'],
+    Interpreters: ['interpreter_id','tenant_id','user_id','classification','legal_first','legal_last','pronouns','home_city','home_state','home_zip','service_radius_mi','has_vehicle','modalities','languages','certifications','skills','rate_card_id','min_call_hours','availability_prefs','availability_doc_id','payment_method','payment_details_encrypted','w9_doc_id','coi_doc_id','background_check_at','deaf','notes_internal','status','rid_member_number','bei_member_number','other_member_numbers','pay_rate_floors','cancellation_floors','evening_premium_pct','weekend_premium_pct','last_minute_premium_pct','holiday_premium_pct','mileage_rate_cents','travel_time_rate_cents','specialty_endorsements','availability_windows','onboarding_completed_at','_created_at','_updated_at','_rev'],
+    Interpreter_Documents: ['doc_id','tenant_id','interpreter_id','doc_type','doc_name','status','required','issued_at','expires_at','reviewer_user_id','reviewed_at','file_r2_key','sha256','notes','_created_at','_updated_at'],
+    Tenant_Requirements: ['req_id','tenant_id','applies_to_service_type','applies_to_modality','doc_type','display_name','required','reminder_days','renewal_period_months','notes','_created_at','_updated_at'],
+    Rate_Modifiers: ['modifier_id','tenant_id','side','kind','name','trigger','modifier_pct','modifier_cents','applies_to_service_type','applies_to_modality','priority','status','notes','_created_at','_updated_at'],
+    Rate_Cards: ['rate_card_id','tenant_id','side','service_type','modality','team_config','base_hourly_cents','minimum_hours','rounding_minutes','notes','_created_at','_updated_at'],
     Languages: ['language_id','display_name','family','directionalities','dialects','script','rtl','_created_at','_updated_at'],
     Certifications: ['certification_id','body','display_name','applies_to_languages','renewable','ceu_required','_created_at','_updated_at'],
     Requestors: ['requestor_id','tenant_id','display_name','type','parent_org_id','billing_payer_id','default_location_id','contract_doc_id','po_required','notes','status','_created_at','_updated_at','_rev'],

@@ -51,6 +51,11 @@ function seedHostTenant() {
   report.payers = seedPayers_(ss, TID);
   report.locations = seedLocations_(ss, TID, report.requestors);
   report.consumers = seedConsumers_(ss, TID);
+  // New: rate engine + docs
+  report.rate_cards = seedRateCards_(ss, TID);
+  report.rate_modifiers = seedRateModifiers_(ss, TID);
+  report.requirements = seedRequirements_(ss, TID);
+  report.interpreter_docs = seedInterpreterDocs_(ss, TID, report.interpreters);
   report.jobs = seedJobs_(ss, TID, {
     interpreters: report.interpreters,
     requestors: report.requestors,
@@ -77,6 +82,10 @@ function seedHostTenant() {
     payers: report.payers.length,
     locations: report.locations.length,
     consumers: report.consumers.length,
+    rate_cards: report.rate_cards.length,
+    rate_modifiers: report.rate_modifiers.length,
+    requirements: report.requirements.length,
+    interpreter_docs: report.interpreter_docs.length,
     jobs: report.jobs.length,
     assignments: report.assignments.length,
     invoices: report.invoices.length,
@@ -90,47 +99,98 @@ function seedInterpreters_(ss, tid) {
   var sh = _ensureTab(ss, T.Interpreters, _tenantSchema().Interpreters);
   var existing = _existingByCol_(sh, 'legal_first', 'legal_last');
   var out = [];
+  // Each interpreter now has pay_rate_floors (their own minimum hourly per service × modality),
+  // cancellation_floors (their own cancellation minimums), premiums, mileage, endorsements, RID number.
   var roster = [
     { first:'Maria',    last:'Rivera',    pronouns:'she/her',  deaf:false, cls:'1099', city:'Frederick',     state:'MD', zip:'21701', radius:60,
       langs:[{lang:'ASL',dir:'bi'},{lang:'en-US',dir:'voice'}],
       certs:[{cert:'NIC',number:'NIC-MR-2018',exp:'2028-04'},{cert:'CCHI-CHI',number:'C-MR-2020',exp:'2027-06'}],
-      mods:['on-site','VRI'], skills:['medical','mental-health'] },
+      mods:['on-site','VRI'], skills:['medical','mental-health'],
+      rid:'88142', endorsements:['medical','mental-health'],
+      floors:{ medical:{'on-site':6500,'VRI':5500}, 'mental-health':{'*':7000}, '*':{'*':5500} },
+      cancel_floors:{ '<12h':9000, '12-24h':6000, '24-48h':3000, default:3000 },
+      premiums:{ evening:15, weekend:25, lastmin:15, holiday:50 }, mileage:67, travel:3500 },
+
     { first:'Marcus',   last:'Thompson',  pronouns:'he/him',   deaf:true,  cls:'1099', city:'Frederick',     state:'MD', zip:'21703', radius:75,
       langs:[{lang:'ASL',dir:'bi'},{lang:'ProTactile',dir:'bi'}],
       certs:[{cert:'CDI',number:'CDI-MT-2017',exp:'2027-09'}],
-      mods:['on-site','VRI'], skills:['CDI','medical','legal','community'] },
+      mods:['on-site','VRI'], skills:['CDI','medical','legal','community'],
+      rid:'72918', endorsements:['CDI','medical','legal','protactile'],
+      floors:{ medical:{'on-site':8500,'VRI':7500}, legal:{'*':10500}, '*':{'*':7000} },
+      cancel_floors:{ '<12h':12000, '12-24h':8000, '24-48h':4000, default:4000 },
+      premiums:{ evening:20, weekend:30, lastmin:25, holiday:50 }, mileage:67, travel:4500 },
+
     { first:'Sarah',    last:'Chen',      pronouns:'she/her',  deaf:false, cls:'W2',   city:'Rockville',     state:'MD', zip:'20850', radius:50,
       langs:[{lang:'ASL',dir:'bi'},{lang:'cmn-CN',dir:'voice'},{lang:'en-US',dir:'voice'}],
       certs:[{cert:'NIC-Advanced',number:'NIC-A-SC-2020',exp:'2028-04'}],
-      mods:['on-site','VRI','OPI'], skills:['medical','trilingual'] },
+      mods:['on-site','VRI','OPI'], skills:['medical','trilingual'],
+      rid:'91247', endorsements:['medical','trilingual'],
+      floors:{ medical:{'on-site':7000,'VRI':6000,'OPI':5500}, '*':{'*':6000} },
+      cancel_floors:{ '<12h':10000, '12-24h':6500, '24-48h':3500, default:3500 },
+      premiums:{ evening:15, weekend:25, lastmin:20, holiday:50 }, mileage:67, travel:3500 },
+
     { first:'David',    last:'Park',      pronouns:'he/him',   deaf:false, cls:'1099', city:'Gaithersburg',  state:'MD', zip:'20878', radius:40,
       langs:[{lang:'ko',dir:'bi'},{lang:'en-US',dir:'voice'}],
       certs:[{cert:'NBCMI',number:'NB-DP-2019',exp:'2027-12'}],
-      mods:['on-site','VRI','OPI'], skills:['medical','legal'] },
+      mods:['on-site','VRI','OPI'], skills:['medical','legal'],
+      rid:'', endorsements:['medical','legal'],
+      floors:{ medical:{'on-site':7500,'VRI':6500,'OPI':6000}, legal:{'*':9500}, '*':{'*':6500} },
+      cancel_floors:{ '<12h':10000, '12-24h':6500, '24-48h':3500, default:3500 },
+      premiums:{ evening:15, weekend:25, lastmin:20, holiday:50 }, mileage:67, travel:3500 },
+
     { first:'Patrice',  last:'Joseph',    pronouns:'she/her',  deaf:false, cls:'1099', city:'Silver Spring', state:'MD', zip:'20910', radius:45,
       langs:[{lang:'ht',dir:'bi'},{lang:'fr',dir:'voice'},{lang:'en-US',dir:'voice'}],
       certs:[{cert:'NBCMI',number:'NB-PJ-2021',exp:'2028-02'}],
-      mods:['on-site','OPI'], skills:['medical','community'] },
+      mods:['on-site','OPI'], skills:['medical','community'],
+      rid:'', endorsements:['medical','community'],
+      floors:{ medical:{'on-site':7000,'OPI':5500}, '*':{'*':6000} },
+      cancel_floors:{ '<12h':9000, '12-24h':5500, '24-48h':3000, default:3000 },
+      premiums:{ evening:15, weekend:25, lastmin:15, holiday:50 }, mileage:67, travel:3500 },
+
     { first:'Ahmad',    last:'Hassan',    pronouns:'he/him',   deaf:false, cls:'1099', city:'Hagerstown',    state:'MD', zip:'21740', radius:60,
       langs:[{lang:'ar-MSA',dir:'bi'},{lang:'en-US',dir:'voice'}],
       certs:[{cert:'CCHI-CHI',number:'C-AH-2019',exp:'2026-10'}],
-      mods:['on-site','OPI'], skills:['medical','community','legal'] },
+      mods:['on-site','OPI'], skills:['medical','community','legal'],
+      rid:'', endorsements:['medical','community','legal'],
+      floors:{ medical:{'on-site':7500,'OPI':6000}, legal:{'*':9500}, '*':{'*':6500} },
+      cancel_floors:{ '<12h':10000, '12-24h':6500, '24-48h':3500, default:3500 },
+      premiums:{ evening:15, weekend:25, lastmin:20, holiday:50 }, mileage:67, travel:4500 },
+
     { first:'Wei',      last:'Liu',       pronouns:'they/them',deaf:false, cls:'1099', city:'Frederick',     state:'MD', zip:'21704', radius:35,
       langs:[{lang:'cmn-CN',dir:'bi'},{lang:'yue-HK',dir:'bi'},{lang:'en-US',dir:'voice'}],
       certs:[{cert:'CCHI-CHI',number:'C-WL-2022',exp:'2028-05'}],
-      mods:['on-site','VRI','OPI'], skills:['medical'] },
+      mods:['on-site','VRI','OPI'], skills:['medical'],
+      rid:'', endorsements:['medical'],
+      floors:{ medical:{'on-site':7000,'VRI':6000,'OPI':5500}, '*':{'*':6000} },
+      cancel_floors:{ '<12h':9000, '12-24h':5500, '24-48h':3000, default:3000 },
+      premiums:{ evening:15, weekend:25, lastmin:15, holiday:50 }, mileage:67, travel:3500 },
+
     { first:'Elena',    last:'Vasquez',   pronouns:'she/her',  deaf:false, cls:'W2',   city:'Frederick',     state:'MD', zip:'21702', radius:30,
       langs:[{lang:'es-419',dir:'bi'},{lang:'en-US',dir:'voice'}],
       certs:[{cert:'CCHI-CHI',number:'C-EV-2018',exp:'2027-04'},{cert:'NBCMI',number:'NB-EV-2019',exp:'2027-08'},{cert:'CMI-Spanish',number:'CM-EV-2019',exp:'2027-08'}],
-      mods:['on-site','VRI','OPI'], skills:['medical','mental-health','legal'] },
+      mods:['on-site','VRI','OPI'], skills:['medical','mental-health','legal'],
+      rid:'', endorsements:['medical','mental-health','legal'],
+      floors:{ medical:{'on-site':7500,'VRI':6500,'OPI':6000}, 'mental-health':{'*':8500}, legal:{'*':10000}, '*':{'*':6500} },
+      cancel_floors:{ '<12h':11000, '12-24h':7000, '24-48h':3500, default:3500 },
+      premiums:{ evening:15, weekend:25, lastmin:20, holiday:50 }, mileage:67, travel:3500 },
+
     { first:'Jordan',   last:'Hayes',     pronouns:'they/them',deaf:false, cls:'1099', city:'Baltimore',     state:'MD', zip:'21218', radius:80,
       langs:[{lang:'ASL',dir:'bi'},{lang:'en-US',dir:'voice'}],
       certs:[{cert:'NIC-Master',number:'NIC-M-JH-2019',exp:'2028-04'},{cert:'SC:L',number:'SCL-JH-2020',exp:'2027-11'}],
-      mods:['on-site','VRI'], skills:['legal','medical'] },
+      mods:['on-site','VRI'], skills:['legal','medical'],
+      rid:'62841', endorsements:['legal','medical'],
+      floors:{ legal:{'on-site':11500,'VRI':10000}, medical:{'on-site':8500,'VRI':7000}, '*':{'*':7500} },
+      cancel_floors:{ '<12h':14000, '12-24h':9000, '24-48h':5000, default:4000 },
+      premiums:{ evening:20, weekend:30, lastmin:25, holiday:50 }, mileage:67, travel:5500 },
+
     { first:'Riya',     last:'Patel',     pronouns:'she/her',  deaf:false, cls:'1099', city:'Frederick',     state:'MD', zip:'21701', radius:50,
       langs:[{lang:'ASL',dir:'bi'},{lang:'es-419',dir:'voice'},{lang:'en-US',dir:'voice'}],
       certs:[{cert:'EIPA-4.0',number:'EIPA-RP-2021',exp:'2026-08'}],
-      mods:['on-site','VRI'], skills:['education','K-12','trilingual'] }
+      mods:['on-site','VRI'], skills:['education','K-12','trilingual'],
+      rid:'74203', endorsements:['k12','trilingual'],
+      floors:{ education:{'on-site':6500,'VRI':5500}, '*':{'*':5500} },
+      cancel_floors:{ '<12h':8500, '12-24h':5500, '24-48h':3000, default:2500 },
+      premiums:{ evening:10, weekend:25, lastmin:15, holiday:50 }, mileage:67, travel:3500 }
   ];
   var hdr = _tenantSchema().Interpreters;
   var now = new Date().toISOString();
@@ -155,10 +215,24 @@ function seedInterpreters_(ss, tid) {
       w9_doc_id: '', coi_doc_id: '', background_check_at: '',
       deaf: p.deaf, notes_internal: '[SEED] Demo roster',
       status: 'active',
+      rid_member_number: p.rid || '',
+      bei_member_number: '',
+      other_member_numbers: '{}',
+      pay_rate_floors: JSON.stringify(p.floors || {}),
+      cancellation_floors: JSON.stringify(p.cancel_floors || {}),
+      evening_premium_pct: p.premiums.evening,
+      weekend_premium_pct: p.premiums.weekend,
+      last_minute_premium_pct: p.premiums.lastmin,
+      holiday_premium_pct: p.premiums.holiday,
+      mileage_rate_cents: p.mileage,
+      travel_time_rate_cents: p.travel,
+      specialty_endorsements: JSON.stringify(p.endorsements || []),
+      availability_windows: '{}',
+      onboarding_completed_at: '',
       _created_at: now, _updated_at: now, _rev: 1
     };
     sh.appendRow(hdr.map(function (c) { return row[c] !== undefined ? row[c] : ''; }));
-    out.push({ interpreter_id: id, first: p.first, last: p.last, deaf: p.deaf, mods: p.mods, langs: p.langs });
+    out.push({ interpreter_id: id, first: p.first, last: p.last, deaf: p.deaf, mods: p.mods, langs: p.langs, endorsements: p.endorsements });
   });
   return out;
 }
@@ -750,6 +824,388 @@ function wipeSeed() {
   });
   _logAudit('seed.wipe', 'host', 'system', JSON.stringify(report));
   return report;
+}
+
+// ============================================================================
+// RATE CARDS, MODIFIERS, REQUIREMENTS, INTERPRETER DOCS
+// ============================================================================
+
+function seedRateCards_(ss, tid) {
+  var sh = _ensureTab(ss, T.RateCards, _tenantSchema().Rate_Cards);
+  var hdr = _tenantSchema().Rate_Cards;
+  if (sh.getLastRow() >= 2) {
+    // Idempotent: skip if any tenant rows exist
+    var data = sh.getDataRange().getValues();
+    var iTenant = data[0].indexOf('tenant_id');
+    for (var i = 1; i < data.length; i++) {
+      if (String(data[i][iTenant]) === tid) return _existingArr_(sh, hdr, iTenant, tid);
+    }
+  }
+  var now = new Date().toISOString();
+  // Bill-side cards: what the agency charges payers
+  var billCards = [
+    { svc:'medical',       mod:'*',       team:'*',           hourly:9500,  min:2.0, round:15, notes:'Standard medical bill rate' },
+    { svc:'medical',       mod:'VRI',     team:'*',           hourly:8000,  min:1.0, round:15, notes:'VRI billed per-minute → rounded up to 15min' },
+    { svc:'medical',       mod:'OPI',     team:'*',           hourly:7500,  min:0.25,round:5,  notes:'OPI per-minute, 5-min rounding' },
+    { svc:'mental-health', mod:'*',       team:'*',           hourly:11500, min:2.0, round:15, notes:'Mental-health premium' },
+    { svc:'legal',         mod:'*',       team:'solo',        hourly:12500, min:2.0, round:15, notes:'Legal/court' },
+    { svc:'legal',         mod:'*',       team:'team-of-2',   hourly:12500, min:2.0, round:15, notes:'Per-interpreter, 2 interpreters billed' },
+    { svc:'education',     mod:'*',       team:'*',           hourly:8500,  min:1.0, round:15, notes:'K-12 / higher-ed' },
+    { svc:'community',     mod:'*',       team:'*',           hourly:8000,  min:1.0, round:15, notes:'Community / nonprofit' },
+    { svc:'corporate',     mod:'*',       team:'*',           hourly:11500, min:2.0, round:15, notes:'Corporate / business' },
+    { svc:'gov',           mod:'*',       team:'*',           hourly:11000, min:2.0, round:15, notes:'Government' },
+    { svc:'translation',   mod:'*',       team:'*',           hourly:0,     min:0,   round:0,  notes:'Translation is per-word; see Settings rate_card.translation.per_word_cents' }
+  ];
+  // Pay-side default cards: what the agency pays interpreters (60% of bill is typical)
+  var payCards = billCards.map(function (c) {
+    return Object.assign({}, c, { hourly: Math.round(c.hourly * 0.6), notes:'Default pay-side; interpreter floor may override.' });
+  });
+  var out = [];
+  function add(card, side) {
+    var id = _ulid('rc');
+    var row = {
+      rate_card_id: id, tenant_id: tid, side: side,
+      service_type: card.svc, modality: card.mod, team_config: card.team,
+      base_hourly_cents: card.hourly,
+      minimum_hours: card.min,
+      rounding_minutes: card.round,
+      notes: '[SEED] ' + card.notes,
+      _created_at: now, _updated_at: now
+    };
+    sh.appendRow(hdr.map(function (c) { return row[c] !== undefined ? row[c] : ''; }));
+    out.push({ rate_card_id: id, side: side, svc: card.svc, mod: card.mod, team: card.team, hourly: card.hourly });
+  }
+  billCards.forEach(function (c) { add(c, 'bill'); });
+  payCards.forEach(function (c) { add(c, 'pay'); });
+  return out;
+}
+
+function seedRateModifiers_(ss, tid) {
+  var sh = _ensureTab(ss, T.RateModifiers, _tenantSchema().Rate_Modifiers);
+  var hdr = _tenantSchema().Rate_Modifiers;
+  if (sh.getLastRow() >= 2) {
+    var data = sh.getDataRange().getValues();
+    var iTenant = data[0].indexOf('tenant_id');
+    for (var i = 1; i < data.length; i++) {
+      if (String(data[i][iTenant]) === tid) return _existingArr_(sh, hdr, iTenant, tid);
+    }
+  }
+  var now = new Date().toISOString();
+  var mods = [
+    // Bill-side modifiers
+    { side:'bill', kind:'evening',     name:'Evening (6pm–10pm)',           trigger:{ after_hour:18, before_hour:22 }, pct:15,  cents:0,    svc:'*', mod:'*',       priority:10,  notes:'Standard evening surcharge' },
+    { side:'bill', kind:'overnight',   name:'Overnight (10pm–6am)',         trigger:{ start_hour:22, end_hour:6 },     pct:50,  cents:0,    svc:'*', mod:'*',       priority:20,  notes:'Overnight premium' },
+    { side:'bill', kind:'weekend',     name:'Weekend',                      trigger:{ days:[6,7] },                    pct:25,  cents:0,    svc:'*', mod:'*',       priority:30,  notes:'Sat/Sun premium' },
+    { side:'bill', kind:'holiday',     name:'Federal holiday',              trigger:{},                                pct:50,  cents:0,    svc:'*', mod:'*',       priority:40,  notes:'US federal holidays' },
+    { side:'bill', kind:'last_minute', name:'Last-minute (<24h notice)',    trigger:{ hours_before:24 },               pct:20,  cents:0,    svc:'*', mod:'*',       priority:50,  notes:'Booked < 24h before scheduled start' },
+    { side:'bill', kind:'rush',        name:'Rush (<4h notice)',            trigger:{ hours_before:4 },                pct:50,  cents:0,    svc:'*', mod:'*',       priority:55,  notes:'Same-day emergency dispatch' },
+    { side:'bill', kind:'cdi_surcharge',name:'CDI team surcharge',          trigger:{ team_configs:['cdi+hearing'] },  pct:0,   cents:5000, svc:'*', mod:'on-site', priority:60,  notes:'Per-job admin fee for CDI configuration' },
+    // Pay-side modifiers (typically lower percentage so the agency keeps margin)
+    { side:'pay',  kind:'evening',     name:'Evening (6pm–10pm)',           trigger:{ after_hour:18, before_hour:22 }, pct:10,  cents:0,    svc:'*', mod:'*',       priority:10,  notes:'Evening premium passed through to interpreter' },
+    { side:'pay',  kind:'overnight',   name:'Overnight (10pm–6am)',         trigger:{ start_hour:22, end_hour:6 },     pct:30,  cents:0,    svc:'*', mod:'*',       priority:20,  notes:'Overnight premium passed through' },
+    { side:'pay',  kind:'weekend',     name:'Weekend',                      trigger:{ days:[6,7] },                    pct:15,  cents:0,    svc:'*', mod:'*',       priority:30,  notes:'Weekend premium passed through' },
+    { side:'pay',  kind:'holiday',     name:'Federal holiday',              trigger:{},                                pct:30,  cents:0,    svc:'*', mod:'*',       priority:40,  notes:'Holiday premium passed through' },
+    { side:'pay',  kind:'last_minute', name:'Last-minute (<24h)',           trigger:{ hours_before:24 },               pct:15,  cents:0,    svc:'*', mod:'*',       priority:50,  notes:'Last-minute premium passed through' },
+    { side:'pay',  kind:'rush',        name:'Rush (<4h)',                   trigger:{ hours_before:4 },                pct:30,  cents:0,    svc:'*', mod:'*',       priority:55,  notes:'Rush premium passed through' }
+  ];
+  var out = [];
+  mods.forEach(function (m) {
+    var id = _ulid('rm');
+    var row = {
+      modifier_id: id, tenant_id: tid,
+      side: m.side, kind: m.kind, name: m.name,
+      trigger: JSON.stringify(m.trigger),
+      modifier_pct: m.pct, modifier_cents: m.cents,
+      applies_to_service_type: m.svc, applies_to_modality: m.mod,
+      priority: m.priority, status:'active',
+      notes:'[SEED] ' + m.notes,
+      _created_at: now, _updated_at: now
+    };
+    sh.appendRow(hdr.map(function (c) { return row[c] !== undefined ? row[c] : ''; }));
+    out.push({ modifier_id: id, kind: m.kind, side: m.side, name: m.name });
+  });
+  return out;
+}
+
+function seedRequirements_(ss, tid) {
+  var sh = _ensureTab(ss, T.TenantRequirements, _tenantSchema().Tenant_Requirements);
+  var hdr = _tenantSchema().Tenant_Requirements;
+  if (sh.getLastRow() >= 2) {
+    var data = sh.getDataRange().getValues();
+    var iTenant = data[0].indexOf('tenant_id');
+    for (var i = 1; i < data.length; i++) {
+      if (String(data[i][iTenant]) === tid) return _existingArr_(sh, hdr, iTenant, tid);
+    }
+  }
+  var now = new Date().toISOString();
+  // Universal docs (required for every job, every service type)
+  var universal = [
+    { doc:'w9_form',                   renew:60,  remind:30, notes:'Tax form required for all 1099 contractors' },
+    { doc:'confidentiality_agreement', renew:36,  remind:60, notes:'Agency confidentiality / NDA' },
+    { doc:'conflict_of_interest',      renew:12,  remind:30, notes:'Annual COI disclosure' },
+    { doc:'certificate_of_insurance',  renew:12,  remind:30, notes:'$1M professional liability minimum' }
+  ];
+  // Medical-specific docs (PHI access, vaccinations required by hospital partners)
+  var medical = [
+    { doc:'hipaa_training',     renew:12, remind:30, notes:'Annual HIPAA refresh required by all hospital partners' },
+    { doc:'bbp_training',       renew:24, remind:45, notes:'Bloodborne pathogens; biennial' },
+    { doc:'tb_test',            renew:12, remind:45, notes:'Annual TB test required by Catoctin Regional + Riverside' },
+    { doc:'mmr_immunization',   renew:0,  remind:0,  notes:'One-time MMR immunization record' },
+    { doc:'covid_vaccination',  renew:0,  remind:0,  notes:'COVID-19 primary series; boosters per CDC' },
+    { doc:'hep_b_immunization', renew:0,  remind:0,  notes:'Hep B immunization or signed declination' },
+    { doc:'flu_vaccination',    renew:12, remind:30, notes:'Annual flu shot; required Oct–Mar' },
+    { doc:'medical_terminology',renew:0,  remind:0,  notes:'One-time medical terminology training' }
+  ];
+  var mentalHealth = [
+    { doc:'hipaa_training',           renew:12, remind:30, notes:'Required for PHI access' },
+    { doc:'mental_health_endorsement',renew:0,  remind:0,  notes:'Agency endorsement after shadowing + intake training' }
+  ];
+  var legal = [
+    { doc:'background_check', renew:36, remind:60, notes:'Required by court system; renewed every 3 years' },
+    { doc:'legal_endorsement',renew:0,  remind:0,  notes:'Court-eligible (SC:L for ASL, FCICE for spoken)' }
+  ];
+  var k12 = [
+    { doc:'background_check', renew:36, remind:60, notes:'School district background check' },
+    { doc:'k12_endorsement',  renew:0,  remind:0,  notes:'EIPA 3.5+ minimum' }
+  ];
+  var out = [];
+  function add(svc, list) {
+    list.forEach(function (req) {
+      var id = _ulid('rq');
+      var row = {
+        req_id: id, tenant_id: tid,
+        applies_to_service_type: svc, applies_to_modality: '*',
+        doc_type: req.doc,
+        display_name: _docDisplayName(req.doc),
+        required: true,
+        reminder_days: req.remind,
+        renewal_period_months: req.renew,
+        notes: '[SEED] ' + (req.notes || ''),
+        _created_at: now, _updated_at: now
+      };
+      sh.appendRow(hdr.map(function (c) { return row[c] !== undefined ? row[c] : ''; }));
+      out.push({ req_id: id, svc: svc, doc: req.doc });
+    });
+  }
+  add('*', universal);
+  add('medical', medical);
+  add('mental-health', mentalHealth);
+  add('legal', legal);
+  add('education', k12);
+  return out;
+}
+
+function seedInterpreterDocs_(ss, tid, interpreters) {
+  var sh = _ensureTab(ss, T.InterpreterDocuments, _tenantSchema().Interpreter_Documents);
+  var hdr = _tenantSchema().Interpreter_Documents;
+  if (sh.getLastRow() >= 2) {
+    var data = sh.getDataRange().getValues();
+    var iTenant = data[0].indexOf('tenant_id');
+    for (var i = 1; i < data.length; i++) {
+      if (String(data[i][iTenant]) === tid) return _existingArr_(sh, hdr, iTenant, tid);
+    }
+  }
+  var now = new Date();
+  var nowIso = now.toISOString();
+  // Build doc inventory per interpreter — some fully compliant, some with gaps for realism
+  // Status mix: most approved + current; some expiring soon; one expired; one pending
+  function dt(daysFromNow) { return new Date(now.getTime() + daysFromNow * 86400000).toISOString(); }
+
+  // Per-interpreter doc roll based on their specialty mix.
+  var profiles = {
+    'Maria Rivera': {
+      docs: [
+        { dt:'w9_form',                  st:'approved', issued: dt(-90),  expires: dt(900) },
+        { dt:'confidentiality_agreement',st:'approved', issued: dt(-90),  expires: dt(-90 + 36 * 30) },
+        { dt:'conflict_of_interest',     st:'approved', issued: dt(-30),  expires: dt(335) },
+        { dt:'certificate_of_insurance', st:'approved', issued: dt(-60),  expires: dt(305) },
+        { dt:'hipaa_training',           st:'approved', issued: dt(-150), expires: dt(215) },
+        { dt:'bbp_training',             st:'approved', issued: dt(-200), expires: dt(530) },
+        { dt:'tb_test',                  st:'approved', issued: dt(-340), expires: dt(25) }, // expiring soon
+        { dt:'mmr_immunization',         st:'approved', issued: dt(-1000),expires:'' },
+        { dt:'covid_vaccination',        st:'approved', issued: dt(-200), expires:'' },
+        { dt:'hep_b_immunization',       st:'approved', issued: dt(-2000),expires:'' },
+        { dt:'flu_vaccination',          st:'approved', issued: dt(-30),  expires: dt(335) },
+        { dt:'medical_terminology',      st:'approved', issued: dt(-1500),expires:'' },
+        { dt:'mental_health_endorsement',st:'approved', issued: dt(-365), expires:'' }
+      ]
+    },
+    'Marcus Thompson': {
+      docs: [
+        { dt:'w9_form',                  st:'approved', issued: dt(-180), expires: dt(900) },
+        { dt:'confidentiality_agreement',st:'approved', issued: dt(-180), expires: dt(900) },
+        { dt:'conflict_of_interest',     st:'approved', issued: dt(-30),  expires: dt(335) },
+        { dt:'certificate_of_insurance', st:'approved', issued: dt(-90),  expires: dt(275) },
+        { dt:'hipaa_training',           st:'approved', issued: dt(-100), expires: dt(265) },
+        { dt:'bbp_training',             st:'approved', issued: dt(-200), expires: dt(530) },
+        { dt:'tb_test',                  st:'approved', issued: dt(-120), expires: dt(245) },
+        { dt:'mmr_immunization',         st:'approved', issued: dt(-3000),expires:'' },
+        { dt:'covid_vaccination',        st:'approved', issued: dt(-200), expires:'' },
+        { dt:'flu_vaccination',          st:'approved', issued: dt(-45),  expires: dt(320) },
+        { dt:'background_check',         st:'approved', issued: dt(-365), expires: dt(730) },
+        { dt:'legal_endorsement',        st:'approved', issued: dt(-200), expires:'' },
+        { dt:'medical_terminology',      st:'approved', issued: dt(-1200),expires:'' }
+      ]
+    },
+    'Sarah Chen': {
+      docs: [
+        { dt:'w9_form',                  st:'approved', issued: dt(-50),  expires: dt(900) },
+        { dt:'confidentiality_agreement',st:'approved', issued: dt(-50),  expires: dt(1000) },
+        { dt:'conflict_of_interest',     st:'pending',  issued: dt(-2),   expires: dt(365) }, // pending review
+        { dt:'certificate_of_insurance', st:'approved', issued: dt(-30),  expires: dt(335) },
+        { dt:'hipaa_training',           st:'approved', issued: dt(-100), expires: dt(265) },
+        { dt:'tb_test',                  st:'approved', issued: dt(-300), expires: dt(65) },
+        { dt:'mmr_immunization',         st:'approved', issued: dt(-3000),expires:'' },
+        { dt:'covid_vaccination',        st:'approved', issued: dt(-100), expires:'' },
+        { dt:'flu_vaccination',          st:'approved', issued: dt(-60),  expires: dt(305) }
+      ]
+    },
+    'David Park': {
+      docs: [
+        { dt:'w9_form',                  st:'approved', issued: dt(-200), expires: dt(900) },
+        { dt:'confidentiality_agreement',st:'approved', issued: dt(-200), expires: dt(900) },
+        { dt:'conflict_of_interest',     st:'approved', issued: dt(-30),  expires: dt(335) },
+        { dt:'certificate_of_insurance', st:'approved', issued: dt(-90),  expires: dt(275) },
+        { dt:'hipaa_training',           st:'approved', issued: dt(-30),  expires: dt(335) },
+        { dt:'tb_test',                  st:'approved', issued: dt(-100), expires: dt(265) },
+        { dt:'mmr_immunization',         st:'approved', issued: dt(-3000),expires:'' },
+        { dt:'covid_vaccination',        st:'approved', issued: dt(-100), expires:'' },
+        { dt:'flu_vaccination',          st:'approved', issued: dt(-100), expires: dt(265) },
+        { dt:'background_check',         st:'approved', issued: dt(-200), expires: dt(900) },
+        { dt:'medical_terminology',      st:'approved', issued: dt(-500), expires:'' }
+      ]
+    },
+    'Patrice Joseph': {
+      docs: [
+        { dt:'w9_form',                  st:'approved', issued: dt(-150), expires: dt(900) },
+        { dt:'confidentiality_agreement',st:'approved', issued: dt(-150), expires: dt(900) },
+        { dt:'conflict_of_interest',     st:'approved', issued: dt(-30),  expires: dt(335) },
+        { dt:'certificate_of_insurance', st:'approved', issued: dt(-90),  expires: dt(275) },
+        { dt:'hipaa_training',           st:'approved', issued: dt(-100), expires: dt(265) },
+        { dt:'tb_test',                  st:'approved', issued: dt(-300), expires: dt(65) },
+        { dt:'mmr_immunization',         st:'approved', issued: dt(-3000),expires:'' },
+        { dt:'covid_vaccination',        st:'approved', issued: dt(-200), expires:'' },
+        { dt:'flu_vaccination',          st:'approved', issued: dt(-60),  expires: dt(305) },
+        { dt:'medical_terminology',      st:'approved', issued: dt(-700), expires:'' }
+      ]
+    },
+    'Ahmad Hassan': {
+      docs: [
+        { dt:'w9_form',                  st:'approved', issued: dt(-180), expires: dt(900) },
+        { dt:'confidentiality_agreement',st:'approved', issued: dt(-180), expires: dt(900) },
+        { dt:'conflict_of_interest',     st:'approved', issued: dt(-30),  expires: dt(335) },
+        { dt:'certificate_of_insurance', st:'approved', issued: dt(-400), expires: dt(-35) }, // EXPIRED
+        { dt:'hipaa_training',           st:'approved', issued: dt(-100), expires: dt(265) },
+        { dt:'tb_test',                  st:'approved', issued: dt(-200), expires: dt(165) },
+        { dt:'mmr_immunization',         st:'approved', issued: dt(-3000),expires:'' },
+        { dt:'covid_vaccination',        st:'approved', issued: dt(-100), expires:'' },
+        { dt:'flu_vaccination',          st:'approved', issued: dt(-200), expires: dt(165) },
+        { dt:'medical_terminology',      st:'approved', issued: dt(-800), expires:'' },
+        { dt:'background_check',         st:'approved', issued: dt(-365), expires: dt(730) }
+      ]
+    },
+    'Wei Liu': {
+      docs: [
+        { dt:'w9_form',                  st:'approved', issued: dt(-60),  expires: dt(900) },
+        { dt:'confidentiality_agreement',st:'approved', issued: dt(-60),  expires: dt(1000) },
+        { dt:'conflict_of_interest',     st:'approved', issued: dt(-30),  expires: dt(335) },
+        { dt:'certificate_of_insurance', st:'approved', issued: dt(-30),  expires: dt(335) },
+        { dt:'hipaa_training',           st:'approved', issued: dt(-60),  expires: dt(305) },
+        { dt:'tb_test',                  st:'approved', issued: dt(-30),  expires: dt(335) },
+        { dt:'mmr_immunization',         st:'approved', issued: dt(-3000),expires:'' },
+        { dt:'covid_vaccination',        st:'approved', issued: dt(-60),  expires:'' },
+        { dt:'flu_vaccination',          st:'approved', issued: dt(-60),  expires: dt(305) },
+        { dt:'medical_terminology',      st:'approved', issued: dt(-300), expires:'' }
+      ]
+    },
+    'Elena Vasquez': {
+      docs: [
+        { dt:'w9_form',                  st:'approved', issued: dt(-300), expires: dt(900) },
+        { dt:'confidentiality_agreement',st:'approved', issued: dt(-300), expires: dt(900) },
+        { dt:'conflict_of_interest',     st:'approved', issued: dt(-30),  expires: dt(335) },
+        { dt:'certificate_of_insurance', st:'approved', issued: dt(-60),  expires: dt(305) },
+        { dt:'hipaa_training',           st:'approved', issued: dt(-60),  expires: dt(305) },
+        { dt:'bbp_training',             st:'approved', issued: dt(-200), expires: dt(530) },
+        { dt:'tb_test',                  st:'approved', issued: dt(-90),  expires: dt(275) },
+        { dt:'mmr_immunization',         st:'approved', issued: dt(-2000),expires:'' },
+        { dt:'covid_vaccination',        st:'approved', issued: dt(-90),  expires:'' },
+        { dt:'hep_b_immunization',       st:'approved', issued: dt(-1800),expires:'' },
+        { dt:'flu_vaccination',          st:'approved', issued: dt(-60),  expires: dt(305) },
+        { dt:'medical_terminology',      st:'approved', issued: dt(-1500),expires:'' },
+        { dt:'mental_health_endorsement',st:'approved', issued: dt(-365), expires:'' },
+        { dt:'legal_endorsement',        st:'approved', issued: dt(-365), expires:'' },
+        { dt:'background_check',         st:'approved', issued: dt(-300), expires: dt(795) }
+      ]
+    },
+    'Jordan Hayes': {
+      docs: [
+        { dt:'w9_form',                  st:'approved', issued: dt(-200), expires: dt(900) },
+        { dt:'confidentiality_agreement',st:'approved', issued: dt(-200), expires: dt(900) },
+        { dt:'conflict_of_interest',     st:'approved', issued: dt(-30),  expires: dt(335) },
+        { dt:'certificate_of_insurance', st:'approved', issued: dt(-90),  expires: dt(275) },
+        { dt:'hipaa_training',           st:'approved', issued: dt(-100), expires: dt(265) },
+        { dt:'tb_test',                  st:'approved', issued: dt(-100), expires: dt(265) },
+        { dt:'mmr_immunization',         st:'approved', issued: dt(-3000),expires:'' },
+        { dt:'covid_vaccination',        st:'approved', issued: dt(-100), expires:'' },
+        { dt:'flu_vaccination',          st:'approved', issued: dt(-100), expires: dt(265) },
+        { dt:'medical_terminology',      st:'approved', issued: dt(-1000),expires:'' },
+        { dt:'background_check',         st:'approved', issued: dt(-365), expires: dt(730) },
+        { dt:'legal_endorsement',        st:'approved', issued: dt(-200), expires:'' }
+      ]
+    },
+    'Riya Patel': {
+      docs: [
+        { dt:'w9_form',                  st:'approved', issued: dt(-90),  expires: dt(900) },
+        { dt:'confidentiality_agreement',st:'approved', issued: dt(-90),  expires: dt(900) },
+        { dt:'conflict_of_interest',     st:'approved', issued: dt(-30),  expires: dt(335) },
+        { dt:'certificate_of_insurance', st:'approved', issued: dt(-60),  expires: dt(305) },
+        { dt:'background_check',         st:'approved', issued: dt(-365), expires: dt(730) },
+        { dt:'k12_endorsement',          st:'approved', issued: dt(-200), expires:'' }
+        // intentionally missing hipaa_training → won't qualify for medical jobs
+      ]
+    }
+  };
+  var out = [];
+  interpreters.forEach(function (interp) {
+    var key = interp.first + ' ' + interp.last;
+    var profile = profiles[key];
+    if (!profile) return;
+    profile.docs.forEach(function (d) {
+      var id = _ulid('id');
+      var row = {
+        doc_id: id, tenant_id: tid,
+        interpreter_id: interp.interpreter_id, doc_type: d.dt,
+        doc_name: _docDisplayName(d.dt),
+        status: d.st,
+        required: true,
+        issued_at: d.issued || '',
+        expires_at: d.expires || '',
+        reviewer_user_id: d.st === 'approved' ? 'system' : '',
+        reviewed_at: d.st === 'approved' ? nowIso : '',
+        file_r2_key: '',  // file storage not wired yet
+        sha256: '',
+        notes: '[SEED] Demo doc',
+        _created_at: nowIso, _updated_at: nowIso
+      };
+      sh.appendRow(hdr.map(function (c) { return row[c] !== undefined ? row[c] : ''; }));
+      out.push({ doc_id: id, interpreter_id: interp.interpreter_id, doc_type: d.dt, status: d.st });
+    });
+  });
+  return out;
+}
+
+function _existingArr_(sh, hdr, iTenant, tid) {
+  var data = sh.getDataRange().getValues();
+  var out = [];
+  for (var i = 1; i < data.length; i++) {
+    if (String(data[i][iTenant]) === tid) {
+      var obj = {};
+      for (var j = 0; j < hdr.length; j++) obj[hdr[j]] = data[i][j];
+      obj._existed = true;
+      out.push(obj);
+    }
+  }
+  return out;
 }
 
 // ============================================================================

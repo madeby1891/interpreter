@@ -102,7 +102,7 @@
       var timeout = setTimeout(function () {
         cleanup();
         reject(new Error('JSONP timeout'));
-      }, 15000);
+      }, 30000);
       function cleanup() {
         clearTimeout(timeout);
         if (script.parentNode) script.parentNode.removeChild(script);

@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Onboarding requirements — 1891 Interpreter</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#C8553D">
+<link rel="icon" type="image/svg+xml" href="/interpreter/assets/img/favicon.svg">
+<link rel="stylesheet" href="/interpreter/assets/css/site.css">
+<link rel="stylesheet" href="/interpreter/assets/css/app.css">
+<style>
+  table.req-table { width:100%; border-collapse:collapse; font-size:13.5px }
+  table.req-table th { text-align:left; padding:8px 10px; border-bottom:2px solid var(--1891int-ink); font-size:11px; text-transform:uppercase; letter-spacing:.08em }
+  table.req-table td { padding:8px 10px; border-bottom:1px solid var(--1891int-line); vertical-align:middle }
+  table.req-table input, table.req-table select { padding:4px 8px; border:1px solid var(--1891int-line); border-radius:4px; font-size:12.5px }
+  .svc-chip { display:inline-block; padding:3px 10px; border-radius:999px; font-size:12px; font-weight:600; background:var(--1891int-river-tint); color:var(--1891int-river-deep) }
+</style>
+</head>
+<body>
+<a href="#main" class="skip">Skip to main content</a>
+
+<div class="app-shell">
+  <header class="app-header">
+    <div class="wrap">
+      <a href="/interpreter/app/" class="brand"><img src="/interpreter/assets/img/brand-mark.svg" alt="" width="32" height="32"><span>1891 <span class="brand-sub">Scheduler</span></span></a>
+      <div class="who"><span>Signed in as </span><strong id="who-name">…</strong><button id="signout" type="button">Sign out</button></div>
+    </div>
+  </header>
+  <nav class="app-nav" aria-label="App sections">
+    <div class="wrap">
+      <a href="/interpreter/app/">Day-of board</a>
+      <a href="/interpreter/app/interpreters/">Interpreters</a>
+      <a href="/interpreter/app/requestors/">Requestors</a>
+      <a href="/interpreter/app/intake/">AI intake</a>
+      <a href="/interpreter/app/invoices/">Invoices</a>
+      <a href="/interpreter/app/payouts/">Payouts</a>
+      <a href="/interpreter/app/payments/">Payments</a>
+      <a href="/interpreter/app/settings/" aria-current="page">Settings</a>
+    </div>
+  </nav>
+
+  <main id="main" class="app-main">
+    <div class="wrap">
+      <h1 style="margin:0 0 var(--1891int-s-3);font-size:30px">Onboarding requirements</h1>
+      <p class="ink-soft" style="font-size:14.5px;max-width:64ch">Per-service-type document requirements. Smart-fill enforces these — an interpreter without a current required doc is excluded from candidate ranking. <strong>Universal (service = "*")</strong> requirements apply to every job. Service-specific ones layer on top.</p>
+
+      <div class="cluster" style="margin-bottom:var(--1891int-s-4)">
+        <a class="btn btn-ghost btn-sm" href="/interpreter/app/settings/">← Settings</a>
+        <a class="btn btn-ghost btn-sm" href="/interpreter/app/settings/rates.html">← Rates</a>
+        <button class="btn btn-primary btn-sm" id="add-req">+ Add requirement</button>
+      </div>
+
+      <section class="card">
+        <div id="loading" class="empty-state"><span class="spinner"></span> Loading&hellip;</div>
+        <div id="table-wrap" style="display:none;overflow:auto">
+          <table class="req-table" id="reqs-table">
+            <thead><tr><th>Doc type</th><th>Display name</th><th>Service</th><th>Modality</th><th class="right">Renewal (mo)</th><th class="right">Remind (d)</th><th>Required</th><th>Notes</th><th></th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+  </main>
+</div>
+
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+<script src="/interpreter/assets/js/whitelabel.js"></script>
+<script src="/interpreter/assets/js/api.js"></script>
+<script>
+(function () {
+  'use strict';
+  function $(id) { return document.getElementById(id); }
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' })[c]; }); }
+  function toast(msg, kind) { var t = $('toast'); t.textContent = msg; t.className = 'toast show' + (kind ? ' ' + kind : ''); setTimeout(function () { t.className = 'toast'; }, 3200); }
+
+  document.addEventListener('DOMContentLoaded', init);
+
+  function init() {
+    if (!IntApi.getSession()) { location.href = '/interpreter/sign-in.html'; return; }
+    IntApi.whoami().then(function (r) {
+      if (!r || !r.ok) { IntApi.clearSession(); location.href = '/interpreter/sign-in.html'; return; }
+      $('who-name').textContent = r.user.display_name || r.user.email;
+      if (window.IntTheme && r.agency) IntTheme.apply(r.agency);
+      load();
+    });
+    $('signout').addEventListener('click', function () { IntApi.clearSession(); location.href = '/interpreter/'; });
+    $('add-req').addEventListener('click', addReq);
+  }
+
+  var DOC_TYPES = [
+    'hipaa_training','bbp_training','tb_test','covid_vaccination','mmr_immunization','flu_vaccination',
+    'hep_b_immunization','background_check','drug_test','w9_form','certificate_of_insurance',
+    'ada_training','confidentiality_agreement','conflict_of_interest','rid_membership','nad_membership',
+    'state_cert','medical_terminology','mental_health_endorsement','legal_endorsement','k12_endorsement'
+  ];
+  var SVC_TYPES = ['*','medical','mental-health','legal','education','community','gov','corporate'];
+  var MOD_TYPES = ['*','on-site','VRI','OPI'];
+
+  function load() {
+    $('loading').style.display = '';
+    $('table-wrap').style.display = 'none';
+    IntApi.jsonp({ action: 'list_requirements' }).then(function (r) {
+      $('loading').style.display = 'none';
+      if (!r || !r.ok) { toast(r && r.error || 'Load failed', 'error'); return; }
+      render(r.requirements || []);
+    });
+  }
+
+  function render(reqs) {
+    // Group by service type
+    reqs.sort(function (a, b) {
+      if (a.applies_to_service_type === '*' && b.applies_to_service_type !== '*') return -1;
+      if (a.applies_to_service_type !== '*' && b.applies_to_service_type === '*') return 1;
+      return (a.applies_to_service_type || '').localeCompare(b.applies_to_service_type || '');
+    });
+    var rows = reqs.map(function (q) {
+      return '<tr data-id="' + esc(q.req_id) + '">' +
+        '<td><code style="font-size:12px">' + esc(q.doc_type) + '</code></td>' +
+        '<td><input type="text" value="' + esc(q.display_name) + '" data-field="display_name" style="width:100%;min-width:140px"></td>' +
+        '<td>' + select('applies_to_service_type', q.applies_to_service_type, SVC_TYPES) + '</td>' +
+        '<td>' + select('applies_to_modality', q.applies_to_modality, MOD_TYPES) + '</td>' +
+        '<td class="right"><input type="number" value="' + esc(q.renewal_period_months) + '" data-field="renewal_period_months" style="width:60px"></td>' +
+        '<td class="right"><input type="number" value="' + esc(q.reminder_days) + '" data-field="reminder_days" style="width:60px"></td>' +
+        '<td><input type="checkbox" data-field="required" ' + (q.required === true || q.required === 'true' || q.required === 'TRUE' ? 'checked' : '') + '></td>' +
+        '<td><input type="text" value="' + esc((q.notes || '').replace('[SEED] ', '')) + '" data-field="notes" style="width:100%;min-width:140px"></td>' +
+        '<td style="text-align:right;white-space:nowrap"><button class="btn btn-primary btn-sm" type="button" data-act="save">Save</button> <button class="btn btn-ghost btn-sm" type="button" data-act="delete">×</button></td>' +
+      '</tr>';
+    }).join('');
+    var tbody = document.querySelector('#reqs-table tbody');
+    tbody.innerHTML = rows || '<tr><td colspan="9" class="muted" style="text-align:center;padding:24px">No requirements set. Click "+ Add requirement".</td></tr>';
+    $('table-wrap').style.display = '';
+    tbody.querySelectorAll('[data-act="save"]').forEach(function (b) {
+      b.addEventListener('click', function () { saveRow(b.closest('tr')); });
+    });
+    tbody.querySelectorAll('[data-act="delete"]').forEach(function (b) {
+      b.addEventListener('click', function () { deleteRow(b.closest('tr')); });
+    });
+  }
+
+  function select(field, value, options) {
+    return '<select data-field="' + field + '">' + options.map(function (o) {
+      return '<option value="' + esc(o) + '"' + (o === value ? ' selected' : '') + '>' + esc(o) + '</option>';
+    }).join('') + '</select>';
+  }
+
+  function saveRow(tr) {
+    var payload = { req_id: tr.getAttribute('data-id') };
+    tr.querySelectorAll('[data-field]').forEach(function (el) {
+      if (el.type === 'checkbox') payload[el.getAttribute('data-field')] = el.checked ? 'true' : 'false';
+      else payload[el.getAttribute('data-field')] = el.value;
+    });
+    IntApi.jsonp({ action:'upsert_requirement', ...payload }).then(function (r) {
+      if (!r.ok) { toast(r.error || 'Failed', 'error'); return; }
+      toast('Saved.', 'ok');
+    });
+  }
+
+  function deleteRow(tr) {
+    if (!confirm('Delete this requirement?')) return;
+    IntApi.jsonp({ action:'delete_requirement', req_id: tr.getAttribute('data-id') }).then(function (r) {
+      if (!r.ok) { toast(r.error || 'Failed', 'error'); return; }
+      toast('Deleted.', 'ok');
+      setTimeout(load, 500);
+    });
+  }
+
+  function addReq() {
+    var docType = prompt('Doc type? (one of: ' + DOC_TYPES.join(', ') + ')');
+    if (!docType) return;
+    if (DOC_TYPES.indexOf(docType) < 0) {
+      if (!confirm('"' + docType + '" is not in the standard list. Add anyway?')) return;
+    }
+    var svc = prompt('Apply to service type? (* for universal, or medical/legal/education/…)', '*') || '*';
+    IntApi.jsonp({ action:'upsert_requirement', doc_type: docType, applies_to_service_type: svc, applies_to_modality:'*', required:'true', renewal_period_months: 12, reminder_days: 30 })
+      .then(function (r) {
+        if (!r.ok) { toast(r.error || 'Failed', 'error'); return; }
+        toast('Added.', 'ok');
+        setTimeout(load, 500);
+      });
+  }
+})();
+</script>
+</body>
+</html>

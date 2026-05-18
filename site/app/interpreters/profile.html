@@ -1,0 +1,497 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Interpreter profile — 1891 Interpreter</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#C8553D">
+<link rel="icon" type="image/svg+xml" href="/interpreter/assets/img/favicon.svg">
+<link rel="stylesheet" href="/interpreter/assets/css/site.css">
+<link rel="stylesheet" href="/interpreter/assets/css/app.css">
+<style>
+  .profile-grid { display: grid; grid-template-columns: 1.2fr .9fr; gap: var(--1891int-s-5); }
+  @media (max-width: 980px) { .profile-grid { grid-template-columns: 1fr; } }
+  .doc-row { display:grid; grid-template-columns: 1fr 100px 130px 100px; gap:8px; padding:8px 0; border-top:1px solid var(--1891int-line); font-size:13.5px; align-items:center }
+  .doc-row:first-child { border-top:0 }
+  .doc-status { display:inline-block; padding:2px 8px; border-radius:999px; font-size:11px; font-weight:600 }
+  .ds-approved { background:#DDF1E5; color:#0F5C2E }
+  .ds-pending { background:#FFE9D6; color:#9E4500 }
+  .ds-rejected { background:#FCE0E0; color:#A8170D }
+  .ds-expired { background:#FCE0E0; color:#A8170D }
+  .ds-soon { background:#FFF5CC; color:#7D5C00 }
+  .rate-row { display:grid; grid-template-columns: 1fr 110px 110px 110px; gap:8px; padding:6px 0; border-top:1px solid var(--1891int-line); font-size:13.5px; align-items:center; font-variant-numeric:tabular-nums }
+  .rate-row:first-child { border-top:0 }
+  .rate-row input { width:90px; padding:4px 8px; border:1px solid var(--1891int-line); border-radius:4px; font-size:12.5px; text-align:right }
+  .endorsement-chip { display:inline-block; background:var(--1891int-bloom-tint); color:var(--1891int-bloom-deep); padding:3px 10px; border-radius:999px; font-size:12px; font-weight:600; margin:2px }
+  .cert-chip { display:inline-block; background:var(--1891int-river-tint); color:var(--1891int-river-deep); padding:3px 10px; border-radius:999px; font-size:12px; font-weight:600; margin:2px; font-family:var(--1891int-mono) }
+  .lang-chip { display:inline-block; background:#E8F0FF; color:#1B4A8F; padding:3px 10px; border-radius:999px; font-size:12px; font-weight:600; margin:2px }
+  details summary { cursor:pointer; padding:8px 0; font-weight:600 }
+  details summary:hover { color:var(--1891int-bloom-deep) }
+  .premium-grid { display:grid; grid-template-columns: 1fr 80px; gap:8px; padding:4px 0; align-items:center; font-size:14px }
+  .premium-grid input { width:70px; padding:4px 8px; border:1px solid var(--1891int-line); border-radius:4px; font-size:13px; text-align:right }
+</style>
+</head>
+<body>
+<a href="#main" class="skip">Skip to main content</a>
+
+<div class="app-shell">
+  <header class="app-header">
+    <div class="wrap">
+      <a href="/interpreter/app/" class="brand"><img src="/interpreter/assets/img/brand-mark.svg" alt="" width="32" height="32"><span>1891 <span class="brand-sub">Scheduler</span></span></a>
+      <div class="who"><span>Signed in as </span><strong id="who-name">…</strong><button id="signout" type="button">Sign out</button></div>
+    </div>
+  </header>
+  <nav class="app-nav" aria-label="App sections">
+    <div class="wrap">
+      <a href="/interpreter/app/">Day-of board</a>
+      <a href="/interpreter/app/interpreters/" aria-current="page">Interpreters</a>
+      <a href="/interpreter/app/requestors/">Requestors</a>
+      <a href="/interpreter/app/intake/">AI intake</a>
+      <a href="/interpreter/app/invoices/">Invoices</a>
+      <a href="/interpreter/app/payouts/">Payouts</a>
+      <a href="/interpreter/app/payments/">Payments</a>
+      <a href="/interpreter/app/settings/">Settings</a>
+    </div>
+  </nav>
+
+  <main id="main" class="app-main">
+    <div class="wrap">
+      <div class="breadcrumb"><a href="/interpreter/app/interpreters/">← Roster</a></div>
+      <div id="loading" class="empty-state"><span class="spinner"></span> Loading profile&hellip;</div>
+
+      <div id="content" style="display:none">
+        <header style="display:flex;justify-content:space-between;align-items:flex-start;gap:var(--1891int-s-4);margin-bottom:var(--1891int-s-5);flex-wrap:wrap">
+          <div>
+            <h1 id="title" style="margin:0 0 6px;font-size:30px"></h1>
+            <p class="muted tag" id="meta" style="margin:0"></p>
+          </div>
+          <div class="cluster">
+            <button class="btn btn-ghost btn-sm" id="refresh">Refresh</button>
+            <button class="btn btn-primary btn-sm" id="save-all">Save all changes</button>
+          </div>
+        </header>
+
+        <!-- Top summary row -->
+        <section class="card" style="margin-bottom:var(--1891int-s-4)">
+          <div class="grid grid-3">
+            <div>
+              <h3 class="mt-0" style="font-size:13px;text-transform:uppercase;letter-spacing:.08em;color:var(--1891int-fog)">Languages</h3>
+              <div id="langs"></div>
+            </div>
+            <div>
+              <h3 class="mt-0" style="font-size:13px;text-transform:uppercase;letter-spacing:.08em;color:var(--1891int-fog)">Certifications</h3>
+              <div id="certs"></div>
+            </div>
+            <div>
+              <h3 class="mt-0" style="font-size:13px;text-transform:uppercase;letter-spacing:.08em;color:var(--1891int-fog)">Specialty endorsements</h3>
+              <div id="endorsements"></div>
+            </div>
+          </div>
+        </section>
+
+        <div class="profile-grid">
+          <!-- LEFT COLUMN -->
+          <section>
+
+            <!-- Documents -->
+            <div class="card">
+              <div class="toolbar" style="margin-bottom:var(--1891int-s-3)">
+                <h2 class="mt-0" style="margin:0;font-size:20px">Onboarding documents</h2>
+                <div class="spacer"></div>
+                <span id="docs-summary" class="muted" style="font-size:13px"></span>
+              </div>
+              <p class="ink-soft" style="font-size:13.5px;margin-bottom:var(--1891int-s-3)">Required by the agency's <a href="/interpreter/app/settings/requirements.html">policy</a>. Reviewers can change status; expirations show automatically.</p>
+              <div id="docs"></div>
+              <div style="margin-top:var(--1891int-s-3);padding-top:var(--1891int-s-3);border-top:1px solid var(--1891int-line)">
+                <details>
+                  <summary>+ Add or upsert a document</summary>
+                  <form id="add-doc-form" style="display:grid;grid-template-columns:1fr 130px 130px 100px;gap:8px;margin-top:8px">
+                    <select name="doc_type" required>
+                      <option value="">— Doc type —</option>
+                      <option value="hipaa_training">HIPAA training</option>
+                      <option value="bbp_training">BBP training</option>
+                      <option value="tb_test">TB test</option>
+                      <option value="covid_vaccination">COVID vaccination</option>
+                      <option value="mmr_immunization">MMR immunization</option>
+                      <option value="flu_vaccination">Flu vaccination</option>
+                      <option value="hep_b_immunization">Hep B immunization</option>
+                      <option value="background_check">Background check</option>
+                      <option value="w9_form">W-9</option>
+                      <option value="certificate_of_insurance">COI</option>
+                      <option value="confidentiality_agreement">Confidentiality / NDA</option>
+                      <option value="conflict_of_interest">Conflict of interest</option>
+                      <option value="medical_terminology">Medical terminology</option>
+                      <option value="mental_health_endorsement">Mental-health endorsement</option>
+                      <option value="legal_endorsement">Legal endorsement</option>
+                      <option value="k12_endorsement">K-12 endorsement</option>
+                    </select>
+                    <input type="date" name="issued_at" placeholder="Issued" title="Issued">
+                    <input type="date" name="expires_at" placeholder="Expires" title="Expires (blank if never)">
+                    <button class="btn btn-primary btn-sm" type="button" id="add-doc">Save</button>
+                  </form>
+                </details>
+              </div>
+            </div>
+
+            <!-- Job history (last 10) -->
+            <div class="card" style="margin-top:var(--1891int-s-4)">
+              <h2 class="mt-0" style="font-size:20px;margin-bottom:var(--1891int-s-3)">Recent assignments</h2>
+              <div id="history" class="muted" style="font-size:13.5px">Loading…</div>
+            </div>
+          </section>
+
+          <!-- RIGHT COLUMN -->
+          <section>
+
+            <!-- Pay-rate floors -->
+            <div class="card">
+              <h2 class="mt-0" style="font-size:20px;margin-bottom:var(--1891int-s-2)">Pay-rate floors</h2>
+              <p class="ink-soft" style="font-size:13.5px;margin-bottom:var(--1891int-s-3)">The agency cannot pay below this hourly rate for this interpreter on these service types. Stored as cents.</p>
+              <div class="rate-row" style="font-weight:600;color:var(--1891int-fog);font-size:11px;text-transform:uppercase;letter-spacing:.08em">
+                <div>Service</div>
+                <div>On-site (¢/hr)</div>
+                <div>VRI (¢/hr)</div>
+                <div>OPI (¢/hr)</div>
+              </div>
+              <div id="floors"></div>
+            </div>
+
+            <!-- Premiums -->
+            <div class="card" style="margin-top:var(--1891int-s-4)">
+              <h2 class="mt-0" style="font-size:20px;margin-bottom:var(--1891int-s-2)">Premium %</h2>
+              <p class="ink-soft" style="font-size:13.5px;margin-bottom:var(--1891int-s-3)">These supplement agency-wide rate modifiers; tenant-level rules in <a href="/interpreter/app/settings/rates.html">Settings → Rates</a> still apply.</p>
+              <div class="premium-grid"><span>Evening</span><input type="number" id="prem-ev" min="0" max="200">%</div>
+              <div class="premium-grid"><span>Weekend</span><input type="number" id="prem-wk" min="0" max="200">%</div>
+              <div class="premium-grid"><span>Last-minute (&lt;24h)</span><input type="number" id="prem-lm" min="0" max="200">%</div>
+              <div class="premium-grid"><span>Holiday</span><input type="number" id="prem-hl" min="0" max="200">%</div>
+              <div style="display:grid;grid-template-columns:1fr 110px;gap:8px;margin-top:var(--1891int-s-3);padding-top:var(--1891int-s-3);border-top:1px solid var(--1891int-line);font-size:14px">
+                <div>
+                  Mileage (¢/mile)
+                  <div class="muted" style="font-size:12px">IRS standard is 67¢</div>
+                </div>
+                <input type="number" id="mileage" min="0" max="200" style="padding:4px 8px;border:1px solid var(--1891int-line);border-radius:4px;text-align:right">
+              </div>
+              <div style="display:grid;grid-template-columns:1fr 110px;gap:8px;font-size:14px;margin-top:8px">
+                <div>Travel time (¢/hr)</div>
+                <input type="number" id="travel" min="0" style="padding:4px 8px;border:1px solid var(--1891int-line);border-radius:4px;text-align:right">
+              </div>
+            </div>
+
+            <!-- Cancellation floors -->
+            <div class="card" style="margin-top:var(--1891int-s-4)">
+              <h2 class="mt-0" style="font-size:20px;margin-bottom:var(--1891int-s-2)">Cancellation floors (¢)</h2>
+              <p class="ink-soft" style="font-size:13.5px;margin-bottom:var(--1891int-s-3)">Minimum payout to this interpreter if a job is cancelled, by notice tier.</p>
+              <div class="premium-grid"><span>&lt;12h notice</span><input type="number" id="cf-12" min="0"></div>
+              <div class="premium-grid"><span>12–24h notice</span><input type="number" id="cf-24" min="0"></div>
+              <div class="premium-grid"><span>24–48h notice</span><input type="number" id="cf-48" min="0"></div>
+              <div class="premium-grid"><span>Default</span><input type="number" id="cf-d" min="0"></div>
+            </div>
+
+            <!-- Membership numbers -->
+            <div class="card" style="margin-top:var(--1891int-s-4)">
+              <h2 class="mt-0" style="font-size:20px;margin-bottom:var(--1891int-s-2)">Membership numbers</h2>
+              <div style="display:grid;grid-template-columns:120px 1fr;gap:8px;font-size:14px;align-items:center">
+                <label for="rid">RID #</label>
+                <input id="rid" type="text" style="padding:6px 10px;border:1px solid var(--1891int-line);border-radius:4px">
+                <label for="bei">BEI #</label>
+                <input id="bei" type="text" style="padding:6px 10px;border:1px solid var(--1891int-line);border-radius:4px">
+              </div>
+            </div>
+
+          </section>
+        </div>
+      </div>
+
+      <div id="not-found" class="empty-state" style="display:none">
+        <h2>Interpreter not found.</h2>
+        <a class="btn btn-primary" href="/interpreter/app/interpreters/">Back to roster</a>
+      </div>
+    </div>
+  </main>
+</div>
+
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+<script src="/interpreter/assets/js/whitelabel.js"></script>
+<script src="/interpreter/assets/js/api.js"></script>
+<script>
+(function () {
+  'use strict';
+  function $(id) { return document.getElementById(id); }
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' })[c]; }); }
+  function toast(msg, kind) { var t = $('toast'); t.textContent = msg; t.className = 'toast show' + (kind ? ' ' + kind : ''); setTimeout(function () { t.className = 'toast'; }, 3200); }
+  function fmtCents(c) { return '$' + (Number(c || 0) / 100).toFixed(2); }
+  function fmtDate(iso) {
+    if (!iso) return '—';
+    try { return new Date(iso).toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric' }); } catch (_) { return iso; }
+  }
+  function daysUntil(iso) {
+    if (!iso) return null;
+    return Math.round((new Date(iso).getTime() - Date.now()) / 86400000);
+  }
+
+  var state = { interpreter: null, docs: [] };
+
+  document.addEventListener('DOMContentLoaded', init);
+
+  function init() {
+    if (!IntApi.getSession()) { location.href = '/interpreter/sign-in.html'; return; }
+    var id = new URLSearchParams(location.search).get('id');
+    if (!id) { $('loading').style.display = 'none'; $('not-found').style.display = ''; return; }
+    state.id = id;
+    IntApi.whoami().then(function (r) {
+      if (!r || !r.ok) { IntApi.clearSession(); location.href = '/interpreter/sign-in.html'; return; }
+      $('who-name').textContent = r.user.display_name || r.user.email;
+      if (window.IntTheme && r.agency) IntTheme.apply(r.agency);
+      loadAll();
+    });
+    $('signout').addEventListener('click', function () { IntApi.clearSession(); location.href = '/interpreter/'; });
+    $('refresh').addEventListener('click', loadAll);
+    $('save-all').addEventListener('click', saveAll);
+    $('add-doc').addEventListener('click', addDoc);
+  }
+
+  function loadAll() {
+    $('loading').style.display = '';
+    $('content').style.display = 'none';
+    Promise.all([
+      IntApi.listInterpreters(),
+      IntApi.jsonp({ action:'list_interpreter_docs', interpreter_id: state.id }),
+      IntApi.listJobs ? IntApi.listJobs() : Promise.resolve({ ok:true, jobs:[] }),
+      IntApi.jsonp({ action:'list_assignments' })
+    ]).then(function (results) {
+      var ints = (results[0] && results[0].interpreters) || [];
+      state.interpreter = ints.find(function (i) { return i.interpreter_id === state.id; });
+      if (!state.interpreter) { $('loading').style.display = 'none'; $('not-found').style.display = ''; return; }
+      state.docs = (results[1] && results[1].docs) || [];
+      var jobs = (results[2] && results[2].jobs) || [];
+      var assigns = (results[3] && results[3].assignments) || [];
+      // Build history for this interpreter
+      var myAssigns = assigns.filter(function (a) { return a.interpreter_id === state.id; });
+      state.history = myAssigns.map(function (a) {
+        var j = jobs.find(function (j) { return j.job_id === a.job_id; });
+        return { assign: a, job: j };
+      }).sort(function (a, b) {
+        return new Date((b.job && b.job.scheduled_start) || 0).getTime() - new Date((a.job && a.job.scheduled_start) || 0).getTime();
+      });
+      render();
+      $('loading').style.display = 'none';
+      $('content').style.display = '';
+    });
+  }
+
+  function render() {
+    var i = state.interpreter;
+    $('title').textContent = (i.legal_first || '') + ' ' + (i.legal_last || '');
+    var bits = [];
+    if (i.pronouns) bits.push(esc(i.pronouns));
+    bits.push(esc(i.classification || '1099'));
+    if (i.deaf === true || i.deaf === 'true' || i.deaf === 'TRUE') bits.push('CDI-eligible');
+    if (i.home_city) bits.push(esc(i.home_city + (i.home_state ? ', ' + i.home_state : '')));
+    if (i.service_radius_mi) bits.push(esc(i.service_radius_mi + 'mi radius'));
+    $('meta').innerHTML = bits.join(' · ') + ' · <code>' + esc(i.interpreter_id) + '</code>';
+
+    // Languages
+    var langs = [];
+    try { langs = JSON.parse(i.languages || '[]'); } catch (_) {}
+    $('langs').innerHTML = langs.length ? langs.map(function (l) {
+      return '<span class="lang-chip">' + esc(l.lang) + (l.dir ? ' · ' + esc(l.dir) : '') + '</span>';
+    }).join('') : '<span class="muted" style="font-size:13px">—</span>';
+
+    // Certs
+    var certs = [];
+    try { certs = JSON.parse(i.certifications || '[]'); } catch (_) {}
+    $('certs').innerHTML = certs.length ? certs.map(function (c) {
+      var exp = c.exp ? ' (exp ' + esc(c.exp) + ')' : '';
+      return '<span class="cert-chip">' + esc(c.cert) + exp + '</span>';
+    }).join('') : '<span class="muted" style="font-size:13px">—</span>';
+
+    // Endorsements
+    var endors = [];
+    try { endors = JSON.parse(i.specialty_endorsements || '[]'); } catch (_) {}
+    $('endorsements').innerHTML = endors.length ? endors.map(function (e) {
+      return '<span class="endorsement-chip">' + esc(e) + '</span>';
+    }).join('') : '<span class="muted" style="font-size:13px">none</span>';
+
+    // Docs
+    renderDocs();
+
+    // Pay-rate floors
+    var floors = {};
+    try { floors = JSON.parse(i.pay_rate_floors || '{}'); } catch (_) {}
+    var serviceTypes = ['medical', 'mental-health', 'legal', 'education', 'community', 'corporate', 'gov', '*'];
+    var html = serviceTypes.map(function (svc) {
+      var byMod = floors[svc] || {};
+      return '<div class="rate-row">' +
+        '<div>' + (svc === '*' ? '<em>any (fallback)</em>' : esc(svc)) + '</div>' +
+        '<input type="number" min="0" step="100" data-floor data-svc="' + svc + '" data-mod="on-site" value="' + (byMod['on-site'] || byMod['*'] || '') + '">' +
+        '<input type="number" min="0" step="100" data-floor data-svc="' + svc + '" data-mod="VRI" value="' + (byMod['VRI'] || '') + '">' +
+        '<input type="number" min="0" step="100" data-floor data-svc="' + svc + '" data-mod="OPI" value="' + (byMod['OPI'] || '') + '">' +
+        '</div>';
+    }).join('');
+    $('floors').innerHTML = html;
+
+    // Premiums + mileage + travel
+    $('prem-ev').value = Number(i.evening_premium_pct || 0);
+    $('prem-wk').value = Number(i.weekend_premium_pct || 0);
+    $('prem-lm').value = Number(i.last_minute_premium_pct || 0);
+    $('prem-hl').value = Number(i.holiday_premium_pct || 0);
+    $('mileage').value = Number(i.mileage_rate_cents || 0);
+    $('travel').value = Number(i.travel_time_rate_cents || 0);
+
+    // Cancellation floors
+    var cf = {};
+    try { cf = JSON.parse(i.cancellation_floors || '{}'); } catch (_) {}
+    $('cf-12').value = Number(cf['<12h'] || 0);
+    $('cf-24').value = Number(cf['12-24h'] || 0);
+    $('cf-48').value = Number(cf['24-48h'] || 0);
+    $('cf-d').value = Number(cf['default'] || 0);
+
+    // Membership numbers
+    $('rid').value = i.rid_member_number || '';
+    $('bei').value = i.bei_member_number || '';
+
+    // History
+    renderHistory();
+  }
+
+  function renderDocs() {
+    var docs = state.docs.slice().sort(function (a, b) {
+      // Expired + pending first, then approved sorted by expiry asc
+      var ra = rankDoc(a), rb = rankDoc(b);
+      if (ra !== rb) return ra - rb;
+      return String(a.expires_at || '').localeCompare(String(b.expires_at || ''));
+    });
+    var html = docs.map(docRow).join('');
+    var problems = docs.filter(function (d) { return d.status === 'expired' || d.status === 'rejected' || d.status === 'pending'; }).length;
+    $('docs-summary').textContent = docs.length + ' docs · ' + problems + ' need attention';
+    $('docs').innerHTML = '<div class="doc-row" style="font-weight:600;color:var(--1891int-fog);font-size:11px;text-transform:uppercase;letter-spacing:.08em;border:0;padding-bottom:8px;border-bottom:1px solid var(--1891int-line)"><div>Doc</div><div>Status</div><div>Expires</div><div></div></div>' + html;
+    $('docs').querySelectorAll('[data-doc-action]').forEach(function (b) {
+      b.addEventListener('click', function () { docAction(b.getAttribute('data-doc-id'), b.getAttribute('data-doc-action')); });
+    });
+  }
+
+  function rankDoc(d) {
+    if (d.status === 'expired') return 0;
+    if (d.status === 'rejected') return 1;
+    if (d.status === 'pending') return 2;
+    if (d.expires_at) {
+      var du = daysUntil(d.expires_at);
+      if (du !== null && du < 30) return 3;
+    }
+    return 4;
+  }
+
+  function docRow(d) {
+    var st = d.status;
+    var statusClass = 'ds-' + st;
+    var du = daysUntil(d.expires_at);
+    var expDisplay = d.expires_at ? fmtDate(d.expires_at) : 'never';
+    if (st === 'approved' && du !== null && du < 30 && du >= 0) {
+      statusClass = 'ds-soon';
+      expDisplay += ' (' + du + 'd)';
+    }
+    var actions = '';
+    if (st === 'pending') {
+      actions = '<button class="btn btn-primary btn-sm" data-doc-id="' + esc(d.doc_id) + '" data-doc-action="approve">Approve</button> ' +
+                '<button class="btn btn-ghost btn-sm" data-doc-id="' + esc(d.doc_id) + '" data-doc-action="reject">Reject</button>';
+    } else if (st === 'expired' || st === 'rejected') {
+      actions = '<button class="btn btn-ghost btn-sm" data-doc-id="' + esc(d.doc_id) + '" data-doc-action="renew">Renew…</button>';
+    }
+    return '<div class="doc-row">' +
+      '<div>' + esc(d.doc_name || d.doc_type) + (d.notes ? '<div class="muted" style="font-size:12px">' + esc(d.notes.replace(/^\[SEED\]\s*/, '')) + '</div>' : '') + '</div>' +
+      '<div><span class="doc-status ' + statusClass + '">' + esc(st) + '</span></div>' +
+      '<div>' + expDisplay + '</div>' +
+      '<div style="text-align:right">' + actions + '</div>' +
+    '</div>';
+  }
+
+  function docAction(docId, action) {
+    if (action === 'approve' || action === 'reject') {
+      IntApi.jsonp({ action:'upsert_interpreter_doc', doc_id: docId, interpreter_id: state.id, doc_type:'_', status: action === 'approve' ? 'approved' : 'rejected' })
+        .then(function (r) {
+          if (!r.ok) { toast(r.error || 'Failed', 'error'); return; }
+          toast(action === 'approve' ? 'Approved.' : 'Rejected.', 'ok');
+          setTimeout(loadAll, 800);
+        });
+    } else if (action === 'renew') {
+      var newExp = prompt('New expiration date (YYYY-MM-DD):');
+      if (!newExp) return;
+      IntApi.jsonp({ action:'upsert_interpreter_doc', doc_id: docId, interpreter_id: state.id, doc_type:'_', status:'approved', issued_at: new Date().toISOString().slice(0,10), expires_at: newExp })
+        .then(function () { toast('Renewed.', 'ok'); setTimeout(loadAll, 800); });
+    }
+  }
+
+  function addDoc() {
+    var form = $('add-doc-form');
+    var fd = new FormData(form);
+    if (!fd.get('doc_type')) { toast('Pick a doc type.', 'error'); return; }
+    IntApi.jsonp({
+      action: 'upsert_interpreter_doc',
+      interpreter_id: state.id,
+      doc_type: fd.get('doc_type'),
+      status: 'approved',
+      issued_at: fd.get('issued_at') || '',
+      expires_at: fd.get('expires_at') || ''
+    }).then(function (r) {
+      if (!r.ok) { toast(r.error || 'Failed', 'error'); return; }
+      toast('Document saved.', 'ok');
+      form.reset();
+      setTimeout(loadAll, 800);
+    });
+  }
+
+  function renderHistory() {
+    if (!state.history || !state.history.length) { $('history').textContent = 'No assignments yet.'; return; }
+    var rows = state.history.slice(0, 10).map(function (h) {
+      if (!h.job) return '';
+      return '<div style="display:grid;grid-template-columns:1fr 110px 80px 90px;gap:8px;padding:8px 0;border-top:1px solid var(--1891int-line);font-size:13px;align-items:center">' +
+        '<div>' + esc(h.job.service_type) + ' · ' + esc(h.job.target_language_id || '') + (h.job.modality ? ' · ' + esc(h.job.modality) : '') + '</div>' +
+        '<div class="muted" style="font-family:var(--1891int-mono);font-size:12px">' + fmtDate(h.job.scheduled_start) + '</div>' +
+        '<div>' + esc(h.assign.status || h.job.status) + '</div>' +
+        '<div style="text-align:right"><a href="/interpreter/app/job/?id=' + esc(h.job.job_id) + '">Open →</a></div>' +
+      '</div>';
+    }).join('');
+    $('history').innerHTML = rows;
+  }
+
+  function saveAll() {
+    var floors = {};
+    document.querySelectorAll('[data-floor]').forEach(function (input) {
+      var v = Number(input.value || 0);
+      if (!v) return;
+      var svc = input.getAttribute('data-svc');
+      var mod = input.getAttribute('data-mod');
+      floors[svc] = floors[svc] || {};
+      floors[svc][mod] = v;
+    });
+    var cancelFloors = {
+      '<12h': Number($('cf-12').value || 0),
+      '12-24h': Number($('cf-24').value || 0),
+      '24-48h': Number($('cf-48').value || 0),
+      'default': Number($('cf-d').value || 0)
+    };
+    IntApi.jsonp({
+      action: 'update_interpreter_rates',
+      interpreter_id: state.id,
+      pay_rate_floors: JSON.stringify(floors),
+      cancellation_floors: JSON.stringify(cancelFloors),
+      evening_premium_pct: $('prem-ev').value || 0,
+      weekend_premium_pct: $('prem-wk').value || 0,
+      last_minute_premium_pct: $('prem-lm').value || 0,
+      holiday_premium_pct: $('prem-hl').value || 0,
+      mileage_rate_cents: $('mileage').value || 0,
+      travel_time_rate_cents: $('travel').value || 0,
+      rid_member_number: $('rid').value || '',
+      bei_member_number: $('bei').value || ''
+    }).then(function (r) {
+      if (!r || !r.ok) { toast((r && r.error) || 'Save failed', 'error'); return; }
+      toast('Saved.', 'ok');
+      setTimeout(loadAll, 600);
+    }).catch(function () { toast('Network error', 'error'); });
+  }
+})();
+</script>
+</body>
+</html>

@@ -211,7 +211,7 @@
       '<article class="job-card" data-status="OPEN">',
       '  <span class="status-strip" aria-hidden="true"></span>',
       '  <div class="job-status">' + escHtml(i.status || 'active').toUpperCase() + (i.deaf === true || i.deaf === 'true' ? ' · CDI' : '') + '</div>',
-      '  <h3>' + escHtml(i.legal_first + ' ' + i.legal_last) + (i.pronouns ? ' <span class="muted" style="font-size:13px;font-weight:400">(' + escHtml(i.pronouns) + ')</span>' : '') + '</h3>',
+      '  <h3><a href="/interpreter/app/interpreters/profile.html?id=' + encodeURIComponent(i.interpreter_id) + '">' + escHtml(i.legal_first + ' ' + i.legal_last) + '</a>' + (i.pronouns ? ' <span class="muted" style="font-size:13px;font-weight:400">(' + escHtml(i.pronouns) + ')</span>' : '') + '</h3>',
       '  <dl class="meta">',
       '    <dt>Languages</dt><dd>' + escHtml(langs) + '</dd>',
       (certs && certs !== '—' ? '    <dt>Certs</dt><dd>' + escHtml(certs) + '</dd>' : ''),
