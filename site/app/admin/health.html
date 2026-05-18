@@ -58,6 +58,7 @@
       <a href="/interpreter/app/interpreters/">Interpreters</a>
       <a href="/interpreter/app/admin/">Admin</a>
       <a href="/interpreter/app/admin/health.html" aria-current="page">Health</a>
+      <a href="/interpreter/app/admin/audit.html">Audit log</a>
       <a href="/interpreter/app/admin/tenants/">Tenants</a>
     </div>
   </nav>
@@ -84,6 +85,7 @@
           <div class="kpi-grid">
             <div class="kpi"><div class="kpi-label">Roster active</div><div class="kpi-value" id="kpi-roster-active">—</div><div class="kpi-sub" id="kpi-roster-sub"></div></div>
             <div class="kpi river"><div class="kpi-label">Available now</div><div class="kpi-value" id="kpi-avail">—</div><div class="kpi-sub" id="kpi-avail-sub"></div></div>
+            <div class="kpi"><div class="kpi-label">Active clients</div><div class="kpi-value" id="kpi-clients-active">—</div><div class="kpi-sub" id="kpi-clients-sub"></div></div>
             <div class="kpi bloom"><div class="kpi-label">Open jobs</div><div class="kpi-value" id="kpi-open">—</div><div class="kpi-sub" id="kpi-open-sub"></div></div>
             <div class="kpi"><div class="kpi-label">Fill rate · 30d</div><div class="kpi-value" id="kpi-fill">—<small>%</small></div><div class="kpi-sub" id="kpi-fill-sub"></div></div>
             <div class="kpi"><div class="kpi-label">Median time-to-fill</div><div class="kpi-value" id="kpi-ttf">—</div><div class="kpi-sub" id="kpi-ttf-sub"></div></div>
@@ -199,6 +201,11 @@
     $('kpi-roster-sub').textContent = roster.total + ' total · ' + (roster.languages_covered || 0) + ' languages · ' + (roster.cdi_eligible || 0) + ' CDI';
     $('kpi-avail').textContent = roster.available_now;
     $('kpi-avail-sub').textContent = 'as of now';
+
+    var clients = r.clients || {};
+    $('kpi-clients-active').textContent = (clients.active != null ? clients.active : '—');
+    $('kpi-clients-sub').textContent = (clients.total || 0) + ' total · $' +
+      Math.round((clients.outstanding_total_cents || 0) / 100).toLocaleString('en-US', { maximumFractionDigits: 0 }) + ' A/R';
 
     var jobs = r.jobs || {};
     $('kpi-open').textContent = jobs.open_now;

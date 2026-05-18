@@ -1,0 +1,410 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Audit log &mdash; 1891 Interpreter</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#C8553D">
+<link rel="icon" type="image/svg+xml" href="/interpreter/assets/img/favicon.svg">
+<link rel="stylesheet" href="/interpreter/assets/css/site.css">
+<link rel="stylesheet" href="/interpreter/assets/css/app.css">
+<style>
+  /* Filter bar — three-row collapse on narrow viewports. */
+  .filter-bar {
+    display:grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap:var(--1891int-s-3);
+    padding:var(--1891int-s-4);
+    background:var(--1891int-paper);
+    border:1px solid var(--1891int-line);
+    border-radius:var(--1891int-r-2);
+    margin-bottom:var(--1891int-s-4);
+  }
+  .filter-bar label {
+    display:flex; flex-direction:column; gap:4px;
+    font-size:11px; color:var(--1891int-fog); text-transform:uppercase;
+    letter-spacing:.06em; font-weight:600;
+  }
+  .filter-bar input, .filter-bar select {
+    font-size:14px; padding:6px 10px; border:1px solid var(--1891int-line);
+    border-radius:6px; background:#fff; color:var(--1891int-ink); font-family:inherit;
+  }
+  .filter-bar input:focus, .filter-bar select:focus {
+    outline:2px solid var(--1891int-river); outline-offset:1px;
+  }
+  .filter-actions { display:flex; gap:var(--1891int-s-3); align-items:center; flex-wrap:wrap; margin-bottom:var(--1891int-s-4); }
+  .count-summary { color:var(--1891int-fog); font-size:13.5px; }
+  .count-summary strong { color:var(--1891int-ink); font-variant-numeric:tabular-nums; }
+  .count-summary.warn { color:#9E4500; }
+
+  /* Results table — wraps in a scroll container on narrow viewports. */
+  .audit-wrap { overflow-x:auto; border:1px solid var(--1891int-line); border-radius:var(--1891int-r-2); background:#fff; }
+  table.audit-table { width:100%; border-collapse:collapse; font-size:13.5px; }
+  table.audit-table th, table.audit-table td { text-align:left; padding:8px 10px; border-top:1px solid var(--1891int-line); vertical-align:top; }
+  table.audit-table th { background:var(--1891int-paper); font-weight:600; color:var(--1891int-ink); font-size:11px; text-transform:uppercase; letter-spacing:.06em; border-top:0; position:sticky; top:0; z-index:1; }
+  table.audit-table td.ts { white-space:nowrap; color:var(--1891int-fog); font-variant-numeric:tabular-nums; }
+  table.audit-table td.actor strong { display:block; }
+  table.audit-table td.actor .actor-sub { color:var(--1891int-fog); font-size:11.5px; }
+  table.audit-table td.action code { background:var(--1891int-paper); padding:1px 6px; border-radius:4px; font-size:12px; }
+  table.audit-table td.record { color:var(--1891int-fog); font-size:12px; word-break:break-all; }
+  table.audit-table td.record strong { color:var(--1891int-ink); font-size:12.5px; }
+
+  /* Result chips. */
+  .chip { display:inline-block; padding:1px 8px; border-radius:999px; font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.05em; }
+  .chip-allow { background:#DDF1E5; color:#0F5C2E; }
+  .chip-deny  { background:#FCE0E0; color:#A8170D; }
+  .chip-error { background:#FFE9D6; color:#9E4500; }
+  .chip-default { background:var(--1891int-paper-deep); color:var(--1891int-fog); }
+
+  .empty-row td { text-align:center; padding:var(--1891int-s-5); color:var(--1891int-fog); }
+</style>
+</head>
+<body>
+<a href="#main" class="skip">Skip to main content</a>
+
+<div class="app-shell">
+  <header class="app-header">
+    <div class="wrap">
+      <a href="/interpreter/app/" class="brand"><img src="/interpreter/assets/img/brand-mark.svg" alt="" width="32" height="32"><span>1891 <span class="brand-sub">Scheduler</span></span></a>
+      <div class="who"><span>Signed in as </span><strong id="who-name">&hellip;</strong><button id="signout" type="button">Sign out</button></div>
+    </div>
+  </header>
+  <nav class="app-nav" aria-label="App sections">
+    <div class="wrap">
+      <a href="/interpreter/app/">Day-of board</a>
+      <a href="/interpreter/app/interpreters/">Interpreters</a>
+      <a href="/interpreter/app/admin/">Admin</a>
+      <a href="/interpreter/app/admin/health.html">Health</a>
+      <a href="/interpreter/app/admin/audit.html" aria-current="page">Audit log</a>
+      <a href="/interpreter/app/admin/tenants/">Tenants</a>
+    </div>
+  </nav>
+
+  <main id="main" class="app-main">
+    <div class="wrap">
+      <div class="toolbar">
+        <h1 style="margin:0;font-size:30px">Audit log</h1>
+        <div class="spacer"></div>
+        <span class="muted" style="font-size:13.5px" id="snapshot-time"></span>
+      </div>
+
+      <div id="loading" class="empty-state"><span class="spinner"></span> Loading audit rows&hellip;</div>
+      <div id="forbidden" class="empty-state" style="display:none">
+        <h2>Restricted page.</h2>
+        <p class="ink-soft">Audit log is gated to owners, managers, auditors, and platform staff.</p>
+        <a class="btn btn-primary" href="/interpreter/app/">Back to day-of board</a>
+      </div>
+
+      <div id="content" style="display:none">
+
+        <form id="filters" class="filter-bar" onsubmit="return false;">
+          <label>From
+            <input type="date" id="f-from">
+          </label>
+          <label>To
+            <input type="date" id="f-to">
+          </label>
+          <label>User
+            <select id="f-user"><option value="">All users</option></select>
+          </label>
+          <label>Action
+            <input type="text" id="f-action" list="action-suggestions" placeholder="e.g. client.*" autocomplete="off">
+            <datalist id="action-suggestions">
+              <option value="auth.*">
+              <option value="auth_login">
+              <option value="auth_link_issued">
+              <option value="client.*">
+              <option value="job.*">
+              <option value="job.create">
+              <option value="job.claim">
+              <option value="job.complete">
+              <option value="job.cancel">
+              <option value="invoice.*">
+              <option value="interpreter.*">
+              <option value="consumer.read.*">
+              <option value="setting.*">
+              <option value="tenant.*">
+              <option value="hmac.rotate">
+            </datalist>
+          </label>
+          <label>Limit
+            <select id="f-limit">
+              <option value="100">100</option>
+              <option value="200" selected>200</option>
+              <option value="500">500</option>
+              <option value="1000">1000</option>
+            </select>
+          </label>
+        </form>
+
+        <div class="filter-actions">
+          <button class="btn btn-primary btn-sm" type="button" id="apply">Apply filters</button>
+          <button class="btn btn-ghost btn-sm" type="button" id="reset">Reset</button>
+          <button class="btn btn-ghost btn-sm" type="button" id="export-csv">Export CSV</button>
+          <div class="spacer"></div>
+          <div class="count-summary" id="count-summary"></div>
+        </div>
+
+        <div class="audit-wrap">
+          <table class="audit-table" aria-label="Audit rows">
+            <thead>
+              <tr>
+                <th style="width:160px">Timestamp</th>
+                <th style="width:200px">Actor</th>
+                <th>Action</th>
+                <th>Record</th>
+                <th style="width:80px">Result</th>
+              </tr>
+            </thead>
+            <tbody id="rows">
+              <tr class="empty-row"><td colspan="5">Apply filters to load rows.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+<script src="/interpreter/assets/js/whitelabel.js"></script>
+<script src="/interpreter/assets/js/api.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  var ALLOWED_ROLES = { 'role_owner':1, 'role_platform_staff':1, 'role_manager':1, 'role_auditor':1 };
+
+  function $(id) { return document.getElementById(id); }
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+      return ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' })[c];
+    });
+  }
+  function toast(msg, kind) {
+    var t = $('toast'); t.textContent = msg;
+    t.className = 'toast show' + (kind ? ' ' + kind : '');
+    setTimeout(function () { t.className = 'toast'; }, 3500);
+  }
+  function fmtTs(iso) {
+    if (!iso) return '';
+    var d = new Date(iso);
+    if (isNaN(d.getTime())) return iso;
+    // Local-time formatted. Tabular numerics keep columns aligned.
+    return d.toLocaleString([], {
+      year: 'numeric', month: 'short', day: '2-digit',
+      hour: '2-digit', minute: '2-digit', second: '2-digit'
+    });
+  }
+  function isoDay(d) {
+    // YYYY-MM-DD in local time (date-picker friendly).
+    var z = function (n) { return n < 10 ? '0' + n : '' + n; };
+    return d.getFullYear() + '-' + z(d.getMonth() + 1) + '-' + z(d.getDate());
+  }
+
+  // Last loaded result set — used by Export CSV.
+  var LAST_RESULT = { rows: [], total_match: 0 };
+
+  document.addEventListener('DOMContentLoaded', init);
+
+  function init() {
+    if (!IntApi.getSession()) { location.href = '/interpreter/sign-in.html'; return; }
+    IntApi.whoami().then(function (r) {
+      if (!r || !r.ok) { IntApi.clearSession(); location.href = '/interpreter/sign-in.html'; return; }
+      $('who-name').textContent = r.user.display_name || r.user.email;
+      if (window.IntTheme && r.agency) IntTheme.apply(r.agency);
+      // Role gate. We also gate server-side; this just spares a forbidden round-trip.
+      if (!ALLOWED_ROLES[r.user.role_id]) {
+        $('loading').style.display = 'none';
+        $('forbidden').style.display = '';
+        return;
+      }
+      $('loading').style.display = 'none';
+      $('content').style.display = '';
+      seedDefaultDates();
+      loadUserDropdown();
+      load();
+    });
+    $('signout').addEventListener('click', function () { IntApi.clearSession(); location.href = '/interpreter/'; });
+    $('apply').addEventListener('click', load);
+    $('reset').addEventListener('click', function () {
+      seedDefaultDates();
+      $('f-user').value = '';
+      $('f-action').value = '';
+      $('f-limit').value = '200';
+      load();
+    });
+    $('export-csv').addEventListener('click', exportCsv);
+    // Enter inside the action filter triggers a load.
+    $('f-action').addEventListener('keydown', function (ev) {
+      if (ev.key === 'Enter') { ev.preventDefault(); load(); }
+    });
+  }
+
+  function seedDefaultDates() {
+    var to = new Date();
+    var from = new Date(to.getTime() - 7 * 86400000);
+    $('f-from').value = isoDay(from);
+    $('f-to').value = isoDay(to);
+  }
+
+  // Populate the user-dropdown from interpreters + client contacts. Both calls
+  // are scoped to the session tenant by the backend, so we get the relevant
+  // actor pool without exposing PII from other tenants.
+  function loadUserDropdown() {
+    var sel = $('f-user');
+    var byId = {};
+    Promise.all([
+      IntApi.listInterpreters().catch(function () { return null; }),
+      IntApi.listClients().catch(function () { return null; })
+    ]).then(function (results) {
+      var interps = (results[0] && results[0].interpreters) || [];
+      interps.forEach(function (i) {
+        if (!i.user_id) return;
+        var name = (i.legal_first || '') + ' ' + (i.legal_last || '');
+        byId[i.user_id] = name.trim() || i.user_id;
+      });
+      var clients = (results[1] && results[1].clients) || [];
+      clients.forEach(function (c) {
+        (c.contacts || []).forEach(function (cc) {
+          if (!cc.user_id) return;
+          var name = (cc.first || '') + ' ' + (cc.last || '');
+          byId[cc.user_id] = (name.trim() || cc.email || cc.user_id) +
+            (c.display_name ? ' · ' + c.display_name : '');
+        });
+      });
+      // Sort by displayed name.
+      var entries = Object.keys(byId).map(function (k) { return { id:k, name:byId[k] }; });
+      entries.sort(function (a, b) { return a.name.localeCompare(b.name); });
+      // Wipe & repopulate.
+      while (sel.firstChild) sel.removeChild(sel.firstChild);
+      var opt = document.createElement('option');
+      opt.value = ''; opt.textContent = 'All users';
+      sel.appendChild(opt);
+      entries.forEach(function (e) {
+        var o = document.createElement('option');
+        o.value = e.id; o.textContent = e.name;
+        sel.appendChild(o);
+      });
+    });
+  }
+
+  function currentFilters() {
+    var from = $('f-from').value;
+    var to = $('f-to').value;
+    // Send full-day ISO timestamps so the server includes the end-of-day rows.
+    var fromIso = from ? new Date(from + 'T00:00:00').toISOString() : '';
+    var toIso = to ? new Date(to + 'T23:59:59.999').toISOString() : '';
+    return {
+      from: fromIso,
+      to: toIso,
+      user_id: $('f-user').value,
+      action_filter: $('f-action').value.trim(),
+      limit: parseInt($('f-limit').value, 10) || 200
+    };
+  }
+
+  function load() {
+    var tbody = $('rows');
+    tbody.innerHTML = '<tr class="empty-row"><td colspan="5"><span class="spinner"></span> Loading&hellip;</td></tr>';
+    $('count-summary').textContent = '';
+    IntApi.listAuditLog(currentFilters()).then(function (r) {
+      if (!r) { toast('Network error', 'error'); tbody.innerHTML = ''; return; }
+      if (r._status === 403 || (r.error && r.error.indexOf('role required') >= 0)) {
+        $('content').style.display = 'none';
+        $('forbidden').style.display = '';
+        return;
+      }
+      if (!r.ok) {
+        tbody.innerHTML = '<tr class="empty-row"><td colspan="5">' + esc(r.error || 'Load failed') + '</td></tr>';
+        return;
+      }
+      LAST_RESULT = r;
+      renderRows(r.rows || []);
+      renderCount(r);
+      $('snapshot-time').textContent = 'updated ' + new Date().toLocaleTimeString([], { hour:'numeric', minute:'2-digit' });
+    }).catch(function (err) {
+      tbody.innerHTML = '<tr class="empty-row"><td colspan="5">' + esc(String(err)) + '</td></tr>';
+    });
+  }
+
+  function renderCount(r) {
+    var shown = (r.rows || []).length;
+    var total = r.total_match || 0;
+    var el = $('count-summary');
+    if (total === 0) {
+      el.textContent = 'No rows match.';
+      el.className = 'count-summary';
+      return;
+    }
+    if (shown < total) {
+      el.innerHTML = 'Showing <strong>' + shown + '</strong> of <strong>' +
+        total + '</strong> &mdash; narrow filters to see more.';
+      el.className = 'count-summary warn';
+    } else {
+      el.innerHTML = 'Showing <strong>' + shown + '</strong> row' + (shown === 1 ? '' : 's') + '.';
+      el.className = 'count-summary';
+    }
+  }
+
+  function resultChip(result) {
+    var r = String(result || '').toLowerCase();
+    if (r === 'allow') return '<span class="chip chip-allow">allow</span>';
+    if (r === 'deny')  return '<span class="chip chip-deny">deny</span>';
+    if (r === 'error' || r.indexOf('error') >= 0) return '<span class="chip chip-error">' + esc(r) + '</span>';
+    return '<span class="chip chip-default">' + esc(r || '—') + '</span>';
+  }
+
+  function renderRows(rows) {
+    var tbody = $('rows');
+    if (!rows.length) {
+      tbody.innerHTML = '<tr class="empty-row"><td colspan="5">No rows match your filters.</td></tr>';
+      return;
+    }
+    tbody.innerHTML = rows.map(function (r) {
+      var hoverTitle = [r.user_email, r.user_role, r.user_id].filter(Boolean).join(' · ');
+      var recBits = [];
+      if (r.record_type) recBits.push('<strong>' + esc(r.record_type) + '</strong>');
+      if (r.record_id)   recBits.push(esc(r.record_id));
+      var recordCell = recBits.join(' ') || '<span class="muted">&mdash;</span>';
+      return '<tr>' +
+        '<td class="ts">' + esc(fmtTs(r.ts)) + '</td>' +
+        '<td class="actor" title="' + esc(hoverTitle) + '">' +
+          '<strong>' + esc(r.user_display) + '</strong>' +
+          (r.user_email ? '<span class="actor-sub">' + esc(r.user_email) + '</span>' : '') +
+        '</td>' +
+        '<td class="action"><code>' + esc(r.action) + '</code></td>' +
+        '<td class="record">' + recordCell + '</td>' +
+        '<td>' + resultChip(r.result) + '</td>' +
+      '</tr>';
+    }).join('');
+  }
+
+  function exportCsv() {
+    var rows = LAST_RESULT.rows || [];
+    if (!rows.length) { toast('Nothing to export &mdash; load some rows first.', 'error'); return; }
+    var cols = ['ts','tenant_id','tenant_name','user_id','user_display','user_email','user_role','action','record_type','record_id','purpose_of_use','result','ip','user_agent','jti','audit_id'];
+    function csvCell(v) {
+      var s = v == null ? '' : String(v);
+      if (/[",\n\r]/.test(s)) return '"' + s.replace(/"/g, '""') + '"';
+      return s;
+    }
+    var lines = [cols.join(',')];
+    rows.forEach(function (r) {
+      lines.push(cols.map(function (c) { return csvCell(r[c]); }).join(','));
+    });
+    var csv = lines.join('\r\n');
+    var uri = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
+    var a = document.createElement('a');
+    a.href = uri;
+    a.download = 'audit-log-' + isoDay(new Date()) + '.csv';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  }
+})();
+</script>
+</body>
+</html>

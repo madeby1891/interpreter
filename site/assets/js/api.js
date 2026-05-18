@@ -155,6 +155,31 @@
   function aiIntake(text)     { return jsonp({ action: 'ai_intake', text: text }); }
   function testAnthropic()    { return jsonp({ action: 'test_anthropic' }); }
 
+  // CORS-mode POST that READS the response — needed when the caller wants the
+  // server's reply body. The Worker proxy adds Access-Control-Allow-Origin so
+  // cross-origin reads work from madeby1891.com. The `_post` above is fire-
+  // and-forget (no-cors) and stays around for write actions that don't need
+  // the response.
+  function _postCors(action, fields) {
+    var body = _params(action, fields);
+    return fetch(ENDPOINT, {
+      method: 'POST',
+      body: body,
+      mode: 'cors',
+      headers: { 'Accept': 'application/json' }
+    }).then(function (r) { return r.json(); });
+  }
+
+  // Close-out (v18.2)
+  function closeOutJob(fields)      { return _postCors('closeout_job', fields); }
+  function uploadReceipt(fields)    { return _postCors('upload_receipt', fields); }
+  function disputeCloseout(fields)  { return _postCors('dispute_closeout', fields); }
+  function updateExpenseStatus(fields) { return _postCors('update_expense_status', fields); }
+  function listJobExpenses(jobId)   { return jsonp({ action: 'list_job_expenses', job_id: jobId }); }
+  function receiptUrl(driveId) {
+    return ENDPOINT + '?action=get_receipt&id=' + encodeURIComponent(driveId) + '&session=' + encodeURIComponent(getSession());
+  }
+
   // Clients (v18)
   function listClients(status)      { return jsonp({ action: 'list_clients', status: status || '' }); }
   function getClient(clientId)      { return jsonp({ action: 'get_client', id: clientId }); }
@@ -163,6 +188,22 @@
   function upsertClientContact(fields)  { return _post('upsert_client_contact', fields); }
   function upsertSpecialist(fields)     { return _post('upsert_specialist', fields); }
   function updateClientBillingRules(fields) { return _post('update_client_billing_rules', fields); }
+
+  // Admin — audit log read-back. `params` may include tenant_id, from, to,
+  // user_id, action_filter (note: NOT `action` — that's the dispatch key),
+  // and limit. All optional; backend has sane defaults.
+  function listAuditLog(params) {
+    var q = { action: 'list_audit_log' };
+    if (params) {
+      if (params.tenant_id)     q.tenant_id     = params.tenant_id;
+      if (params.from)          q.from          = params.from;
+      if (params.to)            q.to            = params.to;
+      if (params.user_id)       q.user_id       = params.user_id;
+      if (params.action_filter) q.action_filter = params.action_filter;
+      if (params.limit)         q.limit         = params.limit;
+    }
+    return jsonp(q);
+  }
 
   root.IntApi = {
     ENDPOINT: ENDPOINT,
@@ -203,6 +244,13 @@
     upsertClientContact: upsertClientContact,
     upsertSpecialist: upsertSpecialist,
     updateClientBillingRules: updateClientBillingRules,
+    listAuditLog: listAuditLog,
+    closeOutJob: closeOutJob,
+    uploadReceipt: uploadReceipt,
+    disputeCloseout: disputeCloseout,
+    updateExpenseStatus: updateExpenseStatus,
+    listJobExpenses: listJobExpenses,
+    receiptUrl: receiptUrl,
     jsonp: jsonp
   };
 })(window);

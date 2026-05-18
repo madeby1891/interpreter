@@ -85,6 +85,12 @@
               <h2 class="mt-0">Assignments</h2>
               <div id="assignments"></div>
             </div>
+            <div class="card" id="closeout-card" style="margin-top:var(--1891int-s-4);display:none">
+              <h2 class="mt-0">Close-out</h2>
+              <div id="closeout-summary"></div>
+              <div id="closeout-expenses" style="margin-top:12px"></div>
+              <div id="closeout-actions" style="margin-top:12px"></div>
+            </div>
           </section>
           <section>
             <div class="card">
@@ -178,7 +184,8 @@
       IntApi.getJob(jobId),
       IntApi.jsonp ? IntApi.jsonp({ action:'list_assignments', job_id: jobId }) : Promise.resolve({ ok:true, assignments:[] }),
       IntApi.jsonp ? IntApi.jsonp({ action:'list_job_events', job_id: jobId }) : Promise.resolve({ ok:true, events:[] }),
-      IntApi.jsonp ? IntApi.jsonp({ action:'list_communications', job_id: jobId }) : Promise.resolve({ ok:true, comms:[] })
+      IntApi.jsonp ? IntApi.jsonp({ action:'list_communications', job_id: jobId }) : Promise.resolve({ ok:true, comms:[] }),
+      IntApi.listJobExpenses ? IntApi.listJobExpenses(jobId) : Promise.resolve({ ok:true, expenses:[], totals:{} })
     ]).then(function (results) {
       var jobResp = results[0];
       $('loading').style.display = 'none';
@@ -189,7 +196,126 @@
       renderAssignments(results[1].assignments || []);
       renderTimeline(results[2].events || []);
       renderComms(results[3].comms || []);
+      renderCloseout(jobResp.job, results[4].expenses || [], results[4].totals || {});
     }).catch(function () { showNotFound(); });
+  }
+
+  function renderCloseout(j, expenses, totals) {
+    if (!j.interpreter_signoff_at && (!expenses || !expenses.length)) {
+      $('closeout-card').style.display = 'none';
+      return;
+    }
+    $('closeout-card').style.display = '';
+
+    var schedMin = j.scheduled_start && j.scheduled_end
+      ? Math.round((new Date(j.scheduled_end) - new Date(j.scheduled_start)) / 60000)
+      : null;
+    var actMin = j.actual_start && j.actual_end
+      ? Math.round((new Date(j.actual_end) - new Date(j.actual_start)) / 60000)
+      : null;
+    var divPct = Number(j.closeout_divergence_pct || 0);
+    var flagged = divPct >= 25;
+    var disputed = !!j.closeout_disputed_at;
+
+    var html = '';
+    if (j.interpreter_signoff_at) {
+      html += '<div style="font-size:14px;line-height:1.6">';
+      html += '<strong>Submitted by interpreter:</strong> ' + escHtml(fmt(j.interpreter_signoff_at)) + '<br>';
+      if (schedMin != null && actMin != null) {
+        html += '<strong>Actual:</strong> ' + (actMin / 60).toFixed(2) + 'h · <strong>Scheduled:</strong> ' + (schedMin / 60).toFixed(2) + 'h';
+        if (divPct > 0) {
+          var divCls = flagged ? 'style="color:#9E4500;font-weight:600"' : 'style="color:var(--1891int-fog)"';
+          html += ' · <span ' + divCls + '>' + (flagged ? '⚠ ' : '') + divPct + '% divergence</span>';
+        }
+        html += '<br>';
+      }
+      if (j.interpreter_signoff_notes) {
+        html += '<strong>Interpreter notes:</strong> ' + escHtml(j.interpreter_signoff_notes) + '<br>';
+      }
+      if (disputed) {
+        html += '<div style="margin-top:8px;padding:10px 14px;background:#FDECEC;border-left:3px solid var(--1891int-err);border-radius:4px">' +
+          '<strong>Disputed:</strong> ' + escHtml(fmt(j.closeout_disputed_at)) + '<br>' +
+          '<em>"' + escHtml(j.closeout_dispute_reason || '') + '"</em>' +
+          '</div>';
+      }
+      html += '</div>';
+    } else {
+      html += '<p class="muted" style="font-size:13.5px;margin:0">No interpreter sign-off yet.</p>';
+    }
+    $('closeout-summary').innerHTML = html;
+
+    if (expenses && expenses.length) {
+      var expHtml = '<h3 style="font-size:13px;text-transform:uppercase;letter-spacing:.08em;color:var(--1891int-fog);margin:0 0 6px">Expenses (' + expenses.length + ' · $' + ((totals.amount_cents || 0) / 100).toFixed(2) + ')</h3>';
+      expHtml += '<table style="width:100%;border-collapse:collapse;font-size:13.5px"><thead><tr style="text-align:left;border-bottom:1px solid var(--1891int-line);color:var(--1891int-fog);text-transform:uppercase;font-size:11px;letter-spacing:.06em"><th style="padding:6px 8px">Type</th><th style="padding:6px 8px">Description</th><th style="padding:6px 8px;text-align:right">Amount</th><th style="padding:6px 8px">Receipt</th><th style="padding:6px 8px">Status</th><th></th></tr></thead><tbody>';
+      expenses.forEach(function (ex) {
+        var receiptCell = ex.receipt_r2_key
+          ? '<a href="' + escHtml(IntApi.receiptUrl(ex.receipt_r2_key)) + '" target="_blank" rel="noopener" style="color:var(--1891int-bloom-deep)">View</a>'
+          : '<span class="muted">—</span>';
+        var statusColor = ex.status === 'approved' || ex.status === 'reimbursed' ? '#0F5C2E'
+                       : ex.status === 'rejected' ? 'var(--1891int-err)'
+                       : '#7D5C00';
+        var actionBtn = ex.status === 'submitted'
+          ? '<button class="btn btn-ghost btn-sm" style="padding:3px 8px;font-size:11px" data-act-exp="approve" data-id="' + escHtml(ex.expense_id) + '">Approve</button> ' +
+            '<button class="btn btn-ghost btn-sm" style="padding:3px 8px;font-size:11px" data-act-exp="reject" data-id="' + escHtml(ex.expense_id) + '">Reject</button>'
+          : '';
+        expHtml += '<tr style="border-bottom:1px solid var(--1891int-line)">' +
+          '<td style="padding:6px 8px;text-transform:capitalize">' + escHtml(ex.expense_type) + '</td>' +
+          '<td style="padding:6px 8px">' + escHtml(ex.description || '—') + (ex.expense_type === 'mileage' ? ' <span class="muted">(' + (Number(ex.quantity) || 0) + ' mi)</span>' : '') + '</td>' +
+          '<td style="padding:6px 8px;text-align:right;font-variant-numeric:tabular-nums">$' + ((Number(ex.amount_cents) || 0) / 100).toFixed(2) + '</td>' +
+          '<td style="padding:6px 8px">' + receiptCell + '</td>' +
+          '<td style="padding:6px 8px;color:' + statusColor + ';text-transform:capitalize">' + escHtml(ex.status || 'submitted') + '</td>' +
+          '<td style="padding:6px 8px">' + actionBtn + '</td>' +
+        '</tr>';
+      });
+      expHtml += '</tbody></table>';
+      $('closeout-expenses').innerHTML = expHtml;
+      bindExpenseActions(j.job_id);
+    } else {
+      $('closeout-expenses').innerHTML = '';
+    }
+
+    // Dispute button (only if not already disputed and within reasonable window)
+    if (j.interpreter_signoff_at && !disputed && j.status === 'COMPLETED') {
+      $('closeout-actions').innerHTML = '<button class="btn btn-ghost btn-sm" id="btn-dispute"' + (flagged ? ' style="border-color:#9E4500;color:#9E4500"' : '') + '>Dispute close-out</button>';
+      var disputeBtn = document.getElementById('btn-dispute');
+      if (disputeBtn) disputeBtn.addEventListener('click', function () { openDispute(j.job_id); });
+    } else {
+      $('closeout-actions').innerHTML = '';
+    }
+  }
+
+  function bindExpenseActions(jobId) {
+    document.querySelectorAll('[data-act-exp]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var act = b.getAttribute('data-act-exp');
+        var id = b.getAttribute('data-id');
+        if (act === 'reject') {
+          var reason = prompt('Reason for rejecting this expense (5+ chars):');
+          if (!reason || reason.trim().length < 5) return;
+          IntApi.updateExpenseStatus({ expense_id: id, status: 'rejected', reason: reason }).then(function (r) {
+            if (!r || !r.ok) { alert((r && r.error) || 'Reject failed'); return; }
+            load(jobId);
+          });
+        } else if (act === 'approve') {
+          IntApi.updateExpenseStatus({ expense_id: id, status: 'approved' }).then(function (r) {
+            if (!r || !r.ok) { alert((r && r.error) || 'Approve failed'); return; }
+            load(jobId);
+          });
+        }
+      });
+    });
+  }
+
+  function openDispute(jobId) {
+    var reason = prompt('Why are you disputing this close-out? (10+ chars). This sends the job back to CONFIRMED so the interpreter can re-submit.');
+    if (!reason || reason.trim().length < 10) {
+      if (reason !== null) alert('Reason must be at least 10 characters.');
+      return;
+    }
+    IntApi.disputeCloseout({ job_id: jobId, reason: reason }).then(function (r) {
+      if (!r || !r.ok) { alert((r && r.error) || 'Dispute failed'); return; }
+      load(jobId);
+    });
   }
 
   function renderJob(j) {

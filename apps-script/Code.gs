@@ -75,7 +75,9 @@ var T = {
   Clients: 'Clients',
   ClientContacts: 'Client_Contacts',
   Specialists: 'Specialists',
-  ClientBillingRules: 'Client_Billing_Rules'
+  ClientBillingRules: 'Client_Billing_Rules',
+  // v18.2 — Interpreter close-out (actuals + expenses)
+  JobExpenses: 'Job_Expenses'
 };
 
 var AUTH_TOKEN_TTL_MS = 15 * 60 * 1000;        // magic link valid for 15 min
@@ -143,9 +145,14 @@ function doGet(e) {
       case 'list_notification_prefs': return _safeCall('apiListNotificationPrefs', e);
       // Metrics
       case 'agency_health':      return _safeCall('apiAgencyHealth', e);
+      // Admin — audit log read-back
+      case 'list_audit_log':     return _safeCall('apiListAuditLog', e);
       // Clients
       case 'list_clients':       return _safeCall('apiListClients', e);
       case 'get_client':         return _safeCall('apiGetClient', e);
+      // Close-out (v18.2)
+      case 'list_job_expenses':  return _safeCall('apiListJobExpenses', e);
+      case 'get_receipt':        return _safeCall('apiGetReceipt', e);
       case 'switch_tenant':      return _safeCall('apiSwitchTenant', e);  // GET-path enables JSONP response read
       case '_rotate_hmac':       return apiRotateHmac(e);                  // one-shot Worker-secret sync
       case '_mail_debug':        return apiMailDebug(e);                   // diagnostic
@@ -236,6 +243,11 @@ function doPost(e) {
       case 'upsert_client_contact':     return _safeCall('apiUpsertClientContact', e);
       case 'upsert_specialist':         return _safeCall('apiUpsertSpecialist', e);
       case 'update_client_billing_rules': return _safeCall('apiUpdateClientBillingRules', e);
+      // Close-out (v18.2)
+      case 'closeout_job':              return _safeCall('apiCloseOutJob', e);
+      case 'upload_receipt':            return _safeCall('apiUploadReceipt', e);
+      case 'dispute_closeout':          return _safeCall('apiDisputeCloseout', e);
+      case 'update_expense_status':     return _safeCall('apiUpdateExpenseStatus', e);
       default:                   return _json({ ok:false, error:'Unknown action: ' + action }, 404);
     }
   } catch (err) {
@@ -2156,10 +2168,11 @@ function _tenantSchema() {
     Client_Contacts: ['contact_id','client_id','tenant_id','user_id','role_on_client','first','last','email','phone_e164','title','department','preferred_channel','status','_created_at','_updated_at'],
     Specialists: ['specialist_id','client_id','tenant_id','display_name','department','specialty_code','npi','default_location_id','default_modality_pref','notes','status','_created_at','_updated_at'],
     Client_Billing_Rules: ['rule_id','client_id','tenant_id','consolidation_mode','billing_cycle','statement_day_of_month','requires_po','po_format_regex','gl_template','invoice_format','split_by_location','split_by_specialist','show_consumer_initials_on_invoice','show_specialist_on_invoice','show_interpreter_name_on_invoice','rounding_minutes','minimum_invoice_cents','late_fee_pct','notes','status','_created_at','_updated_at'],
+    Job_Expenses: ['expense_id','tenant_id','job_id','assignment_id','interpreter_id','expense_type','quantity','unit','rate_cents','amount_cents','description','receipt_r2_key','receipt_filename','receipt_mime','submitted_at','status','approved_by_user_id','approved_at','rejected_reason','payout_id','_created_at','_updated_at','_rev'],
     Payers: ['payer_id','tenant_id','display_name','billing_email','billing_address','net_terms','tax_exempt','stripe_customer_id','qb_customer_id','status','_created_at','_updated_at'],
     Consumers: ['consumer_id','tenant_id','display_initials','legal_first_encrypted','legal_last_encrypted','dob_encrypted','mrn_encrypted','primary_language_id','dialect','communication_prefs','notes_sealed','do_not_contact','consent_recording_default','created_by_user_id','deletion_requested_at','_created_at','_updated_at'],
     Locations: ['location_id','tenant_id','requestor_id','display_name','street','city','state','zip','timezone','parking_notes','accessibility_notes','geo','modalities_supported','_created_at','_updated_at'],
-    Jobs: ['job_id','tenant_id','client_id','requestor_id','requestor_contact_id','payer_id','location_id','specialist_id','consumer_id','modality','service_type','source_language_id','target_language_id','team_config','scheduled_start','scheduled_end','actual_start','actual_end','status','on_demand','reference_no','po_number','notes_to_interpreter','consent_recording','recording_r2_key','transcript_r2_key','created_via','ai_intake_id','rate_applied','cancellation_reason','cancellation_at','cancellation_bill_cents','cancellation_pay_cents','invoice_id','_created_at','_updated_at','_rev'],
+    Jobs: ['job_id','tenant_id','client_id','requestor_id','requestor_contact_id','payer_id','location_id','specialist_id','consumer_id','modality','service_type','source_language_id','target_language_id','team_config','scheduled_start','scheduled_end','actual_start','actual_end','status','on_demand','reference_no','po_number','notes_to_interpreter','consent_recording','recording_r2_key','transcript_r2_key','created_via','ai_intake_id','rate_applied','cancellation_reason','cancellation_at','cancellation_bill_cents','cancellation_pay_cents','invoice_id','interpreter_signoff_at','interpreter_signoff_notes','closeout_divergence_pct','closeout_disputed_at','closeout_disputed_by','closeout_dispute_reason','_created_at','_updated_at','_rev'],
     Job_Assignments: ['assignment_id','job_id','interpreter_id','role_on_job','offered_at','responded_at','response','pay_rate_snapshot','billable_minutes','status','_created_at','_updated_at','_rev'],
     Job_Events: ['event_id','job_id','actor_user_id','event_type','from_state','to_state','payload','ts'],
     Communications: ['comm_id','tenant_id','channel','direction','template_id','to_user_id','to_address','body_redacted_r2_key','status','provider','provider_msg_id','job_id','_created_at','_updated_at'],

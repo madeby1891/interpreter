@@ -4,6 +4,104 @@ Dated history of changes. Newest entries at the top. Note user-visible changes o
 
 ---
 
+## 2026-05-18 — v18.2: Interpreter close-out (actuals + expenses) + audit-log viewer
+
+Closing out a job is now a real thing. Interpreter ends the appointment,
+opens `/app/me/`, taps **Close out this job** on the card → modal walks them
+through:
+
+- **Actual times** (default to scheduled; editable). Live divergence preview:
+  if their actuals differ from scheduled by ≥25% the form warns them the
+  scheduler may review.
+- **Expense lines** — repeating rows for mileage, parking, tolls, supplies,
+  meal, other. Mileage uses the interpreter's per-mile rate from their
+  profile; other types take a flat dollar amount. Each line accepts an
+  optional **receipt upload** (image/PDF, ≤8MB, stored on Drive in a
+  per-tenant per-month folder).
+- **Notes** to the scheduler (optional).
+
+### What close-out does on the backend
+
+`apiCloseOutJob` (in new `Code_Closeout.gs`):
+- Sets `Jobs.actual_start` / `actual_end` / `status='COMPLETED'`
+- Writes `Jobs.interpreter_signoff_at`, `interpreter_signoff_notes`,
+  `closeout_divergence_pct`
+- Updates the interpreter's `Job_Assignments.billable_minutes` to the actual
+- Inserts `Job_Expenses` rows (`status='submitted'`) — never billed to
+  client, only reimbursed on payout
+- Fires the `job_complete` notification event
+- Returns a `flagged_for_dispute` boolean so the modal can warn
+
+The **auto-bill** policy (per operator choice): close-out posts immediately;
+the scheduler doesn't have to approve before invoice/payout flows pick it up.
+But the scheduler can **dispute** within the review window — click the
+"⚠ N%" chip on the day-of board → opens the job page → "Dispute close-out"
+button. Disputed jobs roll back to `CONFIRMED` so the interpreter re-submits.
+
+### Receipt handling
+
+Schema field is `receipt_r2_key` (kept for forward-compat) but v1 stores
+to **Google Drive** via `DriveApp.createFile()` since R2 setup requires
+Cloudflare API auth not yet wired. Folder layout:
+`/1891 Interpreter — Receipts/<tenant_id>/<YYYY-MM>/<filename>`. Receipts
+view-back through `apiGetReceipt` which streams the bytes back as a
+data-URI–wrapped HTML response (auth-gated to owner/manager/scheduler or
+the uploading interpreter).
+
+### Payout integration
+
+`apiCreatePayout` now pulls **approved Job_Expenses** alongside the labor
+lines for each assignment in the period. Each expense becomes its own line
+on the payout (`kind:'expense'` vs `kind:'labor'`). Once a payout is
+persisted, the Job_Expense rows get `payout_id` + `status='reimbursed'` so
+they can't double-pay.
+
+### Scheduler side
+
+On `/app/job/`:
+- New **Close-out card** appears once the interpreter signs off — shows
+  actual vs scheduled hours, divergence %, interpreter notes, expense table
+- Expense table: each line has Approve / Reject buttons (reject requires a
+  reason)
+- "Dispute close-out" button at the bottom — opens prompt, rolls the job
+  back to CONFIRMED with the reason logged
+
+On `/app/` (day-of board):
+- **⚠ N%** chip on COMPLETED job cards where divergence ≥25%
+- **disputed** chip on cards that got rolled back
+
+### Schema additions
+
+- New `Job_Expenses` tab: expense_id, job_id, assignment_id, interpreter_id,
+  expense_type, quantity, unit, rate_cents, amount_cents, description,
+  receipt_r2_key (drive id), receipt_filename, receipt_mime, status,
+  submitted_at, approved_*, rejected_reason, payout_id
+- `Jobs` adds: interpreter_signoff_at, interpreter_signoff_notes,
+  closeout_divergence_pct, closeout_disputed_at, closeout_disputed_by,
+  closeout_dispute_reason
+
+### Other v18.2 pieces
+
+- **Audit-log viewer** — new `/app/admin/audit.html` with date-range / user /
+  action-prefix filters, CSV export, role-gated to owner/manager/auditor/
+  platform_staff (`Code_Admin.gs` + dispatcher line + nav).
+- **Active clients KPI** card added to top strip on `/app/admin/health.html`
+  showing `active / total · $A/R`.
+- **CORS POST helper** (`_postCors`) on api.js for actions that need a
+  readable response (the existing no-cors `_post` is fire-and-forget). Used
+  by upload_receipt and closeout_job which both return data.
+
+### Deploy notes
+
+- Apps Script pushed (16 .gs files).
+- Site deployed to `madeby1891.com/interpreter`; 16/16 smoke checks pass.
+- **Still needs your manual 4-click "New version → Deploy"** to publish
+  the v18.2 endpoints (closeout_job, upload_receipt, dispute_closeout,
+  update_expense_status, list_job_expenses, get_receipt, list_audit_log)
+  to the live `/exec` URL.
+
+---
+
 ## 2026-05-18 — v18.1: Dashboard search/sort, inbound SMS, edit-client, health-dashboard client widgets
 
 Quality-of-life pass on top of v18. Five things landed:

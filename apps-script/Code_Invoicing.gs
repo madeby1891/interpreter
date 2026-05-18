@@ -857,6 +857,7 @@ function apiCreatePayout(e) {
     var amount = Math.round(hours * payRate);
     totalCents += amount;
     previewLines.push({
+      kind: 'labor',
       assignment_id: asgn.assignment_id,
       job_id: asgn.job_id,
       hours: hours,
@@ -864,6 +865,45 @@ function apiCreatePayout(e) {
       amount_cents: amount,
       service_date: _invShortDate(job.actual_start || job.scheduled_start)
     });
+  }
+
+  // v18.2 — include approved expenses (pay-side reimbursement, never billed to client)
+  // For each labor line's assignment, pull Job_Expenses that are 'submitted' or
+  // 'approved' (treating submitted-but-not-yet-reviewed as auto-eligible per the
+  // auto-bill policy), have an empty payout_id, and belong to this interpreter.
+  var expensesSh = ss.getSheetByName(T.JobExpenses);
+  var includedExpenseIds = [];
+  if (expensesSh && expensesSh.getLastRow() >= 2) {
+    var exData = expensesSh.getDataRange().getValues();
+    var exHdr = exData[0];
+    for (var ei = 1; ei < exData.length; ei++) {
+      var ex = _rowToObj(exHdr, exData[ei]);
+      if (String(ex.tenant_id) !== String(s.payload.tid)) continue;
+      if (String(ex.interpreter_id) !== String(p.interpreter_id)) continue;
+      if (ex.payout_id) continue; // already on a prior payout
+      if (ex.status === 'rejected') continue;
+      // Only include expenses tied to assignments we've already counted (so they
+      // come along for the ride with the labor lines they belong to).
+      var labor = previewLines.find(function (ln) { return ln.kind === 'labor' && ln.assignment_id === ex.assignment_id; });
+      if (!labor) continue;
+      var c = Number(ex.amount_cents || 0);
+      if (c <= 0) continue;
+      totalCents += c;
+      previewLines.push({
+        kind: 'expense',
+        expense_id: ex.expense_id,
+        assignment_id: ex.assignment_id,
+        job_id: ex.job_id,
+        expense_type: ex.expense_type,
+        quantity: ex.quantity,
+        unit: ex.unit,
+        rate_cents: Number(ex.rate_cents) || 0,
+        amount_cents: c,
+        description: ex.description || '',
+        service_date: labor.service_date
+      });
+      includedExpenseIds.push(ex.expense_id);
+    }
   }
 
   if (dryRun) {
@@ -902,8 +942,9 @@ function apiCreatePayout(e) {
   var poRow = poHdr.map(function (h) { return poObj[h] !== undefined ? poObj[h] : ''; });
   poRows.sh.appendRow(poRow);
 
-  // Mark each assignment via Job_Events 'payout_included' (this is the dedupe ledger).
+  // Mark each labor line via Job_Events 'payout_included' (this is the dedupe ledger).
   previewLines.forEach(function (ln) {
+    if (ln.kind !== 'labor') return;
     _appendJobEvent(ss, ln.job_id, s.payload.uid, 'payout_included', '', '', JSON.stringify({
       payout_id: payoutId,
       assignment_id: ln.assignment_id,
@@ -914,8 +955,29 @@ function apiCreatePayout(e) {
     }));
   });
 
-  _logAudit('payout.create', s.payload.tid, s.payload.uid, payoutId + ' assignments=' + previewLines.length);
-  return _json({ ok:true, payout_id: payoutId, total_cents: totalCents, line_count: previewLines.length });
+  // v18.2 — write payout_id back onto every included Job_Expense row so the
+  // expense can't double-pay and so we can render expense lines on the payout PDF.
+  if (includedExpenseIds.length) {
+    var exSh = ss.getSheetByName(T.JobExpenses);
+    var exData = exSh.getDataRange().getValues();
+    var exHdr = exData[0];
+    var iId = exHdr.indexOf('expense_id');
+    var iPo = exHdr.indexOf('payout_id');
+    var iSt = exHdr.indexOf('status');
+    var iUp = exHdr.indexOf('_updated_at');
+    var nowIso = new Date().toISOString();
+    for (var r = 1; r < exData.length; r++) {
+      if (includedExpenseIds.indexOf(String(exData[r][iId])) < 0) continue;
+      if (iPo >= 0) exSh.getRange(r + 1, iPo + 1).setValue(payoutId);
+      if (iSt >= 0) exSh.getRange(r + 1, iSt + 1).setValue('reimbursed');
+      if (iUp >= 0) exSh.getRange(r + 1, iUp + 1).setValue(nowIso);
+    }
+  }
+
+  var laborCount  = previewLines.filter(function (l) { return l.kind === 'labor'; }).length;
+  var expenseCount = previewLines.filter(function (l) { return l.kind === 'expense'; }).length;
+  _logAudit('payout.create', s.payload.tid, s.payload.uid, payoutId + ' assignments=' + laborCount + ' expenses=' + expenseCount);
+  return _json({ ok:true, payout_id: payoutId, total_cents: totalCents, line_count: previewLines.length, labor_lines: laborCount, expense_lines: expenseCount });
 }
 
 function apiMarkPayoutPaid(e) {

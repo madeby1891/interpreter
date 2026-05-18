@@ -352,9 +352,19 @@
     if (canClaim) actions += '<button class="btn btn-secondary btn-sm" data-act="fill" data-id="' + escHtml(j.job_id) + '">Smart-fill</button>';
     if (canClaim) actions += '<button class="btn btn-primary btn-sm" data-act="claim" data-id="' + escHtml(j.job_id) + '">Claim</button>';
     if (canCancel) actions += '<button class="btn btn-ghost btn-sm" data-act="cancel" data-id="' + escHtml(j.job_id) + '">Cancel</button>';
+    // v18.2 — divergence flag on COMPLETED jobs where actual hours diverged
+    // from scheduled hours by >= 25%
+    var divPct = Number(j.closeout_divergence_pct || 0);
+    var divFlag = '';
+    if (j.status === 'COMPLETED' && divPct >= 25 && !j.closeout_disputed_at) {
+      divFlag = '<span class="status-strip" aria-hidden="true"></span><div style="position:absolute;top:8px;right:8px;background:#FFE9D6;color:#9E4500;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;padding:3px 8px;border-radius:99px" title="Actuals diverged from scheduled by ' + divPct + '% — click for details">⚠ ' + divPct + '%</div>';
+    } else if (j.closeout_disputed_at) {
+      divFlag = '<div style="position:absolute;top:8px;right:8px;background:#FDECEC;color:var(--1891int-err);font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;padding:3px 8px;border-radius:99px">disputed</div>';
+    }
     return [
-      '<article class="job-card" data-status="' + escHtml(j.status) + '">',
+      '<article class="job-card" data-status="' + escHtml(j.status) + '" style="position:relative">',
       '  <span class="status-strip" aria-hidden="true"></span>',
+      divFlag,
       '  <div class="job-status">' + escHtml(j.status) + '</div>',
       '  <h3>' + escHtml(labelSrv.replace(/-/g,' ')) + ' &middot; ' + escHtml(labelMod) + '</h3>',
       '  <dl class="meta">',

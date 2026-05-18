@@ -111,6 +111,36 @@
   </div>
 </div>
 
+<!-- Close-out modal -->
+<div class="modal-backdrop" id="m-closeout" role="dialog" aria-modal="true">
+  <div class="modal" style="max-width:680px">
+    <div class="modal-header"><h2>Close out this job</h2><button class="close" type="button" data-close>&times;</button></div>
+    <div class="modal-body">
+      <p class="ink-soft" style="font-size:13.5px;margin-top:0">Confirm the actual times you worked and log any reimbursable expenses. We'll mark the job complete, queue your billable hours for the agency, and roll any approved expenses into your next payout.</p>
+
+      <h3 style="font-size:14px;text-transform:uppercase;letter-spacing:.06em;color:var(--1891int-fog);margin:18px 0 8px">Actual times</h3>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+        <div class="field"><label for="co-start">Started</label><input id="co-start" type="datetime-local" required></div>
+        <div class="field"><label for="co-end">Ended</label><input id="co-end" type="datetime-local" required></div>
+      </div>
+      <div id="co-divergence" class="muted" style="font-size:12.5px;margin-top:-6px"></div>
+
+      <h3 style="font-size:14px;text-transform:uppercase;letter-spacing:.06em;color:var(--1891int-fog);margin:18px 0 8px">Expenses <span style="font-size:11px;color:var(--1891int-fog);font-weight:400;text-transform:none">(pay-side reimbursement; never billed to client)</span></h3>
+      <div id="co-expenses"></div>
+      <button type="button" class="btn btn-ghost btn-sm" id="co-add-expense" style="margin-top:8px">+ Add expense</button>
+
+      <h3 style="font-size:14px;text-transform:uppercase;letter-spacing:.06em;color:var(--1891int-fog);margin:18px 0 8px">Notes (optional)</h3>
+      <textarea id="co-notes" rows="2" placeholder="Anything the scheduler should know about how this went."></textarea>
+
+      <div id="co-summary" class="muted" style="font-size:13px;margin-top:14px;padding:10px 14px;background:var(--1891int-paper-deep);border-radius:6px"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" type="button" data-close>Cancel</button>
+      <button class="btn btn-primary" type="button" id="co-submit">Submit close-out</button>
+    </div>
+  </div>
+</div>
+
 <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
 <script src="/interpreter/assets/js/whitelabel.js"></script>
@@ -245,7 +275,10 @@
       actions = '<button class="btn btn-primary" data-act="accept" data-id="' + esc(o.assignment_id) + '">Accept this offer</button>' +
                 '<button class="btn btn-ghost" data-act="decline" data-id="' + esc(o.assignment_id) + '">Decline</button>';
     } else if (resp === 'claim' && (st === 'CLAIMED' || st === 'CONFIRMED' || st === 'IN_PROGRESS')) {
-      actions = '<a class="btn btn-ghost btn-sm" href="/interpreter/app/me/?assignment=' + esc(o.assignment_id) + '">View details &amp; notes</a>';
+      actions = '<button class="btn btn-primary" data-act="closeout" data-job="' + esc(o.job_id) + '" data-id="' + esc(o.assignment_id) + '">Close out this job</button>' +
+                '<a class="btn btn-ghost btn-sm" href="/interpreter/app/me/?assignment=' + esc(o.assignment_id) + '">View details &amp; notes</a>';
+    } else if (resp === 'claim' && st === 'COMPLETED') {
+      actions = '<span class="muted" style="font-size:13px">✓ Closed out — submitted for payout</span>';
     }
 
     var team = '';
@@ -285,6 +318,202 @@
         state.pendingDeclineId = b.getAttribute('data-id');
         $('m-decline').classList.add('open');
       });
+    });
+    document.querySelectorAll('[data-act="closeout"]').forEach(function (b) {
+      b.addEventListener('click', function () { openCloseout(b.getAttribute('data-job'), b.getAttribute('data-id')); });
+    });
+  }
+
+  // ---- Close-out flow -------------------------------------------------------
+  // Per-render local state — the currently-open close-out is the most recent.
+  var coState = { job_id: null, assignment_id: null, expenses: [], mileageRateCents: 67, schedStart: null, schedEnd: null };
+
+  function openCloseout(jobId, assignmentId) {
+    var offer = state.offers.find(function (o) { return o.assignment_id === assignmentId; });
+    if (!offer) { toast('Offer not found locally — refresh first', 'error'); return; }
+    coState = { job_id: jobId, assignment_id: assignmentId, expenses: [], mileageRateCents: offer._interpreter_mileage_rate || 67, schedStart: offer.scheduled_start, schedEnd: offer.scheduled_end };
+    $('co-start').value = isoToLocalInput(offer.scheduled_start);
+    $('co-end').value   = isoToLocalInput(offer.actual_end || new Date().toISOString());
+    $('co-notes').value = '';
+    renderExpenses();
+    refreshSummary();
+    $('m-closeout').classList.add('open');
+  }
+
+  function isoToLocalInput(iso) {
+    if (!iso) return '';
+    var d = new Date(iso); if (isNaN(d.getTime())) return '';
+    var pad = function (n) { return n < 10 ? '0' + n : String(n); };
+    return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) + 'T' + pad(d.getHours()) + ':' + pad(d.getMinutes());
+  }
+  function localInputToIso(v) {
+    if (!v) return null;
+    var d = new Date(v);
+    if (isNaN(d.getTime())) return null;
+    return d.toISOString();
+  }
+
+  function renderExpenses() {
+    var html = coState.expenses.map(function (ex, idx) {
+      var amountInput = ex.type === 'mileage'
+        ? '<input type="number" min="0" max="1000" step="0.1" value="' + esc(ex.quantity || '') + '" data-idx="' + idx + '" data-field="quantity" placeholder="miles" style="width:90px">'
+        : '<input type="number" min="0" step="0.01" value="' + (ex.amount_cents ? (ex.amount_cents / 100).toFixed(2) : '') + '" data-idx="' + idx + '" data-field="amount" placeholder="$ amount" style="width:110px">';
+      var unitLabel = ex.type === 'mileage'
+        ? '<span class="muted" style="font-size:12px"> × $' + (coState.mileageRateCents / 100).toFixed(2) + '/mi</span>'
+        : '';
+      var receipt = ex.receipt_drive_id
+        ? '<span style="font-size:12px;color:var(--1891int-ok)">✓ ' + esc(ex.receipt_filename || 'receipt') + '</span>'
+        : '<label class="btn btn-ghost btn-sm" style="cursor:pointer;font-size:12px"><input type="file" data-idx="' + idx + '" data-field="receipt" accept="image/jpeg,image/png,image/heic,image/heif,application/pdf" style="display:none">📎 Attach receipt</label>';
+      return '<div class="exp-row" style="display:grid;grid-template-columns:130px 1fr 160px 36px;gap:8px;align-items:center;margin-bottom:6px">' +
+        '<select data-idx="' + idx + '" data-field="type">' +
+          '<option value="mileage"' + (ex.type === 'mileage' ? ' selected' : '') + '>Mileage</option>' +
+          '<option value="parking"' + (ex.type === 'parking' ? ' selected' : '') + '>Parking</option>' +
+          '<option value="tolls"' + (ex.type === 'tolls' ? ' selected' : '') + '>Tolls</option>' +
+          '<option value="supplies"' + (ex.type === 'supplies' ? ' selected' : '') + '>Supplies</option>' +
+          '<option value="meal"' + (ex.type === 'meal' ? ' selected' : '') + '>Meal</option>' +
+          '<option value="other"' + (ex.type === 'other' ? ' selected' : '') + '>Other</option>' +
+        '</select>' +
+        '<input type="text" placeholder="' + (ex.type === 'other' ? 'Description (required)' : 'Description (optional)') + '" value="' + esc(ex.description || '') + '" data-idx="' + idx + '" data-field="description">' +
+        '<div style="display:flex;gap:6px;align-items:center">' + amountInput + unitLabel + receipt + '</div>' +
+        '<button type="button" data-idx="' + idx + '" data-field="remove" class="btn btn-ghost btn-sm" style="padding:4px 8px" title="Remove">×</button>' +
+      '</div>';
+    }).join('');
+    if (!coState.expenses.length) html = '<div class="muted" style="font-size:13px;padding:10px 0">No expenses yet. Click + Add expense to log mileage, parking, tolls, or other reimbursable costs.</div>';
+    $('co-expenses').innerHTML = html;
+    bindExpenseHandlers();
+  }
+
+  function bindExpenseHandlers() {
+    $('co-expenses').querySelectorAll('[data-idx]').forEach(function (el) {
+      var idx = Number(el.getAttribute('data-idx'));
+      var field = el.getAttribute('data-field');
+      if (field === 'remove') {
+        el.addEventListener('click', function () { coState.expenses.splice(idx, 1); renderExpenses(); refreshSummary(); });
+      } else if (field === 'receipt') {
+        el.addEventListener('change', function () { handleReceiptPick(el.files[0], idx); });
+      } else {
+        el.addEventListener('change', function () { applyEdit(idx, field, el.value); });
+        if (el.tagName === 'INPUT' && (el.type === 'number' || el.type === 'text')) {
+          el.addEventListener('input', function () { applyEdit(idx, field, el.value); });
+        }
+      }
+    });
+  }
+
+  function applyEdit(idx, field, value) {
+    var ex = coState.expenses[idx]; if (!ex) return;
+    if (field === 'type') {
+      ex.type = value;
+      // Mileage uses quantity; others use amount_cents
+      if (value === 'mileage') { ex.amount_cents = Math.round(Number(ex.quantity || 0) * coState.mileageRateCents); }
+      renderExpenses();
+    } else if (field === 'quantity') {
+      ex.quantity = Number(value || 0);
+      ex.amount_cents = Math.round(ex.quantity * coState.mileageRateCents);
+    } else if (field === 'amount') {
+      ex.amount_cents = Math.round(Number(value || 0) * 100);
+    } else if (field === 'description') {
+      ex.description = String(value || '').slice(0, 500);
+    }
+    refreshSummary();
+  }
+
+  function handleReceiptPick(file, idx) {
+    if (!file) return;
+    if (file.size > 8 * 1024 * 1024) { toast('Receipt must be under 8MB', 'error'); return; }
+    var reader = new FileReader();
+    reader.onload = function () {
+      var b64 = String(reader.result).split(',')[1]; // strip "data:image/png;base64,"
+      toast('Uploading receipt…', 'ok');
+      IntApi.uploadReceipt({
+        filename: file.name,
+        mime: file.type || 'application/octet-stream',
+        bytes_b64: b64,
+        job_id: coState.job_id
+      }).then(function (r) {
+        if (!r || !r.ok) { toast((r && r.error) || 'Upload failed', 'error'); return; }
+        var ex = coState.expenses[idx]; if (!ex) return;
+        ex.receipt_drive_id = r.drive_id;
+        ex.receipt_filename = r.filename;
+        ex.receipt_mime = r.mime;
+        toast('Receipt attached.', 'ok');
+        renderExpenses();
+      }).catch(function () { toast('Upload failed (network)', 'error'); });
+    };
+    reader.readAsDataURL(file);
+  }
+
+  function refreshSummary() {
+    var actStart = localInputToIso($('co-start').value);
+    var actEnd = localInputToIso($('co-end').value);
+    var schedStart = coState.schedStart; var schedEnd = coState.schedEnd;
+    var bits = [];
+    if (actStart && actEnd && schedStart && schedEnd) {
+      var actMin = Math.round((new Date(actEnd) - new Date(actStart)) / 60000);
+      var schedMin = Math.max(1, Math.round((new Date(schedEnd) - new Date(schedStart)) / 60000));
+      var divPct = Math.round(Math.abs(actMin - schedMin) / schedMin * 1000) / 10;
+      bits.push('<strong>Actual:</strong> ' + (actMin / 60).toFixed(2) + 'h · <strong>Scheduled:</strong> ' + (schedMin / 60).toFixed(2) + 'h');
+      if (divPct >= 25) bits.push('<span style="color:#9E4500">⚠ ' + divPct + '% divergence — scheduler may review</span>');
+      else if (divPct > 0) bits.push('<span class="muted">' + divPct + '% divergence</span>');
+    }
+    var totalExp = coState.expenses.reduce(function (n, x) { return n + (Number(x.amount_cents) || 0); }, 0);
+    if (totalExp > 0) bits.push('<strong>Expenses:</strong> $' + (totalExp / 100).toFixed(2) + ' across ' + coState.expenses.length + ' line' + (coState.expenses.length !== 1 ? 's' : ''));
+    $('co-summary').innerHTML = bits.join(' · ');
+  }
+
+  // Live recompute summary when times change
+  document.addEventListener('input', function (e) {
+    if (e.target && (e.target.id === 'co-start' || e.target.id === 'co-end')) refreshSummary();
+  });
+
+  // Add expense button
+  document.addEventListener('click', function (e) {
+    if (e.target && e.target.id === 'co-add-expense') {
+      coState.expenses.push({ type: 'mileage', quantity: 0, amount_cents: 0, description: '' });
+      renderExpenses();
+      refreshSummary();
+    }
+    if (e.target && e.target.id === 'co-submit') doSubmitCloseout();
+  });
+
+  function doSubmitCloseout() {
+    var actStart = localInputToIso($('co-start').value);
+    var actEnd   = localInputToIso($('co-end').value);
+    if (!actStart || !actEnd) { toast('Start and end times required', 'error'); return; }
+    if (new Date(actEnd) <= new Date(actStart)) { toast('End must be after start', 'error'); return; }
+    // Validate expenses
+    for (var i = 0; i < coState.expenses.length; i++) {
+      var ex = coState.expenses[i];
+      if (ex.type === 'other' && (!ex.description || ex.description.trim().length < 3)) {
+        toast('Expense ' + (i + 1) + ': "Other" needs a description', 'error'); return;
+      }
+      if (ex.amount_cents <= 0) { toast('Expense ' + (i + 1) + ': amount must be > 0', 'error'); return; }
+    }
+    var expensesPayload = coState.expenses.map(function (ex) {
+      var p = { type: ex.type, description: ex.description || '' };
+      if (ex.type === 'mileage') { p.quantity = ex.quantity || 0; p.rate_cents = coState.mileageRateCents; }
+      else { p.amount_cents = ex.amount_cents || 0; }
+      if (ex.receipt_drive_id) { p.receipt_drive_id = ex.receipt_drive_id; p.receipt_filename = ex.receipt_filename; p.receipt_mime = ex.receipt_mime; }
+      return p;
+    });
+    var btn = $('co-submit'); btn.disabled = true; btn.textContent = 'Submitting…';
+    IntApi.closeOutJob({
+      job_id: coState.job_id,
+      actual_start_iso: actStart,
+      actual_end_iso: actEnd,
+      notes: $('co-notes').value || '',
+      expenses: JSON.stringify(expensesPayload)
+    }).then(function (r) {
+      btn.disabled = false; btn.textContent = 'Submit close-out';
+      if (!r || !r.ok) { toast((r && r.error) || 'Close-out failed', 'error'); return; }
+      var msg = '✓ Closed out · ' + (r.actual_minutes / 60).toFixed(2) + 'h logged';
+      if (r.flagged_for_dispute) msg += ' (scheduler will review)';
+      toast(msg, 'ok');
+      $('m-closeout').classList.remove('open');
+      setTimeout(load, 1000);
+    }).catch(function () {
+      btn.disabled = false; btn.textContent = 'Submit close-out';
+      toast('Close-out failed (network)', 'error');
     });
   }
 
