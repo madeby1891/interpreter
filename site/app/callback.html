@@ -16,6 +16,7 @@
   <div class="signin-card center-text" id="card">
     <h1>Signing you in&hellip;</h1>
     <p class="lede" id="status"><span class="spinner" aria-hidden="true"></span> Verifying your one-time link.</p>
+    <pre id="debug" style="display:none; text-align:left; font-family:var(--1891int-mono); font-size:12px; background:var(--1891int-paper-warm); padding:12px; border-radius:6px; max-height:240px; overflow:auto"></pre>
     <div id="actions" style="display:none">
       <a class="btn btn-primary btn-lg" href="/interpreter/app/">Open dashboard</a>
     </div>
@@ -26,41 +27,79 @@
   </div>
 </main>
 
-<script src="/interpreter/assets/js/whitelabel.js" defer></script>
-<script src="/interpreter/assets/js/api.js" defer></script>
+<!-- Scripts load synchronously so they're defined when our inline script runs.
+     `defer` here caused a race where the verify call was issued before
+     IntApi.jsonp's <script> tag could be appended, and the inline error
+     was being swallowed by the browser. Plain script tags run in order. -->
+<script src="/interpreter/assets/js/whitelabel.js"></script>
+<script src="/interpreter/assets/js/api.js"></script>
 <script>
-window.addEventListener('DOMContentLoaded', function () {
-  var params = new URLSearchParams(location.search);
-  var token = params.get('token');
+(function () {
+  'use strict';
+
   var statusEl = document.getElementById('status');
   var actions = document.getElementById('actions');
   var errActions = document.getElementById('error-actions');
+  var debugEl = document.getElementById('debug');
+  var dbg = [];
 
+  function log(msg) {
+    var t = new Date().toISOString().slice(11, 23);
+    dbg.push('[' + t + '] ' + msg);
+    try { console.log('[1891 callback]', msg); } catch (_) {}
+  }
+  function showDebug() {
+    debugEl.style.display = 'block';
+    debugEl.textContent = dbg.join('\n');
+  }
   function fail(msg) {
+    log('FAIL: ' + msg);
     statusEl.textContent = msg;
     statusEl.style.color = 'var(--1891int-err)';
-    errActions.style.display = 'block';
+    if (errActions) errActions.style.display = 'block';
+    showDebug();
   }
   function ok(user) {
+    log('OK: signed in as ' + (user.email || user.user_id));
     statusEl.innerHTML = 'Signed in as <strong>' + (user.email || user.user_id) + '</strong>.';
     statusEl.style.color = 'var(--1891int-ok)';
-    actions.style.display = 'block';
-    // Auto-forward after 1.5s
+    if (actions) actions.style.display = 'block';
     setTimeout(function () { location.href = '/interpreter/app/'; }, 1500);
   }
 
+  log('script start. readyState=' + document.readyState + ' IntApi=' + (typeof IntApi));
+
+  if (typeof IntApi === 'undefined') {
+    fail('IntApi failed to load. Check your network connection and reload the page.');
+    return;
+  }
+
+  var token = new URLSearchParams(location.search).get('token');
   if (!token) { fail('No token in URL.'); return; }
+  log('token present (' + token.length + ' chars), calling authVerify…');
+
+  var t0 = Date.now();
   IntApi.authVerify(token).then(function (res) {
+    log('authVerify resolved in ' + (Date.now() - t0) + 'ms: ' + JSON.stringify(res).slice(0, 200));
     if (res && res.ok && res.session) {
       IntApi.setSession(res.session);
+      log('session stored, redirecting in 1.5s');
       ok(res.user || {});
     } else {
       fail((res && res.error) || 'Unable to verify token.');
     }
   }).catch(function (err) {
-    fail('Connection problem. ' + (err && err.message || ''));
+    fail('Connection problem. ' + (err && err.message || String(err)));
   });
-});
+
+  // Safety net: if 20s elapse with nothing visible, show debug.
+  setTimeout(function () {
+    if (statusEl.textContent.indexOf('Verifying') >= 0) {
+      log('20s safety net — still verifying; surfacing debug log');
+      showDebug();
+    }
+  }, 20000);
+})();
 </script>
 </body>
 </html>
