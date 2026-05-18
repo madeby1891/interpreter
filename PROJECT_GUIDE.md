@@ -1,5 +1,14 @@
 # PROJECT_GUIDE — 1891 Interpreter
 
+
+<!-- AGENT-OPERATING-RULES-POINTER -->
+> 🚨 **Agents — read [`CLAUDE.md`](../../CLAUDE.md) at the workspace root FIRST.** Workspace-wide operating rules live there:
+> - `clasp` / `wrangler` / SSH-via-`deploy.sh` are the default deploy paths — never paste code into a dashboard, never ask Anthony to run `clasp push`.
+> - **You own `git add` + `git commit` + `git push`** in the same turn as the change, plus a post-deploy smoke test.
+> - The 4-click Apps Script deploy is the ONE thing Anthony does — when you need it, drop the exact `https://script.google.com/d/<SCRIPT_ID>/edit` URL inside a 🚨 callout. No hand-waving.
+>
+> This file extends those rules; it does not replace them.
+
 > Scaffolding + ops checklist. Assumes you've read `~/Desktop/1891/CLAUDE.md`
 > and `~/Desktop/1891/ARCHITECTURE.md` and the [PRD index](docs/PRD_index.md).
 
