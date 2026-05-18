@@ -160,6 +160,12 @@ img.brand-mark {
 /* -----------------------------------------------------------------------------
    Widget — shared chrome
    ---------------------------------------------------------------------------*/
+/* Widget showcase grid — strict 2-up on desktop so widgets get ~50% each
+   instead of auto-fit's 3+1 wrap. Stacks to 1 column on narrow viewports. */
+@media (max-width: 760px) {
+  .widget-showcase { grid-template-columns: 1fr !important; }
+}
+
 .widget {
   background: var(--1891int-paper);
   border: 1px solid var(--1891int-line);
