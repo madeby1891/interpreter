@@ -283,28 +283,28 @@ def home_body() -> str:
         <p class="lede" data-reveal data-delay="100" style="margin:0 auto">Each of these is real, shipped behavior. Mess with them.</p>
       </div>
       <div class="widget-showcase" style="display:grid;grid-template-columns:1fr 1fr;gap:var(--1891int-s-6)">
-        <div data-reveal>
+        <div class="showcase-tile" data-reveal>
           <span class="eyebrow">One client, every department</span>
-          <h3 style="margin-top:6px">Frederick Health → 4 departments → 6 locations → one billing office.</h3>
-          <p class="ink-soft">Click the client. The whole hierarchy unfolds. Invoices roll up however the client wants — by location, by specialist, or one consolidated statement per month.</p>
+          <h3>Frederick Health → 4 departments → 6 locations → one billing office.</h3>
+          <p>Click the client. The whole hierarchy unfolds. Invoices roll up however the client wants — by location, by specialist, or one consolidated statement per month.</p>
           <div class="widget" data-widget="clients"></div>
         </div>
-        <div data-reveal data-delay="100">
+        <div class="showcase-tile" data-reveal data-delay="100">
           <span class="eyebrow">Bill side / pay side, live</span>
-          <h3 style="margin-top:6px">Pick a job. See what the client pays and what the interpreter earns — instantly.</h3>
-          <p class="ink-soft">Modifiers stack: evening +15%, weekend +25%, last-minute +25%. Interpreter pay-rate floors override the formula when their floor is higher.</p>
+          <h3>Pick a job. See what the client pays and what the interpreter earns — instantly.</h3>
+          <p>Modifiers stack: evening +15%, weekend +25%, last-minute +25%. Interpreter pay-rate floors override the formula when their floor is higher.</p>
           <div class="widget" data-widget="rates"></div>
         </div>
-        <div data-reveal data-delay="200">
+        <div class="showcase-tile" data-reveal data-delay="200">
           <span class="eyebrow">Cancellation tiers, no hidden math</span>
-          <h3 style="margin-top:6px">Slide the clock. See what the client pays + what the interpreter still earns.</h3>
-          <p class="ink-soft">≥48h: 0/0. 24-48h: 50/25. 12-24h: 100/50. &lt;12h: 100/100. The scheduler sees the same preview before they confirm a cancellation.</p>
+          <h3>Slide the clock. See what the client pays + what the interpreter still earns.</h3>
+          <p>≥48h: 0/0. 24-48h: 50/25. 12-24h: 100/50. &lt;12h: 100/100. The scheduler sees the same preview before they confirm a cancellation.</p>
           <div class="widget" data-widget="cancel"></div>
         </div>
-        <div data-reveal data-delay="300">
+        <div class="showcase-tile" data-reveal data-delay="300">
           <span class="eyebrow">YES claims. NO declines.</span>
-          <h3 style="margin-top:6px">Interpreters can accept an offer by text. Try it.</h3>
-          <p class="ink-soft">Twilio webhook with signature verification. Idempotent on the message SID. STOP unsubscribes (TCPA-clean). PII never appears in the reply.</p>
+          <h3>Interpreters can accept an offer by text. Try it.</h3>
+          <p>Twilio webhook with signature verification. Idempotent on the message SID. STOP unsubscribes (TCPA-clean). PII never appears in the reply.</p>
           <div class="widget" data-widget="sms"></div>
         </div>
       </div>
