@@ -115,6 +115,8 @@ function doGet(e) {
       case 'switch_tenant':      return _safeCall('apiSwitchTenant', e);  // GET-path enables JSONP response read
       case '_rotate_hmac':       return apiRotateHmac(e);                  // one-shot Worker-secret sync
       case '_mail_debug':        return apiMailDebug(e);                   // diagnostic
+      case '_seed_host_data':    return _safeCall('apiSeedHostData', e);   // demo seed
+      case '_wipe_seed':         return _safeCall('apiWipeSeed', e);
       default:                   return _json({ ok:false, error:'Unknown action: ' + action }, 404);
     }
   } catch (err) {
