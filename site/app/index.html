@@ -30,8 +30,11 @@
       <a href="/interpreter/app/interpreters/">Interpreters</a>
       <a href="/interpreter/app/requestors/">Requestors</a>
       <a href="/interpreter/app/intake/">AI intake</a>
+      <a href="/interpreter/app/invoices/">Invoices</a>
+      <a href="/interpreter/app/payouts/">Payouts</a>
       <a href="/interpreter/app/claim/">Interpreter view</a>
       <a href="/interpreter/app/settings/">Settings</a>
+      <a href="/interpreter/app/admin/" id="nav-admin" style="display:none">Admin</a>
     </div>
   </nav>
 
@@ -210,6 +213,10 @@
       }
       state.me = r.user;
       $('who-name').textContent = (r.user && (r.user.display_name || r.user.email)) || 'unknown';
+      if (r.user && r.user.tenant_id === 'host' && r.user.role_id === 'role_owner') {
+        var admNav = document.getElementById('nav-admin');
+        if (admNav) admNav.style.display = '';
+      }
       loadJobs();
     }).catch(function () {
       toast('Could not reach the server.', 'error');

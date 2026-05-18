@@ -1,0 +1,319 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Tenants — 1891 Interpreter Admin</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#C8553D">
+<link rel="icon" type="image/svg+xml" href="/interpreter/assets/img/favicon.svg">
+<link rel="stylesheet" href="/interpreter/assets/css/site.css">
+<link rel="stylesheet" href="/interpreter/assets/css/app.css">
+<style>
+  .tenant-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(320px, 1fr)); gap:var(--1891int-s-4); margin-top:var(--1891int-s-4); }
+  .tenant-card { background:#fff; border:1px solid var(--1891int-line); border-radius:var(--1891int-r-2); padding:var(--1891int-s-5); display:flex; flex-direction:column; gap:var(--1891int-s-3); }
+  .tenant-card h3 { margin:0; font-size:18px; }
+  .tenant-card .id { font-family:var(--1891int-mono); font-size:12px; color:var(--1891int-fog); }
+  .tenant-card .tier { display:inline-block; padding:2px 8px; border-radius:999px; background:var(--1891int-sand, #faf7f3); border:1px solid var(--1891int-line); font-size:12px; }
+  .tenant-card dl.meta { display:grid; grid-template-columns:max-content 1fr; gap:4px 12px; margin:0; font-size:13px; }
+  .tenant-card dl.meta dt { color:var(--1891int-fog); }
+  .tenant-card .actions { display:flex; gap:var(--1891int-s-2); margin-top:auto; flex-wrap:wrap; }
+  .tenant-card .status-badge { display:inline-block; font-size:11px; padding:2px 8px; border-radius:999px; }
+  .status-active { background:#e6f4ea; color:#1e6e3f; }
+  .status-suspended { background:#fdecea; color:#a33324; }
+  .empty-state { text-align:center; padding:var(--1891int-s-7); color:var(--1891int-fog); }
+</style>
+</head>
+<body>
+<a href="#main" class="skip">Skip to main content</a>
+
+<div class="app-shell">
+  <header class="app-header">
+    <div class="wrap">
+      <a href="/interpreter/app/" class="brand" aria-label="1891 Interpreter dashboard">
+        <img src="/interpreter/assets/img/brand-mark.svg" alt="" width="32" height="32">
+        <span>1891 <span class="brand-sub">Admin</span></span>
+      </a>
+      <div class="who"><span>Signed in as </span><strong id="who-name">…</strong><button id="signout" type="button">Sign out</button></div>
+    </div>
+  </header>
+
+  <nav class="app-nav" aria-label="App sections">
+    <div class="wrap">
+      <a href="/interpreter/app/">Day-of board</a>
+      <a href="/interpreter/app/interpreters/">Interpreters</a>
+      <a href="/interpreter/app/requestors/">Requestors</a>
+      <a href="/interpreter/app/intake/">AI intake</a>
+      <a href="/interpreter/app/settings/">Settings</a>
+      <a href="/interpreter/app/admin/">Admin</a>
+    </div>
+  </nav>
+
+  <main id="main" class="app-main">
+    <div class="wrap">
+      <div class="toolbar">
+        <h1 style="margin:0;font-size:28px">Tenants</h1>
+        <div class="spacer"></div>
+        <button class="btn btn-ghost btn-sm" type="button" id="refresh">Refresh</button>
+        <button class="btn btn-primary" type="button" id="new-tenant">+ Provision tenant</button>
+      </div>
+
+      <p class="muted" style="margin-top:var(--1891int-s-3)">Each tenant gets its own Google Sheet, named <code>1891-interpreter-&lt;slug&gt;</code>. The control Sheet maps tenant_id → spreadsheet_id and tracks which user accounts own which tenant.</p>
+
+      <div id="loading" class="empty-state"><span class="spinner"></span> Loading tenants&hellip;</div>
+      <div id="grid" class="tenant-grid" style="display:none"></div>
+      <div id="empty" class="empty-state" style="display:none">
+        <h2>No tenants yet beyond the host.</h2>
+        <p>Tap "+ Provision tenant" to onboard the first agency.</p>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- Provision modal -->
+<div class="modal-backdrop" id="m-new" role="dialog" aria-modal="true" aria-labelledby="m-new-title">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 id="m-new-title">Provision a new tenant</h2>
+      <button class="close" type="button" data-close>&times;</button>
+    </div>
+    <form id="prov-form" class="modal-body">
+      <div class="field">
+        <label for="p-id">Tenant ID (slug)</label>
+        <input id="p-id" name="tenant_id" type="text" required pattern="[a-z0-9][a-z0-9-]{1,38}[a-z0-9]" placeholder="acme-interp" autocomplete="off">
+        <span class="hint">Lowercase letters, digits, and hyphens. 3–40 characters. Used in URLs and audit logs — pick something stable.</span>
+      </div>
+      <div class="field">
+        <label for="p-name">Agency legal name</label>
+        <input id="p-name" name="legal_name" type="text" required placeholder="Acme Interpreting LLC" autocomplete="off">
+      </div>
+      <div class="field">
+        <label for="p-email">Primary owner email</label>
+        <input id="p-email" name="owner_email" type="email" required placeholder="owner@acme.example" autocomplete="off">
+        <span class="hint">The owner gets a welcome email and full access on first sign-in.</span>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--1891int-s-4)">
+        <div class="field">
+          <label for="p-tier">Tier</label>
+          <select id="p-tier" name="tier">
+            <option value="pro" selected>Pro</option>
+            <option value="deaf-owned-free">Deaf-owned (free)</option>
+            <option value="enterprise">Enterprise</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="p-phi">PHI mode</label>
+          <select id="p-phi" name="phi_mode">
+            <option value="initials-only" selected>Initials only</option>
+            <option value="full">Full PHI</option>
+            <option value="disabled">Disabled</option>
+          </select>
+          <span class="hint">Full PHI requires a signed BAA on a paid tier.</span>
+        </div>
+      </div>
+      <div class="field">
+        <label for="p-tz">Time zone</label>
+        <select id="p-tz" name="timezone">
+          <option value="America/New_York" selected>America/New_York</option>
+          <option value="America/Chicago">America/Chicago</option>
+          <option value="America/Denver">America/Denver</option>
+          <option value="America/Los_Angeles">America/Los_Angeles</option>
+          <option value="America/Phoenix">America/Phoenix</option>
+          <option value="America/Anchorage">America/Anchorage</option>
+          <option value="Pacific/Honolulu">Pacific/Honolulu</option>
+          <option value="America/Puerto_Rico">America/Puerto_Rico</option>
+        </select>
+      </div>
+    </form>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" type="button" data-close>Cancel</button>
+      <button class="btn btn-primary" type="button" id="save-tenant">Provision tenant</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+<script src="/interpreter/assets/js/api.js"></script>
+<script src="/interpreter/assets/js/api-multitenant.js"></script>
+<script>
+(function () {
+  'use strict';
+  document.addEventListener('DOMContentLoaded', init);
+
+  var state = { tenants: [], me: null };
+
+  function $(id) { return document.getElementById(id); }
+  function escHtml(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+    return { '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c];
+  }); }
+
+  function toast(msg, kind) {
+    var t = $('toast');
+    t.textContent = msg;
+    t.className = 'toast show' + (kind ? ' ' + kind : '');
+    setTimeout(function () { t.className = 'toast'; }, 3200);
+  }
+
+  function init() {
+    if (!IntApi.getSession()) {
+      location.href = '/interpreter/sign-in.html';
+      return;
+    }
+    IntApi.whoami().then(function (r) {
+      if (!r || !r.ok) {
+        IntApi.clearSession();
+        location.href = '/interpreter/sign-in.html';
+        return;
+      }
+      if (!r.user || r.user.role_id !== 'role_owner' || r.user.tenant_id !== 'host') {
+        location.href = '/interpreter/app/';
+        return;
+      }
+      state.me = r.user;
+      $('who-name').textContent = (r.user && (r.user.display_name || r.user.email)) || 'unknown';
+      loadTenants();
+    }).catch(function () { toast('Could not reach the server.', 'error'); });
+
+    $('refresh').addEventListener('click', loadTenants);
+    $('new-tenant').addEventListener('click', openProvisionModal);
+    $('save-tenant').addEventListener('click', saveTenant);
+    $('signout').addEventListener('click', function () {
+      IntApi.clearSession();
+      location.href = '/interpreter/';
+    });
+    document.querySelectorAll('[data-close]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        document.querySelectorAll('.modal-backdrop.open').forEach(function (m) { m.classList.remove('open'); });
+      });
+    });
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') document.querySelectorAll('.modal-backdrop.open').forEach(function (m) { m.classList.remove('open'); });
+    });
+  }
+
+  function loadTenants() {
+    $('loading').style.display = '';
+    $('grid').style.display = 'none';
+    $('empty').style.display = 'none';
+    IntApiMultitenant.listTenants().then(function (r) {
+      $('loading').style.display = 'none';
+      if (!r || !r.ok) { toast((r && r.error) || 'Load failed.', 'error'); return; }
+      state.tenants = r.tenants || [];
+      render();
+    }).catch(function () {
+      $('loading').style.display = 'none';
+      toast('Network error.', 'error');
+    });
+  }
+
+  function render() {
+    if (!state.tenants.length) {
+      $('empty').style.display = '';
+      $('grid').style.display = 'none';
+      return;
+    }
+    var html = state.tenants.map(tenantCard).join('');
+    $('grid').innerHTML = html;
+    $('grid').style.display = '';
+    bindCardActions();
+  }
+
+  function formatDate(iso) {
+    if (!iso) return '—';
+    var d = new Date(iso);
+    if (isNaN(d.getTime())) return iso;
+    return d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+  }
+
+  function tenantCard(t) {
+    var sheetLink = t.spreadsheet_id
+      ? '<a href="https://docs.google.com/spreadsheets/d/' + encodeURIComponent(t.spreadsheet_id) + '/edit" target="_blank" rel="noopener">Open Sheet ↗</a>'
+      : '<span class="muted">Sheet ID hidden</span>';
+    var statusClass = t.status === 'active' ? 'status-active' : 'status-suspended';
+    return [
+      '<article class="tenant-card">',
+      '  <div>',
+      '    <h3>' + escHtml(t.legal_name || t.tenant_id) + '</h3>',
+      '    <div class="id">' + escHtml(t.tenant_id) + '</div>',
+      '  </div>',
+      '  <div>',
+      '    <span class="tier">' + escHtml(t.tier || '—') + '</span> ',
+      '    <span class="status-badge ' + statusClass + '">' + escHtml(t.status || '—') + '</span>',
+      '  </div>',
+      '  <dl class="meta">',
+      '    <dt>Created</dt><dd>' + escHtml(formatDate(t.created_at)) + '</dd>',
+      '    <dt>Sheet</dt><dd>' + sheetLink + '</dd>',
+      '  </dl>',
+      '  <div class="actions">',
+      '    <button class="btn btn-primary btn-sm" data-act="switch" data-id="' + escHtml(t.tenant_id) + '">Switch into</button>',
+      '  </div>',
+      '</article>'
+    ].join('\n');
+  }
+
+  function bindCardActions() {
+    document.querySelectorAll('[data-act="switch"]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var id = b.getAttribute('data-id');
+        if (id === 'host') {
+          // Already on host; just go to the board.
+          location.href = '/interpreter/app/';
+          return;
+        }
+        if (!confirm('Switch your active session into tenant "' + id + '"? You will see that tenant\'s board until you switch back.')) return;
+        b.disabled = true; b.textContent = 'Switching…';
+        IntApiMultitenant.switchTenant(id).then(function (r) {
+          if (!r || !r.ok || !r.session) {
+            b.disabled = false; b.textContent = 'Switch into';
+            toast((r && r.error) || 'Switch failed.', 'error');
+            return;
+          }
+          IntApi.setSession(r.session);
+          toast('Switched. Reloading…', 'ok');
+          setTimeout(function () { location.href = '/interpreter/app/'; }, 600);
+        }).catch(function () {
+          b.disabled = false; b.textContent = 'Switch into';
+          toast('Switch failed.', 'error');
+        });
+      });
+    });
+  }
+
+  function openProvisionModal() {
+    $('prov-form').reset();
+    $('m-new').classList.add('open');
+    setTimeout(function () { $('p-id').focus(); }, 50);
+  }
+
+  function saveTenant() {
+    var form = $('prov-form');
+    if (!form.reportValidity()) return;
+    var fd = new FormData(form);
+    var fields = {};
+    fd.forEach(function (v, k) { fields[k] = v; });
+    fields.tenant_id = String(fields.tenant_id || '').trim().toLowerCase();
+    if (!/^[a-z0-9][a-z0-9-]{1,38}[a-z0-9]$/.test(fields.tenant_id)) {
+      toast('Slug must be 3–40 lowercase chars / digits / hyphens.', 'error');
+      return;
+    }
+    var btn = $('save-tenant');
+    btn.disabled = true; btn.textContent = 'Provisioning…';
+    IntApiMultitenant.provisionTenant(fields).then(function () {
+      // POST is no-cors fire-and-forget; we can't read the response.
+      // Re-poll the list to confirm.
+      setTimeout(function () {
+        btn.disabled = false; btn.textContent = 'Provision tenant';
+        $('m-new').classList.remove('open');
+        toast('Provisioning request sent. Refreshing…', 'ok');
+        loadTenants();
+      }, 2500);
+    }).catch(function () {
+      btn.disabled = false; btn.textContent = 'Provision tenant';
+      toast('Provision request failed.', 'error');
+    });
+  }
+})();
+</script>
+</body>
+</html>

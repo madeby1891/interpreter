@@ -1,0 +1,22 @@
+{
+  "name": "@1891-interpreter/api",
+  "version": "0.1.0",
+  "private": true,
+  "description": "1891 Interpreter edge API — CORS proxy for Apps Script + live job board over SSE/WebSocket.",
+  "type": "module",
+  "main": "src/index.ts",
+  "scripts": {
+    "deploy": "wrangler deploy",
+    "dev": "wrangler dev",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20240909.0",
+    "miniflare": "^3.20240909.0",
+    "typescript": "^5.4.5",
+    "vitest": "^1.6.0",
+    "wrangler": "^3.78.0"
+  }
+}

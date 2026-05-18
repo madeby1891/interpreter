@@ -1,0 +1,393 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Invoices — 1891 Interpreter</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#C8553D">
+<link rel="icon" type="image/svg+xml" href="/interpreter/assets/img/favicon.svg">
+<link rel="stylesheet" href="/interpreter/assets/css/site.css">
+<link rel="stylesheet" href="/interpreter/assets/css/app.css">
+</head>
+<body>
+<a href="#main" class="skip">Skip to main content</a>
+
+<div class="app-shell">
+  <header class="app-header">
+    <div class="wrap">
+      <a href="/interpreter/app/" class="brand" aria-label="1891 Interpreter dashboard">
+        <img src="/interpreter/assets/img/brand-mark.svg" alt="" width="32" height="32">
+        <span>1891 <span class="brand-sub">Scheduler</span></span>
+      </a>
+      <div class="who"><span>Signed in as </span><strong id="who-name">…</strong><button id="signout" type="button">Sign out</button></div>
+    </div>
+  </header>
+
+  <nav class="app-nav" aria-label="App sections">
+    <div class="wrap">
+      <a href="/interpreter/app/">Day-of board</a>
+      <a href="/interpreter/app/interpreters/">Interpreters</a>
+      <a href="/interpreter/app/requestors/">Requestors</a>
+      <a href="/interpreter/app/invoices/" aria-current="page">Invoices</a>
+      <a href="/interpreter/app/payouts/">Payouts</a>
+      <a href="/interpreter/app/settings/">Settings</a>
+    </div>
+  </nav>
+
+  <main id="main" class="app-main">
+    <div class="wrap">
+
+      <!-- LIST VIEW -->
+      <section id="list-view">
+        <div class="toolbar">
+          <h1 style="margin:0;font-size:28px">Invoices</h1>
+          <div class="spacer"></div>
+          <div class="filter">
+            <label for="f-status" style="font-size:13px;color:var(--1891int-fog)">Status</label>
+            <select id="f-status">
+              <option value="">All</option>
+              <option value="draft">Draft</option>
+              <option value="issued">Issued</option>
+              <option value="paid">Paid</option>
+              <option value="overdue">Overdue</option>
+              <option value="void">Void</option>
+            </select>
+          </div>
+          <button class="btn btn-ghost btn-sm" type="button" id="refresh">Refresh</button>
+          <button class="btn btn-primary" type="button" id="new-inv">+ New invoice</button>
+        </div>
+
+        <div id="loading" class="empty-state"><span class="spinner"></span> Loading invoices&hellip;</div>
+        <div id="board" class="board" style="display:none"></div>
+        <div id="empty" class="empty-state" style="display:none">
+          <h2>No invoices yet.</h2>
+          <p>Invoices roll up completed jobs into a billing run for a payer. Pick a payer and a date range, preview the lines, then issue.</p>
+          <button class="btn btn-primary" type="button" id="empty-add">+ Create your first invoice</button>
+        </div>
+      </section>
+
+      <!-- DETAIL VIEW -->
+      <section id="detail-view" style="display:none">
+        <div class="toolbar">
+          <a href="/interpreter/app/invoices/" class="btn btn-ghost btn-sm">&larr; Back</a>
+          <h1 style="margin:0;font-size:24px" id="d-title">Invoice</h1>
+          <div class="spacer"></div>
+          <button class="btn btn-ghost btn-sm" type="button" id="d-refresh">Refresh</button>
+          <a class="btn btn-ghost btn-sm" id="d-pdf" href="#" target="_blank" rel="noopener">Download PDF</a>
+          <button class="btn btn-primary btn-sm" type="button" id="d-mark-paid" style="display:none">Mark paid</button>
+          <button class="btn btn-ghost btn-sm" type="button" id="d-void" style="display:none">Void</button>
+        </div>
+        <div id="d-loading" class="empty-state"><span class="spinner"></span> Loading&hellip;</div>
+        <div id="d-body" style="display:none"></div>
+      </section>
+
+    </div>
+  </main>
+</div>
+
+<!-- New invoice modal -->
+<div class="modal-backdrop" id="m-new" role="dialog" aria-modal="true" aria-labelledby="m-new-title">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 id="m-new-title">New invoice</h2>
+      <button class="close" type="button" data-close>&times;</button>
+    </div>
+    <form id="new-inv-form" class="modal-body">
+      <div class="field">
+        <label for="i-payer">Payer</label>
+        <select id="i-payer" name="payer_id" required>
+          <option value="">— Select payer —</option>
+        </select>
+        <span class="hint">Payers come from the Requestors list for now. We split them out in a later release.</span>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--1891int-s-4)">
+        <div class="field">
+          <label for="i-start">Period start</label>
+          <input id="i-start" name="period_start" type="date" required>
+        </div>
+        <div class="field">
+          <label for="i-end">Period end</label>
+          <input id="i-end" name="period_end" type="date" required>
+        </div>
+      </div>
+      <div class="field">
+        <label for="i-due">Due date (optional)</label>
+        <input id="i-due" name="due_at" type="date">
+        <span class="hint">If blank, the payer sees the standard net terms on the issued invoice.</span>
+      </div>
+      <div id="i-preview" style="margin-top:var(--1891int-s-4)"></div>
+    </form>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" type="button" data-close>Cancel</button>
+      <button class="btn btn-secondary" type="button" id="preview-inv">Preview</button>
+      <button class="btn btn-primary" type="button" id="save-inv">Create</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+<script src="/interpreter/assets/js/api.js" defer></script>
+<script src="/interpreter/assets/js/api-invoices.js" defer></script>
+<script>
+(function () {
+  'use strict';
+  document.addEventListener('DOMContentLoaded', init);
+
+  var state = { invoices: [], me: null, payers: [] };
+
+  function $(id) { return document.getElementById(id); }
+  function escHtml(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+    return { '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c];
+  }); }
+  function qparam(k) { return new URLSearchParams(location.search).get(k); }
+
+  function toast(msg, kind) {
+    var t = $('toast');
+    t.textContent = msg;
+    t.className = 'toast show' + (kind ? ' ' + kind : '');
+    setTimeout(function () { t.className = 'toast'; }, 3200);
+  }
+
+  function init() {
+    if (!IntApi.getSession()) { location.href = '/interpreter/sign-in.html'; return; }
+    IntApi.whoami().then(function (r) {
+      if (!r || !r.ok) { IntApi.clearSession(); location.href = '/interpreter/sign-in.html'; return; }
+      state.me = r.user;
+      $('who-name').textContent = (r.user && (r.user.display_name || r.user.email)) || 'unknown';
+      var id = qparam('id');
+      if (id) loadDetail(id);
+      else loadList();
+    }).catch(function () { toast('Could not reach the server.', 'error'); });
+
+    $('refresh').addEventListener('click', loadList);
+    $('f-status').addEventListener('change', renderList);
+    $('new-inv').addEventListener('click', openNewInv);
+    $('save-inv').addEventListener('click', saveInv);
+    $('preview-inv').addEventListener('click', previewInv);
+    var emptyBtn = $('empty-add'); if (emptyBtn) emptyBtn.addEventListener('click', openNewInv);
+    $('d-refresh').addEventListener('click', function () { var id = qparam('id'); if (id) loadDetail(id); });
+    $('signout').addEventListener('click', function () { IntApi.clearSession(); location.href = '/interpreter/'; });
+    document.querySelectorAll('[data-close]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        document.querySelectorAll('.modal-backdrop.open').forEach(function (m) { m.classList.remove('open'); });
+      });
+    });
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') document.querySelectorAll('.modal-backdrop.open').forEach(function (m) { m.classList.remove('open'); });
+    });
+  }
+
+  // ---------- LIST ----------
+
+  function loadList() {
+    $('list-view').style.display = '';
+    $('detail-view').style.display = 'none';
+    $('loading').style.display = '';
+    $('board').style.display = 'none';
+    $('empty').style.display = 'none';
+    IntApiInvoices.listInvoices().then(function (r) {
+      $('loading').style.display = 'none';
+      if (!r || !r.ok) { toast((r && r.error) || 'Load failed', 'error'); return; }
+      state.invoices = r.invoices || [];
+      renderList();
+    }).catch(function () { $('loading').style.display = 'none'; toast('Network error', 'error'); });
+  }
+
+  function renderList() {
+    var filter = $('f-status').value;
+    var rows = state.invoices.filter(function (i) { return !filter || String(i.status) === filter; });
+    if (!rows.length) {
+      $('empty').style.display = '';
+      $('board').style.display = 'none';
+      return;
+    }
+    $('board').innerHTML = rows.map(invoiceCard).join('');
+    $('board').style.display = '';
+    $('empty').style.display = 'none';
+  }
+
+  function invoiceCard(i) {
+    var statusU = String(i.status || 'draft').toUpperCase();
+    var period = (i.period_start || '—') + ' → ' + (i.period_end || '—');
+    var total = IntApiInvoices.formatCents(i.total_cents);
+    var due = i.due_at ? IntApiInvoices.formatShortDate(i.due_at) : '—';
+    return [
+      '<article class="job-card" data-status="' + escHtml(statusU) + '">',
+      '  <span class="status-strip" aria-hidden="true"></span>',
+      '  <div class="job-status">' + escHtml(statusU) + '</div>',
+      '  <h3>' + escHtml(i.payer_display_name || i.payer_id || '—') + '</h3>',
+      '  <dl class="meta">',
+      '    <dt>Period</dt><dd>' + escHtml(period) + '</dd>',
+      '    <dt>Total</dt><dd><strong>' + escHtml(total) + '</strong></dd>',
+      '    <dt>Issued</dt><dd>' + escHtml(IntApiInvoices.formatShortDate(i.issued_at)) + '</dd>',
+      '    <dt>Due</dt><dd>' + escHtml(due) + '</dd>',
+      '    <dt class="tag">ID</dt><dd class="tag">' + escHtml(i.invoice_id) + '</dd>',
+      '  </dl>',
+      '  <div class="actions">',
+      '    <a class="btn btn-ghost btn-sm" href="/interpreter/app/invoices/?id=' + encodeURIComponent(i.invoice_id) + '">Open</a>',
+      '  </div>',
+      '</article>'
+    ].join('\n');
+  }
+
+  // ---------- NEW + PREVIEW ----------
+
+  function openNewInv() {
+    $('new-inv-form').reset();
+    $('i-preview').innerHTML = '';
+    // Default last 30 days
+    var end = new Date();
+    var start = new Date(end.getTime() - 30 * 86400000);
+    $('i-start').value = start.toISOString().slice(0, 10);
+    $('i-end').value = end.toISOString().slice(0, 10);
+    // Populate payer dropdown via Requestors list (per brief, payers piggyback)
+    var sel = $('i-payer');
+    if (sel.options.length <= 1) {
+      IntApi.listRequestors().then(function (r) {
+        if (!r || !r.ok) return;
+        (r.requestors || []).forEach(function (req) {
+          var opt = document.createElement('option');
+          opt.value = req.requestor_id;
+          opt.textContent = req.display_name;
+          sel.appendChild(opt);
+        });
+        state.payers = r.requestors || [];
+      });
+    }
+    $('m-new').classList.add('open');
+  }
+
+  function previewInv() {
+    var fd = new FormData($('new-inv-form'));
+    var fields = {};
+    fd.forEach(function (v, k) { fields[k] = v; });
+    if (!fields.payer_id || !fields.period_start || !fields.period_end) {
+      toast('Pick a payer and a period first.', 'error'); return;
+    }
+    $('i-preview').innerHTML = '<div class="empty-state"><span class="spinner"></span> Pulling completed jobs in range&hellip;</div>';
+    IntApiInvoices.previewInvoice(fields).then(function (r) {
+      if (!r || !r.ok) {
+        $('i-preview').innerHTML = '<p class="muted">' + escHtml((r && r.error) || 'Preview failed') + '</p>';
+        return;
+      }
+      if (!r.lines || !r.lines.length) {
+        $('i-preview').innerHTML = '<p class="muted">No billable jobs for that payer in that period.</p>';
+        return;
+      }
+      var html = '<h3 style="font-size:16px;margin:0 0 8px">Lines (' + r.lines.length + ')</h3>';
+      html += '<div class="table-scroll"><table style="width:100%;border-collapse:collapse;font-size:13px">';
+      html += '<thead><tr><th style="text-align:left;padding:6px 4px;border-bottom:1px solid var(--1891int-line)">Description</th>';
+      html += '<th style="text-align:right;padding:6px 4px;border-bottom:1px solid var(--1891int-line)">Hours</th>';
+      html += '<th style="text-align:right;padding:6px 4px;border-bottom:1px solid var(--1891int-line)">Rate</th>';
+      html += '<th style="text-align:right;padding:6px 4px;border-bottom:1px solid var(--1891int-line)">Amount</th></tr></thead><tbody>';
+      r.lines.forEach(function (l) {
+        html += '<tr><td style="padding:6px 4px">' + escHtml(l.description) + '</td>';
+        html += '<td style="padding:6px 4px;text-align:right">' + escHtml(l.quantity) + '</td>';
+        html += '<td style="padding:6px 4px;text-align:right">' + escHtml(IntApiInvoices.formatCents(l.rate_cents)) + '</td>';
+        html += '<td style="padding:6px 4px;text-align:right">' + escHtml(IntApiInvoices.formatCents(l.amount_cents)) + '</td></tr>';
+      });
+      html += '</tbody><tfoot><tr><td colspan="3" style="padding:8px 4px;text-align:right"><strong>Total</strong></td>';
+      html += '<td style="padding:8px 4px;text-align:right"><strong>' + escHtml(IntApiInvoices.formatCents(r.total_cents)) + '</strong></td></tr></tfoot>';
+      html += '</table></div>';
+      $('i-preview').innerHTML = html;
+    }).catch(function () { $('i-preview').innerHTML = '<p class="muted">Preview request failed.</p>'; });
+  }
+
+  function saveInv() {
+    var form = $('new-inv-form');
+    if (!form.reportValidity()) return;
+    var fd = new FormData(form);
+    var fields = {};
+    fd.forEach(function (v, k) { fields[k] = v; });
+    IntApiInvoices.createInvoice(fields).then(function () {
+      toast('Invoice created — pending Sheet sync.', 'ok');
+      $('m-new').classList.remove('open');
+      setTimeout(loadList, 1500);
+    }).catch(function () { toast('Create failed.', 'error'); });
+  }
+
+  // ---------- DETAIL ----------
+
+  function loadDetail(id) {
+    $('list-view').style.display = 'none';
+    $('detail-view').style.display = '';
+    $('d-loading').style.display = '';
+    $('d-body').style.display = 'none';
+    $('d-pdf').href = '/interpreter/app/invoices/?id=' + encodeURIComponent(id) + '&format=pdf';
+    IntApiInvoices.getInvoice(id).then(function (r) {
+      $('d-loading').style.display = 'none';
+      if (!r || !r.ok) { toast((r && r.error) || 'Not found', 'error'); return; }
+      renderDetail(r.invoice, r.lines || []);
+    }).catch(function () { $('d-loading').style.display = 'none'; toast('Network error', 'error'); });
+  }
+
+  function renderDetail(inv, lines) {
+    var statusU = String(inv.status || 'draft').toUpperCase();
+    $('d-title').textContent = (inv.payer_display_name || inv.payer_id) + ' · ' + statusU;
+    var unpaid = (inv.status !== 'paid' && inv.status !== 'void');
+    $('d-mark-paid').style.display = unpaid ? '' : 'none';
+    $('d-void').style.display = unpaid ? '' : 'none';
+
+    var html = '';
+    html += '<article class="job-card" data-status="' + escHtml(statusU) + '">';
+    html += '  <span class="status-strip" aria-hidden="true"></span>';
+    html += '  <div class="job-status">' + escHtml(statusU) + '</div>';
+    html += '  <h3>' + escHtml(inv.payer_display_name || inv.payer_id || '—') + '</h3>';
+    html += '  <dl class="meta">';
+    html += '    <dt>Period</dt><dd>' + escHtml((inv.period_start || '—') + ' → ' + (inv.period_end || '—')) + '</dd>';
+    html += '    <dt>Issued</dt><dd>' + escHtml(IntApiInvoices.formatShortDate(inv.issued_at)) + '</dd>';
+    html += '    <dt>Due</dt><dd>' + escHtml(inv.due_at ? IntApiInvoices.formatShortDate(inv.due_at) : '—') + '</dd>';
+    html += '    <dt>Subtotal</dt><dd>' + escHtml(IntApiInvoices.formatCents(inv.subtotal_cents)) + '</dd>';
+    html += '    <dt>Tax</dt><dd>' + escHtml(IntApiInvoices.formatCents(inv.tax_cents)) + '</dd>';
+    html += '    <dt>Total</dt><dd><strong>' + escHtml(IntApiInvoices.formatCents(inv.total_cents)) + '</strong></dd>';
+    html += '    <dt class="tag">ID</dt><dd class="tag">' + escHtml(inv.invoice_id) + '</dd>';
+    html += '  </dl>';
+    html += '</article>';
+
+    html += '<h2 style="font-size:20px;margin-top:var(--1891int-s-6)">Lines</h2>';
+    if (!lines.length) {
+      html += '<p class="muted">No lines on this invoice.</p>';
+    } else {
+      html += '<div class="table-scroll"><table style="width:100%;border-collapse:collapse">';
+      html += '<thead><tr><th style="text-align:left;padding:8px 4px;border-bottom:1px solid var(--1891int-line)">Description</th>';
+      html += '<th style="text-align:left;padding:8px 4px;border-bottom:1px solid var(--1891int-line)">Job</th>';
+      html += '<th style="text-align:right;padding:8px 4px;border-bottom:1px solid var(--1891int-line)">Hours</th>';
+      html += '<th style="text-align:right;padding:8px 4px;border-bottom:1px solid var(--1891int-line)">Rate</th>';
+      html += '<th style="text-align:right;padding:8px 4px;border-bottom:1px solid var(--1891int-line)">Amount</th></tr></thead><tbody>';
+      lines.forEach(function (l) {
+        html += '<tr>';
+        html += '<td style="padding:8px 4px;border-bottom:1px solid var(--1891int-line)">' + escHtml(l.description) + '</td>';
+        html += '<td style="padding:8px 4px;border-bottom:1px solid var(--1891int-line)" class="tag">' + escHtml(l.job_id) + '</td>';
+        html += '<td style="padding:8px 4px;border-bottom:1px solid var(--1891int-line);text-align:right">' + escHtml(l.quantity) + '</td>';
+        html += '<td style="padding:8px 4px;border-bottom:1px solid var(--1891int-line);text-align:right">' + escHtml(IntApiInvoices.formatCents(l.rate_cents)) + '</td>';
+        html += '<td style="padding:8px 4px;border-bottom:1px solid var(--1891int-line);text-align:right">' + escHtml(IntApiInvoices.formatCents(l.amount_cents)) + '</td>';
+        html += '</tr>';
+      });
+      html += '</tbody></table></div>';
+    }
+
+    $('d-body').innerHTML = html;
+    $('d-body').style.display = '';
+
+    $('d-mark-paid').onclick = function () {
+      if (!confirm('Mark invoice ' + inv.invoice_id + ' as paid?')) return;
+      IntApiInvoices.markInvoicePaid(inv.invoice_id).then(function () {
+        toast('Marked paid — pending Sheet sync.', 'ok');
+        setTimeout(function () { loadDetail(inv.invoice_id); }, 1200);
+      }).catch(function () { toast('Update failed.', 'error'); });
+    };
+    $('d-void').onclick = function () {
+      var reason = prompt('Reason for voiding this invoice:');
+      if (!reason) return;
+      IntApiInvoices.voidInvoice(inv.invoice_id, reason).then(function () {
+        toast('Voided — pending Sheet sync.', 'ok');
+        setTimeout(function () { loadDetail(inv.invoice_id); }, 1200);
+      }).catch(function () { toast('Void failed.', 'error'); });
+    };
+  }
+})();
+</script>
+</body>
+</html>

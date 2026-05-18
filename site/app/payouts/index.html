@@ -1,0 +1,398 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Payouts — 1891 Interpreter</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#C8553D">
+<link rel="icon" type="image/svg+xml" href="/interpreter/assets/img/favicon.svg">
+<link rel="stylesheet" href="/interpreter/assets/css/site.css">
+<link rel="stylesheet" href="/interpreter/assets/css/app.css">
+</head>
+<body>
+<a href="#main" class="skip">Skip to main content</a>
+
+<div class="app-shell">
+  <header class="app-header">
+    <div class="wrap">
+      <a href="/interpreter/app/" class="brand" aria-label="1891 Interpreter dashboard">
+        <img src="/interpreter/assets/img/brand-mark.svg" alt="" width="32" height="32">
+        <span>1891 <span class="brand-sub">Scheduler</span></span>
+      </a>
+      <div class="who"><span>Signed in as </span><strong id="who-name">…</strong><button id="signout" type="button">Sign out</button></div>
+    </div>
+  </header>
+
+  <nav class="app-nav" aria-label="App sections">
+    <div class="wrap">
+      <a href="/interpreter/app/">Day-of board</a>
+      <a href="/interpreter/app/interpreters/">Interpreters</a>
+      <a href="/interpreter/app/requestors/">Requestors</a>
+      <a href="/interpreter/app/invoices/">Invoices</a>
+      <a href="/interpreter/app/payouts/" aria-current="page">Payouts</a>
+      <a href="/interpreter/app/settings/">Settings</a>
+    </div>
+  </nav>
+
+  <main id="main" class="app-main">
+    <div class="wrap">
+
+      <!-- LIST VIEW -->
+      <section id="list-view">
+        <div class="toolbar">
+          <h1 style="margin:0;font-size:28px">Payouts</h1>
+          <div class="spacer"></div>
+          <div class="filter">
+            <label for="f-status" style="font-size:13px;color:var(--1891int-fog)">Status</label>
+            <select id="f-status">
+              <option value="">All</option>
+              <option value="pending">Pending</option>
+              <option value="paid">Paid</option>
+              <option value="void">Void</option>
+            </select>
+          </div>
+          <button class="btn btn-ghost btn-sm" type="button" id="refresh">Refresh</button>
+          <button class="btn btn-primary" type="button" id="new-po">+ New payout</button>
+        </div>
+
+        <div id="loading" class="empty-state"><span class="spinner"></span> Loading payouts&hellip;</div>
+        <div id="board" class="board" style="display:none"></div>
+        <div id="empty" class="empty-state" style="display:none">
+          <h2>No payouts yet.</h2>
+          <p>Payouts roll up an interpreter's completed assignments into a single pay run. Pick an interpreter and a period, preview the hours, then issue.</p>
+          <button class="btn btn-primary" type="button" id="empty-add">+ Create your first payout</button>
+        </div>
+      </section>
+
+      <!-- DETAIL VIEW -->
+      <section id="detail-view" style="display:none">
+        <div class="toolbar">
+          <a href="/interpreter/app/payouts/" class="btn btn-ghost btn-sm">&larr; Back</a>
+          <h1 style="margin:0;font-size:24px" id="d-title">Payout</h1>
+          <div class="spacer"></div>
+          <button class="btn btn-ghost btn-sm" type="button" id="d-refresh">Refresh</button>
+          <button class="btn btn-primary btn-sm" type="button" id="d-mark-paid" style="display:none">Mark paid</button>
+        </div>
+        <div id="d-loading" class="empty-state"><span class="spinner"></span> Loading&hellip;</div>
+        <div id="d-body" style="display:none"></div>
+      </section>
+
+    </div>
+  </main>
+</div>
+
+<!-- New payout modal -->
+<div class="modal-backdrop" id="m-new" role="dialog" aria-modal="true" aria-labelledby="m-new-title">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 id="m-new-title">New payout</h2>
+      <button class="close" type="button" data-close>&times;</button>
+    </div>
+    <form id="new-po-form" class="modal-body">
+      <div class="field">
+        <label for="p-interp">Interpreter</label>
+        <select id="p-interp" name="interpreter_id" required>
+          <option value="">— Select interpreter —</option>
+        </select>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--1891int-s-4)">
+        <div class="field">
+          <label for="p-start">Period start</label>
+          <input id="p-start" name="period_start" type="date" required>
+        </div>
+        <div class="field">
+          <label for="p-end">Period end</label>
+          <input id="p-end" name="period_end" type="date" required>
+        </div>
+      </div>
+      <div id="p-preview" style="margin-top:var(--1891int-s-4)"></div>
+    </form>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" type="button" data-close>Cancel</button>
+      <button class="btn btn-secondary" type="button" id="preview-po">Preview</button>
+      <button class="btn btn-primary" type="button" id="save-po">Create</button>
+    </div>
+  </div>
+</div>
+
+<!-- Mark-paid modal -->
+<div class="modal-backdrop" id="m-paid" role="dialog" aria-modal="true">
+  <div class="modal">
+    <div class="modal-header"><h2>Mark paid</h2><button class="close" type="button" data-close>&times;</button></div>
+    <form id="paid-form" class="modal-body">
+      <div class="field">
+        <label for="paid-stripe">Stripe transfer ID (optional)</label>
+        <input id="paid-stripe" name="stripe_transfer_id" type="text" placeholder="tr_…">
+        <span class="hint">If you ran the payout through Stripe Connect, paste the transfer ID. Manual ACH leaves this blank.</span>
+      </div>
+    </form>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" type="button" data-close>Cancel</button>
+      <button class="btn btn-primary" type="button" id="paid-save">Mark paid</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+<script src="/interpreter/assets/js/api.js" defer></script>
+<script src="/interpreter/assets/js/api-invoices.js" defer></script>
+<script>
+(function () {
+  'use strict';
+  document.addEventListener('DOMContentLoaded', init);
+
+  var state = { payouts: [], me: null, interpreters: [] };
+
+  function $(id) { return document.getElementById(id); }
+  function escHtml(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+    return { '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c];
+  }); }
+  function qparam(k) { return new URLSearchParams(location.search).get(k); }
+  function toast(msg, kind) {
+    var t = $('toast');
+    t.textContent = msg;
+    t.className = 'toast show' + (kind ? ' ' + kind : '');
+    setTimeout(function () { t.className = 'toast'; }, 3200);
+  }
+
+  function init() {
+    if (!IntApi.getSession()) { location.href = '/interpreter/sign-in.html'; return; }
+    IntApi.whoami().then(function (r) {
+      if (!r || !r.ok) { IntApi.clearSession(); location.href = '/interpreter/sign-in.html'; return; }
+      state.me = r.user;
+      $('who-name').textContent = (r.user && (r.user.display_name || r.user.email)) || 'unknown';
+      var id = qparam('id');
+      if (id) loadDetail(id);
+      else loadList();
+    }).catch(function () { toast('Could not reach the server.', 'error'); });
+
+    $('refresh').addEventListener('click', loadList);
+    $('f-status').addEventListener('change', renderList);
+    $('new-po').addEventListener('click', openNewPo);
+    $('save-po').addEventListener('click', savePo);
+    $('preview-po').addEventListener('click', previewPo);
+    var emptyBtn = $('empty-add'); if (emptyBtn) emptyBtn.addEventListener('click', openNewPo);
+    $('d-refresh').addEventListener('click', function () { var id = qparam('id'); if (id) loadDetail(id); });
+    $('signout').addEventListener('click', function () { IntApi.clearSession(); location.href = '/interpreter/'; });
+    document.querySelectorAll('[data-close]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        document.querySelectorAll('.modal-backdrop.open').forEach(function (m) { m.classList.remove('open'); });
+      });
+    });
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') document.querySelectorAll('.modal-backdrop.open').forEach(function (m) { m.classList.remove('open'); });
+    });
+  }
+
+  // ---------- LIST ----------
+
+  function loadList() {
+    $('list-view').style.display = '';
+    $('detail-view').style.display = 'none';
+    $('loading').style.display = '';
+    $('board').style.display = 'none';
+    $('empty').style.display = 'none';
+    IntApiInvoices.listPayouts().then(function (r) {
+      $('loading').style.display = 'none';
+      if (!r || !r.ok) { toast((r && r.error) || 'Load failed', 'error'); return; }
+      state.payouts = r.payouts || [];
+      renderList();
+    }).catch(function () { $('loading').style.display = 'none'; toast('Network error', 'error'); });
+  }
+
+  function renderList() {
+    var filter = $('f-status').value;
+    var rows = state.payouts.filter(function (p) { return !filter || String(p.status) === filter; });
+    if (!rows.length) {
+      $('empty').style.display = '';
+      $('board').style.display = 'none';
+      return;
+    }
+    $('board').innerHTML = rows.map(payoutCard).join('');
+    $('board').style.display = '';
+    $('empty').style.display = 'none';
+  }
+
+  function payoutCard(p) {
+    var statusU = String(p.status || 'pending').toUpperCase();
+    var period = (p.period_start || '—') + ' → ' + (p.period_end || '—');
+    var total = IntApiInvoices.formatCents(p.total_cents);
+    var ytd = IntApiInvoices.formatCents(p.ytd_total_cents || 0);
+    return [
+      '<article class="job-card" data-status="' + escHtml(statusU) + '">',
+      '  <span class="status-strip" aria-hidden="true"></span>',
+      '  <div class="job-status">' + escHtml(statusU) + '</div>',
+      '  <h3>' + escHtml(p.interpreter_display_name || p.interpreter_id) + '</h3>',
+      '  <dl class="meta">',
+      '    <dt>Period</dt><dd>' + escHtml(period) + '</dd>',
+      '    <dt>Total</dt><dd><strong>' + escHtml(total) + '</strong></dd>',
+      '    <dt>Issued</dt><dd>' + escHtml(IntApiInvoices.formatShortDate(p.issued_at)) + '</dd>',
+      '    <dt>1099 YTD</dt><dd>' + escHtml(ytd) + '</dd>',
+      '    <dt class="tag">ID</dt><dd class="tag">' + escHtml(p.payout_id) + '</dd>',
+      '  </dl>',
+      '  <div class="actions">',
+      '    <a class="btn btn-ghost btn-sm" href="/interpreter/app/payouts/?id=' + encodeURIComponent(p.payout_id) + '">Open</a>',
+      '  </div>',
+      '</article>'
+    ].join('\n');
+  }
+
+  // ---------- NEW + PREVIEW ----------
+
+  function openNewPo() {
+    $('new-po-form').reset();
+    $('p-preview').innerHTML = '';
+    var end = new Date();
+    var start = new Date(end.getTime() - 14 * 86400000);
+    $('p-start').value = start.toISOString().slice(0, 10);
+    $('p-end').value = end.toISOString().slice(0, 10);
+    var sel = $('p-interp');
+    if (sel.options.length <= 1) {
+      IntApi.listInterpreters().then(function (r) {
+        if (!r || !r.ok) return;
+        (r.interpreters || []).forEach(function (it) {
+          var opt = document.createElement('option');
+          opt.value = it.interpreter_id;
+          var first = (it.legal_first || '').trim();
+          var last = (it.legal_last || '').trim();
+          var name = (first + ' ' + last).trim() || it.interpreter_id;
+          opt.textContent = name;
+          sel.appendChild(opt);
+        });
+        state.interpreters = r.interpreters || [];
+      });
+    }
+    $('m-new').classList.add('open');
+  }
+
+  function previewPo() {
+    var fd = new FormData($('new-po-form'));
+    var fields = {};
+    fd.forEach(function (v, k) { fields[k] = v; });
+    if (!fields.interpreter_id || !fields.period_start || !fields.period_end) {
+      toast('Pick an interpreter and a period first.', 'error'); return;
+    }
+    $('p-preview').innerHTML = '<div class="empty-state"><span class="spinner"></span> Pulling claimed assignments&hellip;</div>';
+    IntApiInvoices.previewPayout(fields).then(function (r) {
+      if (!r || !r.ok) {
+        $('p-preview').innerHTML = '<p class="muted">' + escHtml((r && r.error) || 'Preview failed') + '</p>';
+        return;
+      }
+      if (!r.lines || !r.lines.length) {
+        $('p-preview').innerHTML = '<p class="muted">No unpaid completed assignments in that period.</p>';
+        return;
+      }
+      var html = '<h3 style="font-size:16px;margin:0 0 8px">Lines (' + r.lines.length + ')</h3>';
+      html += '<div class="table-scroll"><table style="width:100%;border-collapse:collapse;font-size:13px">';
+      html += '<thead><tr><th style="text-align:left;padding:6px 4px;border-bottom:1px solid var(--1891int-line)">Service date</th>';
+      html += '<th style="text-align:left;padding:6px 4px;border-bottom:1px solid var(--1891int-line)">Job</th>';
+      html += '<th style="text-align:right;padding:6px 4px;border-bottom:1px solid var(--1891int-line)">Hours</th>';
+      html += '<th style="text-align:right;padding:6px 4px;border-bottom:1px solid var(--1891int-line)">Pay rate</th>';
+      html += '<th style="text-align:right;padding:6px 4px;border-bottom:1px solid var(--1891int-line)">Amount</th></tr></thead><tbody>';
+      r.lines.forEach(function (l) {
+        html += '<tr><td style="padding:6px 4px">' + escHtml(l.service_date) + '</td>';
+        html += '<td style="padding:6px 4px" class="tag">' + escHtml(l.job_id) + '</td>';
+        html += '<td style="padding:6px 4px;text-align:right">' + escHtml(l.hours) + '</td>';
+        html += '<td style="padding:6px 4px;text-align:right">' + escHtml(IntApiInvoices.formatCents(l.pay_rate_cents)) + '</td>';
+        html += '<td style="padding:6px 4px;text-align:right">' + escHtml(IntApiInvoices.formatCents(l.amount_cents)) + '</td></tr>';
+      });
+      html += '</tbody><tfoot><tr><td colspan="4" style="padding:8px 4px;text-align:right"><strong>Total</strong></td>';
+      html += '<td style="padding:8px 4px;text-align:right"><strong>' + escHtml(IntApiInvoices.formatCents(r.total_cents)) + '</strong></td></tr></tfoot>';
+      html += '</table></div>';
+      $('p-preview').innerHTML = html;
+    }).catch(function () { $('p-preview').innerHTML = '<p class="muted">Preview request failed.</p>'; });
+  }
+
+  function savePo() {
+    var form = $('new-po-form');
+    if (!form.reportValidity()) return;
+    var fd = new FormData(form);
+    var fields = {};
+    fd.forEach(function (v, k) { fields[k] = v; });
+    IntApiInvoices.createPayout(fields).then(function () {
+      toast('Payout created — pending Sheet sync.', 'ok');
+      $('m-new').classList.remove('open');
+      setTimeout(loadList, 1500);
+    }).catch(function () { toast('Create failed.', 'error'); });
+  }
+
+  // ---------- DETAIL ----------
+
+  function loadDetail(id) {
+    $('list-view').style.display = 'none';
+    $('detail-view').style.display = '';
+    $('d-loading').style.display = '';
+    $('d-body').style.display = 'none';
+    IntApiInvoices.getPayout(id).then(function (r) {
+      $('d-loading').style.display = 'none';
+      if (!r || !r.ok) { toast((r && r.error) || 'Not found', 'error'); return; }
+      renderDetail(r.payout, r.lines || []);
+    }).catch(function () { $('d-loading').style.display = 'none'; toast('Network error', 'error'); });
+  }
+
+  function renderDetail(po, lines) {
+    var statusU = String(po.status || 'pending').toUpperCase();
+    $('d-title').textContent = (po.interpreter_display_name || po.interpreter_id) + ' · ' + statusU;
+    var unpaid = (po.status !== 'paid' && po.status !== 'void');
+    $('d-mark-paid').style.display = unpaid ? '' : 'none';
+
+    var html = '';
+    html += '<article class="job-card" data-status="' + escHtml(statusU) + '">';
+    html += '  <span class="status-strip" aria-hidden="true"></span>';
+    html += '  <div class="job-status">' + escHtml(statusU) + '</div>';
+    html += '  <h3>' + escHtml(po.interpreter_display_name || po.interpreter_id) + '</h3>';
+    html += '  <dl class="meta">';
+    html += '    <dt>Period</dt><dd>' + escHtml((po.period_start || '—') + ' → ' + (po.period_end || '—')) + '</dd>';
+    html += '    <dt>Issued</dt><dd>' + escHtml(IntApiInvoices.formatShortDate(po.issued_at)) + '</dd>';
+    html += '    <dt>Total</dt><dd><strong>' + escHtml(IntApiInvoices.formatCents(po.total_cents)) + '</strong></dd>';
+    html += '    <dt>Stripe transfer</dt><dd>' + escHtml(po.stripe_transfer_id || '—') + '</dd>';
+    html += '    <dt class="tag">ID</dt><dd class="tag">' + escHtml(po.payout_id) + '</dd>';
+    html += '  </dl>';
+    html += '</article>';
+
+    html += '<h2 style="font-size:20px;margin-top:var(--1891int-s-6)">Assignment lines</h2>';
+    if (!lines.length) {
+      html += '<p class="muted">No assignments recorded on this payout.</p>';
+    } else {
+      html += '<div class="table-scroll"><table style="width:100%;border-collapse:collapse">';
+      html += '<thead><tr><th style="text-align:left;padding:8px 4px;border-bottom:1px solid var(--1891int-line)">Service date</th>';
+      html += '<th style="text-align:left;padding:8px 4px;border-bottom:1px solid var(--1891int-line)">Job</th>';
+      html += '<th style="text-align:left;padding:8px 4px;border-bottom:1px solid var(--1891int-line)">Assignment</th>';
+      html += '<th style="text-align:right;padding:8px 4px;border-bottom:1px solid var(--1891int-line)">Hours</th>';
+      html += '<th style="text-align:right;padding:8px 4px;border-bottom:1px solid var(--1891int-line)">Pay rate</th>';
+      html += '<th style="text-align:right;padding:8px 4px;border-bottom:1px solid var(--1891int-line)">Amount</th></tr></thead><tbody>';
+      lines.forEach(function (l) {
+        html += '<tr>';
+        html += '<td style="padding:8px 4px;border-bottom:1px solid var(--1891int-line)">' + escHtml(l.service_date) + '</td>';
+        html += '<td style="padding:8px 4px;border-bottom:1px solid var(--1891int-line)" class="tag">' + escHtml(l.job_id) + '</td>';
+        html += '<td style="padding:8px 4px;border-bottom:1px solid var(--1891int-line)" class="tag">' + escHtml(l.assignment_id) + '</td>';
+        html += '<td style="padding:8px 4px;border-bottom:1px solid var(--1891int-line);text-align:right">' + escHtml(l.hours) + '</td>';
+        html += '<td style="padding:8px 4px;border-bottom:1px solid var(--1891int-line);text-align:right">' + escHtml(IntApiInvoices.formatCents(l.pay_rate_cents)) + '</td>';
+        html += '<td style="padding:8px 4px;border-bottom:1px solid var(--1891int-line);text-align:right">' + escHtml(IntApiInvoices.formatCents(l.amount_cents)) + '</td>';
+        html += '</tr>';
+      });
+      html += '</tbody></table></div>';
+    }
+
+    $('d-body').innerHTML = html;
+    $('d-body').style.display = '';
+
+    $('d-mark-paid').onclick = function () {
+      $('paid-form').reset();
+      $('m-paid').classList.add('open');
+      $('paid-save').onclick = function () {
+        var stripeId = $('paid-stripe').value.trim();
+        IntApiInvoices.markPayoutPaid(po.payout_id, '', stripeId).then(function () {
+          toast('Marked paid — pending Sheet sync.', 'ok');
+          $('m-paid').classList.remove('open');
+          setTimeout(function () { loadDetail(po.payout_id); }, 1200);
+        }).catch(function () { toast('Update failed.', 'error'); });
+      };
+    };
+  }
+})();
+</script>
+</body>
+</html>

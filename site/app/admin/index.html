@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Admin — 1891 Interpreter</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#C8553D">
+<link rel="icon" type="image/svg+xml" href="/interpreter/assets/img/favicon.svg">
+<link rel="stylesheet" href="/interpreter/assets/css/site.css">
+<link rel="stylesheet" href="/interpreter/assets/css/app.css">
+<style>
+  .admin-cards { display:grid; grid-template-columns:repeat(auto-fill, minmax(280px, 1fr)); gap:var(--1891int-s-4); margin-top:var(--1891int-s-5); }
+  .admin-card { display:block; padding:var(--1891int-s-5); border:1px solid var(--1891int-line); border-radius:var(--1891int-r-2); background:#fff; color:inherit; text-decoration:none; transition:transform .08s ease, border-color .08s ease; }
+  .admin-card:hover { border-color:var(--1891int-bloom); transform:translateY(-1px); }
+  .admin-card h3 { margin:0 0 4px; font-size:18px; }
+  .admin-card p  { margin:0; font-size:14px; color:var(--1891int-fog); }
+  .admin-card .big { font-size:32px; font-weight:600; color:var(--1891int-river); margin-top:var(--1891int-s-3); }
+  .admin-card.muted { background:var(--1891int-sand, #faf7f3); }
+  .summary { display:grid; grid-template-columns:repeat(auto-fill, minmax(180px, 1fr)); gap:var(--1891int-s-4); margin-top:var(--1891int-s-4); }
+  .summary .stat { padding:var(--1891int-s-4); border:1px solid var(--1891int-line); border-radius:var(--1891int-r-2); background:#fff; }
+  .summary .stat .n { font-size:28px; font-weight:600; color:var(--1891int-river); }
+  .summary .stat .l { font-size:12px; color:var(--1891int-fog); text-transform:uppercase; letter-spacing:.05em; }
+</style>
+</head>
+<body>
+<a href="#main" class="skip">Skip to main content</a>
+
+<div class="app-shell">
+  <header class="app-header">
+    <div class="wrap">
+      <a href="/interpreter/app/" class="brand" aria-label="1891 Interpreter dashboard">
+        <img src="/interpreter/assets/img/brand-mark.svg" alt="" width="32" height="32">
+        <span>1891 <span class="brand-sub">Admin</span></span>
+      </a>
+      <div class="who"><span>Signed in as </span><strong id="who-name">…</strong><button id="signout" type="button">Sign out</button></div>
+    </div>
+  </header>
+
+  <nav class="app-nav" aria-label="App sections">
+    <div class="wrap">
+      <a href="/interpreter/app/">Day-of board</a>
+      <a href="/interpreter/app/interpreters/">Interpreters</a>
+      <a href="/interpreter/app/requestors/">Requestors</a>
+      <a href="/interpreter/app/intake/">AI intake</a>
+      <a href="/interpreter/app/settings/">Settings</a>
+      <a href="/interpreter/app/admin/" aria-current="page">Admin</a>
+    </div>
+  </nav>
+
+  <main id="main" class="app-main">
+    <div class="wrap">
+      <div class="toolbar">
+        <h1 style="margin:0;font-size:28px">Admin</h1>
+        <div class="spacer"></div>
+        <span class="muted" style="font-size:13px">Host-tenant owners only.</span>
+      </div>
+
+      <p class="muted" style="margin-top:var(--1891int-s-3)">Provision and switch between agency tenants. Every action here is audited in <code>Audit_Log</code> on the host Sheet and <code>Sys_Log</code> on the control Sheet.</p>
+
+      <div class="summary" id="summary" aria-live="polite">
+        <div class="stat"><div class="n" id="s-tenants">—</div><div class="l">Tenants</div></div>
+        <div class="stat"><div class="n" id="s-active">—</div><div class="l">Active tenants</div></div>
+        <div class="stat"><div class="n" id="s-owners">—</div><div class="l">Tenant owner seats</div></div>
+      </div>
+
+      <div class="admin-cards">
+        <a class="admin-card" href="/interpreter/app/admin/tenants/">
+          <h3>Tenants</h3>
+          <p>List, provision, and switch into agency tenants.</p>
+          <div class="big" id="card-tenants">—</div>
+        </a>
+        <a class="admin-card muted" href="#" aria-disabled="true" onclick="event.preventDefault()">
+          <h3>Sys log</h3>
+          <p>Tenant provisioning + admin events. Coming next.</p>
+          <div class="big">—</div>
+        </a>
+        <a class="admin-card muted" href="#" aria-disabled="true" onclick="event.preventDefault()">
+          <h3>Deaf-owned verification queue</h3>
+          <p>Pending applications waiting on the board's review. Coming next.</p>
+          <div class="big">—</div>
+        </a>
+      </div>
+    </div>
+  </main>
+</div>
+
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+<script src="/interpreter/assets/js/api.js"></script>
+<script src="/interpreter/assets/js/api-multitenant.js"></script>
+<script>
+(function () {
+  'use strict';
+  document.addEventListener('DOMContentLoaded', init);
+
+  function $(id) { return document.getElementById(id); }
+
+  function toast(msg, kind) {
+    var t = $('toast');
+    t.textContent = msg;
+    t.className = 'toast show' + (kind ? ' ' + kind : '');
+    setTimeout(function () { t.className = 'toast'; }, 3200);
+  }
+
+  function init() {
+    if (!IntApi.getSession()) {
+      location.href = '/interpreter/sign-in.html';
+      return;
+    }
+    IntApi.whoami().then(function (r) {
+      if (!r || !r.ok) {
+        IntApi.clearSession();
+        location.href = '/interpreter/sign-in.html';
+        return;
+      }
+      // Host-owner-only gate. Anyone else gets bounced to the day-of board.
+      if (!r.user || r.user.role_id !== 'role_owner' || r.user.tenant_id !== 'host') {
+        location.href = '/interpreter/app/';
+        return;
+      }
+      $('who-name').textContent = (r.user && (r.user.display_name || r.user.email)) || 'unknown';
+      loadSummary();
+    }).catch(function () {
+      toast('Could not reach the server.', 'error');
+    });
+
+    $('signout').addEventListener('click', function () {
+      IntApi.clearSession();
+      location.href = '/interpreter/';
+    });
+  }
+
+  function loadSummary() {
+    IntApiMultitenant.listTenants().then(function (r) {
+      if (!r || !r.ok) {
+        toast(r && r.error || 'Could not load tenants.', 'error');
+        return;
+      }
+      var ts = r.tenants || [];
+      $('s-tenants').textContent = String(ts.length);
+      $('card-tenants').textContent = String(ts.length);
+      $('s-active').textContent = String(ts.filter(function (t) { return t.status === 'active'; }).length);
+      // Owner-seat count is the sum of owner rows across tenants the host owner can see.
+      // We approximate by counting unique tenants for now; a follow-up endpoint can refine.
+      $('s-owners').textContent = String(ts.length);
+    }).catch(function () {
+      toast('Network error.', 'error');
+    });
+  }
+})();
+</script>
+</body>
+</html>

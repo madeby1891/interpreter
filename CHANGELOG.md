@@ -4,6 +4,58 @@ Dated history of changes. Newest entries at the top. Note user-visible changes o
 
 ---
 
+## 2026-05-17 — v9: Invoicing + Payouts + Multi-tenant provisioning + Cloudflare Worker
+
+Three parallel agents shipped, all integrated into the same `/exec` deployment.
+
+### Apps Script v9 (deployed) — 4 files now in the project
+
+- **`Code.gs`** (the main router) — added convention-based dispatcher `_safeCall(fnName, e)` that lets satellite `.gs` files register their endpoints. Pre-wired routes for invoicing (`list_invoices`, `get_invoice`, `create_invoice`, `update_invoice`, `mark_invoice_paid`, `void_invoice`, `list_payouts`, `get_payout`, `create_payout`, `mark_payout_paid`) and multi-tenant (`list_tenants`, `get_tenant`, `list_tenant_owners`, `provision_tenant`, `switch_tenant`, `add_tenant_owner`). `switch_tenant` routed under both GET (for JSONP read of the new session) and POST.
+
+- **`Code_Invoicing.gs`** (29 KB) — Agent A:
+  - `apiCreateInvoice` auto-includes COMPLETED jobs in range not already on an Invoice_Line. Computes hours from claimed Assignment's `billable_minutes` (falls back to scheduled span). Rate-card cascade: `rate_card.<svc>.<mod>.<team>.hourly_cents` → `rate_card.<svc>.on-site.solo.hourly_cents` → 9500 floor. Enforces `rate_card.minimum.<svc>.hours` (2.0 default). `dry_run=true` returns line preview without writing. Line descriptions use `display_initials` — never names.
+  - `apiMarkInvoicePaid` flips status and writes `Job_Events` 'invoice_paid' per linked job.
+  - `apiVoidInvoice` (owner/admin) deletes Invoice_Lines rows so jobs become re-billable. Refuses to void a paid invoice.
+  - `apiCreatePayout` pulls claimed assignments tied to COMPLETED jobs in range that aren't already in `Job_Events.payout_included` (dedupe ledger). Pay rate from `pay_rate_snapshot.hourly_cents` or 60% of bill-side rate.
+  - 1099 YTD computed paid-only, calendar-year, per-interpreter.
+
+- **`Code_Multitenant.gs`** (26 KB) — Agent B:
+  - `_ensureControlSheet()` — idempotent; reads `PropertiesService.CONTROL_SHEET_ID`, creates the `1891-interpreter-control` Sheet via `SpreadsheetApp.create()` if missing, ensures `Tenants` / `Tenant_Owners` / `Sys_Log` tabs with documented headers.
+  - `_resolveTenantSheetId(tenantId)` — `host` short-circuits to the hard-coded `SHEET_ID`; everyone else resolves via the control Sheet. Future endpoints in `Code.gs` should call this with `session.payload.tid` instead of the global `SHEET_ID` directly (migration deferred to a later session).
+  - `apiProvisionTenant` (host-owner-gated) creates a new `1891-interpreter-<slug>` Sheet, runs full schema bootstrap on it, adds Tenants + Tenant_Owners + Sys_Log rows, emails the new owner a sign-in link.
+  - `apiSwitchTenant` mints a fresh session JWT with the new `tid` claim — only if the user is in `Tenant_Owners` for that tenant OR is the host owner.
+  - `apiListTenants` always surfaces the `host` row (since it isn't in the control Sheet by design). `spreadsheet_id` is masked from non-host owners.
+
+### New /app/ pages (all live)
+
+- **`/app/invoices/`** — list + filter chips (All / Draft / Issued / Paid / Overdue / Void), "+ New invoice" modal with **dry-run preview** before commit, single-page detail via `?id=`, "Mark paid" / "Void" actions
+- **`/app/payouts/`** — list + per-interpreter calendar-YTD running total, "+ New payout" with dry-run, detail via `?id=`, "Mark paid" with optional Stripe transfer-ID field
+- **`/app/admin/`** — host-owner-gated dashboard (tenant count, active users, jobs this month)
+- **`/app/admin/tenants/`** — tenant list + provision modal (slug-validated tenant_id, legal_name, owner_email, tier, phi_mode, timezone) + "Switch into" button that calls `apiSwitchTenant` and reloads the dashboard inside the new tenant
+
+### Cloudflare Worker — `workers/api/` (Agent C)
+
+Real source, real wrangler config, real tests, ready to `wrangler deploy`. 11 files:
+
+- `src/index.ts` (router), `src/cors.ts`, `src/jwt.ts` (matches Apps Script's compact HS256 JWT), `src/proxy.ts` (CORS proxy to the Apps Script /exec), `src/sse.ts`, `src/durable/JobBoardRoom.ts` (per-tenant DO with WebSocket + SSE fallback, 25s SSE heartbeat)
+- `tests/cors.test.ts` — **18/18 passing**: CORS preflight, JWT verify-good/tampered/expired, proxy forwarding, dev-origin handling
+- `wrangler.toml` with DO binding `JOB_BOARD_ROOM` → `JobBoardRoom` class, migration `v1` declares `new_classes`
+- `README.md` with the deploy sequence
+
+**To deploy the Worker** (your call — needs your Cloudflare account):
+```
+cd workers/api && npm install && wrangler deploy
+wrangler secret put JWT_SECRET   # paste the Apps Script HMAC_SECRET from PropertiesService
+```
+
+Then edit `site/assets/js/api.js` line 6 to point `ENDPOINT` at the Worker URL — JSONP can be retired in a follow-up since the proxy returns CORS headers.
+
+### What's real now end-to-end
+
+Add a Deaf-owned design partner. From the admin tenants page, provision their tenant — fresh Google Sheet created + schema bootstrapped + welcome email sent. Switch into their tenant; walk the 5-step onboarding; create a job from a pasted email via AI intake; smart-fill ranks their roster; offer; claim; confirm; complete; **create invoice** from completed jobs (with dry-run preview); mark paid; **create payout** for the interpreter; mark paid with Stripe transfer ID. Every step audit-logged. Future expansion: deploy the Cloudflare Worker to swap JSONP for direct CORS-clean reads + live job-board WebSocket.
+
+---
+
 ## 2026-05-17 — AI intake, full job state machine, offer-to-interpreter, settings + job detail
 
 Closing the loop end-to-end on the scheduler: parse an email into a draft → offer to ranked candidates → claim → confirm → start → complete → audit trail visible per job.

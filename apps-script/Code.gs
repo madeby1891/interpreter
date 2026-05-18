@@ -93,6 +93,16 @@ function doGet(e) {
       case 'list_communications':return apiListCommunications(e);
       case 'test_anthropic':     return apiTestAnthropic(e);
       case 'ai_intake':          return apiAiIntake(e);       // also POST-able; GET path enables JSONP read
+      // Invoicing & payouts (impl in Code_Invoicing.gs)
+      case 'list_invoices':      return _safeCall('apiListInvoices', e);
+      case 'get_invoice':        return _safeCall('apiGetInvoice', e);
+      case 'list_payouts':       return _safeCall('apiListPayouts', e);
+      case 'get_payout':         return _safeCall('apiGetPayout', e);
+      // Multi-tenant admin (impl in Code_Multitenant.gs)
+      case 'list_tenants':       return _safeCall('apiListTenants', e);
+      case 'get_tenant':         return _safeCall('apiGetTenant', e);
+      case 'list_tenant_owners': return _safeCall('apiListTenantOwners', e);
+      case 'switch_tenant':      return _safeCall('apiSwitchTenant', e);  // GET-path enables JSONP response read
       default:                   return _json({ ok:false, error:'Unknown action: ' + action }, 404);
     }
   } catch (err) {
@@ -127,6 +137,17 @@ function doPost(e) {
       case 'start_job':          return apiStartJob(e);
       case 'complete_job':       return apiCompleteJob(e);
       case 'ai_intake':          return apiAiIntake(e);
+      // Invoicing & payouts
+      case 'create_invoice':     return _safeCall('apiCreateInvoice', e);
+      case 'update_invoice':     return _safeCall('apiUpdateInvoice', e);
+      case 'mark_invoice_paid':  return _safeCall('apiMarkInvoicePaid', e);
+      case 'void_invoice':       return _safeCall('apiVoidInvoice', e);
+      case 'create_payout':      return _safeCall('apiCreatePayout', e);
+      case 'mark_payout_paid':   return _safeCall('apiMarkPayoutPaid', e);
+      // Multi-tenant admin
+      case 'provision_tenant':   return _safeCall('apiProvisionTenant', e);
+      case 'switch_tenant':      return _safeCall('apiSwitchTenant', e);
+      case 'add_tenant_owner':   return _safeCall('apiAddTenantOwner', e);
       default:                   return _json({ ok:false, error:'Unknown action: ' + action }, 404);
     }
   } catch (err) {
@@ -142,6 +163,20 @@ function _safeCb(name) {
   if (!name) return null;
   if (!/^[A-Za-z_$][A-Za-z0-9_$]{0,63}$/.test(String(name))) return null;
   return String(name);
+}
+
+// Convention-based dispatcher: looks up the function by name on the global
+// object and calls it. Returns 501 if the function isn't yet defined (e.g.,
+// the corresponding .gs file hasn't been pushed). Lets us declare router
+// routes for endpoints whose implementations live in separate .gs files
+// without breaking when those files aren't yet present.
+function _safeCall(fnName, e) {
+  var fn = (typeof globalThis !== 'undefined' && globalThis[fnName]) ||
+           (this && this[fnName]);
+  if (typeof fn !== 'function') {
+    return _json({ ok:false, error:'Not implemented yet: ' + fnName }, 501);
+  }
+  return fn(e);
 }
 
 function _serviceInfo() {
