@@ -57,7 +57,7 @@ RedirectMatch 403 ^/interpreter/godview\.json$
   # CSP — strict for marketing site. No external scripts, no external fonts,
   # no iframes. If you need to add a vendor (e.g. a video host), tighten the
   # source list rather than relaxing wholesale.
-  Header always set Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self' https://script.google.com https://script.googleusercontent.com; frame-ancestors 'none'; form-action 'self' https://script.google.com https://script.googleusercontent.com; base-uri 'self'; object-src 'none'; upgrade-insecure-requests"
+  Header always set Content-Security-Policy "default-src 'self'; script-src 'self' https://1891-interpreter-api.anthonymowl.workers.dev; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self' https://script.google.com https://script.googleusercontent.com https://1891-interpreter-api.anthonymowl.workers.dev wss://1891-interpreter-api.anthonymowl.workers.dev; frame-ancestors 'none'; form-action 'self' https://script.google.com https://script.googleusercontent.com https://1891-interpreter-api.anthonymowl.workers.dev; base-uri 'self'; object-src 'none'; upgrade-insecure-requests"
 
   # CSP report endpoint (placeholder — replace with real reporting endpoint
   # once provisioned). Browsers ignore an unreachable report-to gracefully.

@@ -128,6 +128,7 @@
 
 <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
+<script src="/interpreter/assets/js/whitelabel.js" defer></script>
 <script src="/interpreter/assets/js/api.js" defer></script>
 <script src="/interpreter/assets/js/api-invoices.js" defer></script>
 <script>
@@ -156,6 +157,7 @@
       if (!r || !r.ok) { IntApi.clearSession(); location.href = '/interpreter/sign-in.html'; return; }
       state.me = r.user;
       $('who-name').textContent = (r.user && (r.user.display_name || r.user.email)) || 'unknown';
+      if (window.IntTheme && r.agency) IntTheme.apply(r.agency);
       var id = qparam('id');
       if (id) loadDetail(id);
       else loadList();
@@ -315,7 +317,7 @@
     $('detail-view').style.display = '';
     $('d-loading').style.display = '';
     $('d-body').style.display = 'none';
-    $('d-pdf').href = '/interpreter/app/invoices/?id=' + encodeURIComponent(id) + '&format=pdf';
+    $('d-pdf').href = IntApi.ENDPOINT + '?action=invoice_pdf&id=' + encodeURIComponent(id) + '&session=' + encodeURIComponent(IntApi.getSession());
     IntApiInvoices.getInvoice(id).then(function (r) {
       $('d-loading').style.display = 'none';
       if (!r || !r.ok) { toast((r && r.error) || 'Not found', 'error'); return; }

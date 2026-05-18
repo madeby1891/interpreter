@@ -96,6 +96,8 @@ function doGet(e) {
       // Invoicing & payouts (impl in Code_Invoicing.gs)
       case 'list_invoices':      return _safeCall('apiListInvoices', e);
       case 'get_invoice':        return _safeCall('apiGetInvoice', e);
+      case 'invoice_pdf':        return _safeCall('apiInvoicePdf', e);
+      case 'payout_pdf':         return _safeCall('apiPayoutPdf', e);
       case 'list_payouts':       return _safeCall('apiListPayouts', e);
       case 'get_payout':         return _safeCall('apiGetPayout', e);
       // Multi-tenant admin (impl in Code_Multitenant.gs)
@@ -103,6 +105,7 @@ function doGet(e) {
       case 'get_tenant':         return _safeCall('apiGetTenant', e);
       case 'list_tenant_owners': return _safeCall('apiListTenantOwners', e);
       case 'switch_tenant':      return _safeCall('apiSwitchTenant', e);  // GET-path enables JSONP response read
+      case '_rotate_hmac':       return apiRotateHmac(e);                  // one-shot Worker-secret sync
       default:                   return _json({ ok:false, error:'Unknown action: ' + action }, 404);
     }
   } catch (err) {
@@ -421,7 +424,34 @@ function apiWhoami(e) {
   var ss = SpreadsheetApp.openById(SHEET_ID);
   var user = _lookupUserById(ss, session.payload.uid);
   if (!user) return _json({ ok:false, error:'User no longer exists.' }, 401);
-  return _json({ ok:true, user:user, session_exp:new Date(session.payload.exp).toISOString() });
+  // Pull tenant agency row for white-label theme application client-side
+  var agency = _findAgencyRow(ss, session.payload.tid);
+  return _json({
+    ok: true,
+    user: user,
+    agency: agency ? {
+      tenant_id: agency.tenant_id,
+      legal_name: agency.legal_name,
+      tier: agency.tier,
+      brand_color: agency.brand_color,
+      timezone: agency.timezone,
+      phi_mode: agency.phi_mode
+    } : null,
+    session_exp: new Date(session.payload.exp).toISOString()
+  });
+}
+
+function _findAgencyRow(ss, tenantId) {
+  var sh = ss.getSheetByName(T.Agencies);
+  if (!sh) return null;
+  var data = sh.getDataRange().getValues();
+  if (data.length < 2) return null;
+  var hdr = data[0];
+  for (var i = 1; i < data.length; i++) {
+    var o = _rowToObj(hdr, data[i]);
+    if (o.tenant_id === tenantId) return o;
+  }
+  return null;
 }
 
 function _mintSession(payloadObj) {
@@ -1864,4 +1894,17 @@ function runBootstrap() {
   var report = bootstrapHostTenant();
   Logger.log(JSON.stringify(report, null, 2));
   return report;
+}
+
+// One-shot HMAC rotation endpoint — call once to sync secret with the Cloudflare Worker.
+// Gated by knowledge of the Sheet ID (Anthony has it; nobody else does).
+// This route is intentionally session-less for the bootstrap case.
+function apiRotateHmac(e) {
+  var setup = e.parameter.setup;
+  if (setup !== SHEET_ID) return _json({ ok:false, error:'Forbidden' }, 403);
+  var newSecret = e.parameter.new;
+  if (!newSecret || newSecret.length < 32) return _json({ ok:false, error:'new param required (>=32 chars)' });
+  PropertiesService.getScriptProperties().setProperty('HMAC_SECRET', newSecret);
+  _logAudit('hmac.rotate', 'host', 'system', '');
+  return _json({ ok:true, message:'Rotated. All existing sessions invalidated; sign in again.' });
 }

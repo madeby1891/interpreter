@@ -3,7 +3,10 @@
 (function (root) {
   'use strict';
 
-  var ENDPOINT = 'https://script.google.com/macros/s/AKfycbwjHVtZ3un9qcA0XOaXsU0EDpk_Dbinsk_UKwKf8DicxkbKWaCdEys7MlcR0pdGDhu0HA/exec';
+  // Cloudflare Worker proxy (adds CORS headers, lets us read POST responses).
+  // Falls through to the Apps Script /exec under the hood; same query-string
+  // and form-body contract. JSONP still works against this URL too.
+  var ENDPOINT = 'https://1891-interpreter-api.anthonymowl.workers.dev/v1/proxy/exec';
   var STORAGE = '1891int.session';
 
   function getSession() { try { return localStorage.getItem(STORAGE) || ''; } catch (_) { return ''; } }

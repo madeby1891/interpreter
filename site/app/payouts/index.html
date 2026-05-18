@@ -72,6 +72,7 @@
           <h1 style="margin:0;font-size:24px" id="d-title">Payout</h1>
           <div class="spacer"></div>
           <button class="btn btn-ghost btn-sm" type="button" id="d-refresh">Refresh</button>
+          <a class="btn btn-ghost btn-sm" id="d-pdf" href="#" target="_blank" rel="noopener">Download PDF</a>
           <button class="btn btn-primary btn-sm" type="button" id="d-mark-paid" style="display:none">Mark paid</button>
         </div>
         <div id="d-loading" class="empty-state"><span class="spinner"></span> Loading&hellip;</div>
@@ -136,6 +137,7 @@
 
 <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
+<script src="/interpreter/assets/js/whitelabel.js" defer></script>
 <script src="/interpreter/assets/js/api.js" defer></script>
 <script src="/interpreter/assets/js/api-invoices.js" defer></script>
 <script>
@@ -163,6 +165,7 @@
       if (!r || !r.ok) { IntApi.clearSession(); location.href = '/interpreter/sign-in.html'; return; }
       state.me = r.user;
       $('who-name').textContent = (r.user && (r.user.display_name || r.user.email)) || 'unknown';
+      if (window.IntTheme && r.agency) IntTheme.apply(r.agency);
       var id = qparam('id');
       if (id) loadDetail(id);
       else loadList();
@@ -325,6 +328,7 @@
     $('detail-view').style.display = '';
     $('d-loading').style.display = '';
     $('d-body').style.display = 'none';
+    $('d-pdf').href = IntApi.ENDPOINT + '?action=payout_pdf&id=' + encodeURIComponent(id) + '&session=' + encodeURIComponent(IntApi.getSession());
     IntApiInvoices.getPayout(id).then(function (r) {
       $('d-loading').style.display = 'none';
       if (!r || !r.ok) { toast((r && r.error) || 'Not found', 'error'); return; }

@@ -740,3 +740,329 @@ function apiMarkPayoutPaid(e) {
   }
   return _json({ ok:false, error:'Payout not found' }, 404);
 }
+
+
+// ============================================================================
+// PDF GENERATION — invoice + payout (HTML → PDF via Drive API)
+// ============================================================================
+//
+// Apps Script can convert HTML → PDF by creating a Google Doc from HTML bytes,
+// then exporting as PDF. We do it via the Drive Advanced Service which we
+// don't have enabled — so we use Blob.getAs('application/pdf') which calls
+// Drive's HTML → PDF converter under the hood.
+
+function apiInvoicePdf(e) {
+  var s = _requireSession(e);
+  if (!s.ok) return _serveText('Forbidden', 401);
+  var invoiceId = e.parameter.id;
+  if (!invoiceId) return _serveText('id required', 400);
+  var ss = SpreadsheetApp.openById(SHEET_ID);
+  var invoice = _findInvoice(ss, s.payload.tid, invoiceId);
+  if (!invoice) return _serveText('Invoice not found', 404);
+  var lines = _findInvoiceLines(ss, invoiceId);
+  var agency = _findAgency(ss, s.payload.tid);
+  var payer = _findPayerOrRequestor(ss, s.payload.tid, invoice.payer_id);
+
+  var html = _renderInvoiceHtml(agency, invoice, lines, payer);
+  var pdfBlob = Utilities.newBlob(html, 'text/html', 'invoice-' + invoiceId + '.html').getAs('application/pdf');
+  pdfBlob.setName(invoiceId + '.pdf');
+  _logAudit('invoice.pdf_generated', s.payload.tid, s.payload.uid, invoiceId);
+
+  // Stream PDF inline
+  var b64 = Utilities.base64Encode(pdfBlob.getBytes());
+  // Apps Script can't return raw binary with custom Content-Type. Workaround:
+  // return HTML that does a meta-refresh data:application/pdf URL. Works in
+  // every modern browser; user can save-as PDF.
+  var dataUrl = 'data:application/pdf;base64,' + b64;
+  var wrapper =
+    '<!doctype html><html><head><meta charset="utf-8"><title>Invoice ' + invoiceId + '.pdf</title>' +
+    '<style>html,body{margin:0;padding:0;height:100%;font-family:system-ui}embed{width:100%;height:100%;border:0}</style>' +
+    '</head><body><embed src="' + dataUrl + '" type="application/pdf"></body></html>';
+  return HtmlService.createHtmlOutput(wrapper).setTitle(invoiceId + '.pdf').setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+}
+
+function apiPayoutPdf(e) {
+  var s = _requireSession(e);
+  if (!s.ok) return _serveText('Forbidden', 401);
+  var payoutId = e.parameter.id;
+  if (!payoutId) return _serveText('id required', 400);
+  var ss = SpreadsheetApp.openById(SHEET_ID);
+  var payout = _findPayout(ss, s.payload.tid, payoutId);
+  if (!payout) return _serveText('Payout not found', 404);
+  var interpreter = _findInterpreterById(ss, payout.interpreter_id);
+  var agency = _findAgency(ss, s.payload.tid);
+  // Pull the assignments included in this payout from Job_Events
+  var lines = _findPayoutLines(ss, payoutId);
+
+  var html = _renderPayoutHtml(agency, payout, lines, interpreter);
+  var pdfBlob = Utilities.newBlob(html, 'text/html', 'payout-' + payoutId + '.html').getAs('application/pdf');
+  pdfBlob.setName(payoutId + '.pdf');
+  _logAudit('payout.pdf_generated', s.payload.tid, s.payload.uid, payoutId);
+
+  var b64 = Utilities.base64Encode(pdfBlob.getBytes());
+  var dataUrl = 'data:application/pdf;base64,' + b64;
+  var wrapper =
+    '<!doctype html><html><head><meta charset="utf-8"><title>Payout ' + payoutId + '.pdf</title>' +
+    '<style>html,body{margin:0;padding:0;height:100%;font-family:system-ui}embed{width:100%;height:100%;border:0}</style>' +
+    '</head><body><embed src="' + dataUrl + '" type="application/pdf"></body></html>';
+  return HtmlService.createHtmlOutput(wrapper).setTitle(payoutId + '.pdf').setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+}
+
+function _serveText(msg, status) {
+  return ContentService.createTextOutput(msg + (status ? ' (' + status + ')' : ''))
+    .setMimeType(ContentService.MimeType.TEXT);
+}
+
+// ---- PDF helpers ----------------------------------------------------------
+
+function _findInvoice(ss, tenantId, invoiceId) {
+  var sh = ss.getSheetByName(T.Invoices);
+  if (!sh) return null;
+  var data = sh.getDataRange().getValues();
+  if (data.length < 2) return null;
+  var hdr = data[0];
+  for (var i = 1; i < data.length; i++) {
+    var o = _rowToObj(hdr, data[i]);
+    if (o.tenant_id === tenantId && o.invoice_id === invoiceId) return o;
+  }
+  return null;
+}
+
+function _findInvoiceLines(ss, invoiceId) {
+  var sh = ss.getSheetByName(T.InvoiceLines);
+  if (!sh) return [];
+  var data = sh.getDataRange().getValues();
+  if (data.length < 2) return [];
+  var hdr = data[0];
+  var out = [];
+  for (var i = 1; i < data.length; i++) {
+    var o = _rowToObj(hdr, data[i]);
+    if (o.invoice_id === invoiceId) out.push(o);
+  }
+  return out;
+}
+
+function _findAgency(ss, tenantId) {
+  var sh = ss.getSheetByName(T.Agencies);
+  if (!sh) return {};
+  var data = sh.getDataRange().getValues();
+  if (data.length < 2) return {};
+  var hdr = data[0];
+  for (var i = 1; i < data.length; i++) {
+    var o = _rowToObj(hdr, data[i]);
+    if (o.tenant_id === tenantId) return o;
+  }
+  return {};
+}
+
+function _findPayerOrRequestor(ss, tenantId, id) {
+  if (!id) return { display_name: '(no payer)' };
+  // Payers first
+  var sh = ss.getSheetByName(T.Payers);
+  if (sh) {
+    var data = sh.getDataRange().getValues();
+    if (data.length >= 2) {
+      var hdr = data[0];
+      for (var i = 1; i < data.length; i++) {
+        var o = _rowToObj(hdr, data[i]);
+        if (o.tenant_id === tenantId && o.payer_id === id) return o;
+      }
+    }
+  }
+  // Fall back to Requestors
+  sh = ss.getSheetByName(T.Requestors);
+  if (sh) {
+    var data2 = sh.getDataRange().getValues();
+    if (data2.length >= 2) {
+      var hdr2 = data2[0];
+      for (var j = 1; j < data2.length; j++) {
+        var o2 = _rowToObj(hdr2, data2[j]);
+        if (o2.tenant_id === tenantId && o2.requestor_id === id) return o2;
+      }
+    }
+  }
+  return { display_name: '(unknown)' };
+}
+
+function _findPayout(ss, tenantId, payoutId) {
+  var sh = ss.getSheetByName(T.Payouts);
+  if (!sh) return null;
+  var data = sh.getDataRange().getValues();
+  if (data.length < 2) return null;
+  var hdr = data[0];
+  for (var i = 1; i < data.length; i++) {
+    var o = _rowToObj(hdr, data[i]);
+    if (o.tenant_id === tenantId && o.payout_id === payoutId) return o;
+  }
+  return null;
+}
+
+function _findInterpreterById(ss, interpreterId) {
+  var sh = ss.getSheetByName(T.Interpreters);
+  if (!sh) return {};
+  var data = sh.getDataRange().getValues();
+  if (data.length < 2) return {};
+  var hdr = data[0];
+  for (var i = 1; i < data.length; i++) {
+    var o = _rowToObj(hdr, data[i]);
+    if (o.interpreter_id === interpreterId) return o;
+  }
+  return {};
+}
+
+function _findPayoutLines(ss, payoutId) {
+  var sh = ss.getSheetByName(T.JobEvents);
+  if (!sh) return [];
+  var data = sh.getDataRange().getValues();
+  if (data.length < 2) return [];
+  var hdr = data[0];
+  var out = [];
+  for (var i = 1; i < data.length; i++) {
+    var o = _rowToObj(hdr, data[i]);
+    if (o.event_type !== 'payout_included') continue;
+    try {
+      var p = JSON.parse(o.payload || '{}');
+      if (p.payout_id === payoutId) out.push(Object.assign({}, o, p));
+    } catch (_) {}
+  }
+  return out;
+}
+
+function _fmtMoney(cents) {
+  var n = Number(cents || 0) / 100;
+  return '$' + n.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+}
+function _fmtDate(iso) {
+  if (!iso) return '—';
+  try {
+    return Utilities.formatDate(new Date(iso), 'America/New_York', 'MMM d, yyyy');
+  } catch (_) { return iso; }
+}
+function _esc(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+    return ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' })[c];
+  });
+}
+
+function _pdfCss(brandColor) {
+  brandColor = brandColor || '#C8553D';
+  return [
+    'body{font-family:system-ui,-apple-system,sans-serif;color:#0F1419;padding:40px 48px;max-width:780px;margin:0 auto;font-size:13px;line-height:1.5}',
+    'header{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid ' + brandColor + ';padding-bottom:16px;margin-bottom:24px}',
+    '.lockup{font-family:"Iowan Old Style",Georgia,serif;font-weight:700;font-size:22px;letter-spacing:-.01em}',
+    '.lockup small{display:block;font-family:system-ui;font-weight:500;font-size:12px;color:#5C6670;margin-top:2px}',
+    '.doc-meta{text-align:right;font-size:12px}',
+    '.doc-meta h1{margin:0;font-family:"Iowan Old Style",Georgia,serif;font-size:24px;color:' + brandColor + '}',
+    '.doc-meta .id{font-family:ui-monospace,Menlo,monospace;font-size:11px;color:#5C6670;margin-top:4px}',
+    '.party{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin:24px 0}',
+    '.party h2{font-size:11px;text-transform:uppercase;letter-spacing:.12em;color:#5C6670;margin:0 0 6px;font-weight:700}',
+    '.party .name{font-weight:600;font-size:14px}',
+    'table{width:100%;border-collapse:collapse;margin:16px 0}',
+    'th{text-align:left;border-bottom:2px solid #0F1419;padding:8px 10px;font-size:11px;text-transform:uppercase;letter-spacing:.08em}',
+    'td{padding:10px;border-bottom:1px solid #E4E0D6;font-size:12.5px;vertical-align:top}',
+    'td.right{text-align:right;font-variant-numeric:tabular-nums}',
+    '.totals{margin-left:auto;width:280px;margin-top:8px}',
+    '.totals td{border-bottom:0;padding:4px 10px}',
+    '.totals .total td{border-top:2px solid #0F1419;font-weight:700;font-size:14px;padding-top:8px}',
+    '.terms{margin-top:32px;padding:14px 18px;background:#FAFAF7;border-left:4px solid ' + brandColor + ';font-size:12px;border-radius:4px}',
+    'footer{margin-top:40px;padding-top:14px;border-top:1px solid #E4E0D6;font-size:11px;color:#5C6670;display:flex;justify-content:space-between}',
+    '.tag{font-family:ui-monospace,Menlo,monospace;font-size:10px;color:#9B958A}'
+  ].join('');
+}
+
+function _renderInvoiceHtml(agency, invoice, lines, payer) {
+  var styles = _pdfCss(agency.brand_color);
+  var rows = lines.map(function (l) {
+    return '<tr>' +
+      '<td>' + _esc(l.description || '—') + '</td>' +
+      '<td class="right">' + _esc(l.quantity || '') + '</td>' +
+      '<td>' + _esc(l.unit || '') + '</td>' +
+      '<td class="right">' + _fmtMoney(l.rate_cents) + '</td>' +
+      '<td class="right">' + _fmtMoney(l.amount_cents) + '</td>' +
+    '</tr>';
+  }).join('');
+  return [
+    '<!doctype html><html><head><meta charset="utf-8"><style>' + styles + '</style></head><body>',
+    '<header>',
+    '  <div>',
+    '    <div class="lockup">' + _esc(agency.legal_name || '1891 Interpreter') + '<small>powered by 1891 Interpreter</small></div>',
+    (agency.billing_email ? '    <div style="font-size:12px;color:#5C6670;margin-top:6px">' + _esc(agency.billing_email) + '</div>' : ''),
+    '  </div>',
+    '  <div class="doc-meta">',
+    '    <h1>Invoice</h1>',
+    '    <div class="id">' + _esc(invoice.invoice_id) + '</div>',
+    '    <div style="margin-top:8px"><strong>Issued:</strong> ' + _fmtDate(invoice.issued_at) + '</div>',
+    '    <div><strong>Due:</strong> ' + _fmtDate(invoice.due_at) + '</div>',
+    '    <div><strong>Status:</strong> ' + _esc(invoice.status || 'draft') + '</div>',
+    '  </div>',
+    '</header>',
+    '<section class="party">',
+    '  <div><h2>From</h2><div class="name">' + _esc(agency.legal_name || '1891 Interpreter') + '</div></div>',
+    '  <div><h2>Bill to</h2><div class="name">' + _esc(payer.display_name || '(no payer)') + '</div>' +
+    (payer.billing_email ? '<div style="font-size:12px;color:#5C6670;margin-top:2px">' + _esc(payer.billing_email) + '</div>' : '') + '</div>',
+    '</section>',
+    '<div><strong>Service period:</strong> ' + _fmtDate(invoice.period_start) + ' &mdash; ' + _fmtDate(invoice.period_end) + '</div>',
+    '<table>',
+    '  <thead><tr><th>Description</th><th class="right">Qty</th><th>Unit</th><th class="right">Rate</th><th class="right">Amount</th></tr></thead>',
+    '  <tbody>' + rows + '</tbody>',
+    '</table>',
+    '<table class="totals">',
+    '  <tr><td>Subtotal</td><td class="right">' + _fmtMoney(invoice.subtotal_cents) + '</td></tr>',
+    (Number(invoice.tax_cents || 0) ? '  <tr><td>Tax</td><td class="right">' + _fmtMoney(invoice.tax_cents) + '</td></tr>' : ''),
+    '  <tr class="total"><td>Total due</td><td class="right">' + _fmtMoney(invoice.total_cents) + '</td></tr>',
+    '</table>',
+    '<div class="terms">',
+    '  Net 30 from issue date unless otherwise agreed. Late payments after the due date may incur fees per the master services agreement. Consumer identifiers on this invoice are redacted per HIPAA minimum-necessary rules.',
+    '</div>',
+    '<footer>',
+    '  <div>Generated ' + _fmtDate(new Date().toISOString()) + '</div>',
+    '  <div class="tag">' + _esc(invoice.invoice_id) + ' &middot; tenant: ' + _esc(invoice.tenant_id) + '</div>',
+    '</footer>',
+    '</body></html>'
+  ].join('\n');
+}
+
+function _renderPayoutHtml(agency, payout, lines, interpreter) {
+  var styles = _pdfCss(agency.brand_color);
+  var rows = lines.map(function (l) {
+    return '<tr>' +
+      '<td>' + _esc(l.description || ('Assignment ' + (l.assignment_id || '—'))) + '</td>' +
+      '<td>' + _esc(l.service_type || '') + '</td>' +
+      '<td class="right">' + _esc(l.billable_minutes || '') + '</td>' +
+      '<td class="right">' + _fmtMoney(l.pay_rate_cents || l.rate_cents) + '</td>' +
+      '<td class="right">' + _fmtMoney(l.amount_cents) + '</td>' +
+    '</tr>';
+  }).join('');
+  var name = (interpreter.legal_first || '') + ' ' + (interpreter.legal_last || '');
+  return [
+    '<!doctype html><html><head><meta charset="utf-8"><style>' + styles + '</style></head><body>',
+    '<header>',
+    '  <div><div class="lockup">' + _esc(agency.legal_name || '1891 Interpreter') + '<small>powered by 1891 Interpreter</small></div></div>',
+    '  <div class="doc-meta">',
+    '    <h1>Payout statement</h1>',
+    '    <div class="id">' + _esc(payout.payout_id) + '</div>',
+    '    <div style="margin-top:8px"><strong>Issued:</strong> ' + _fmtDate(payout.issued_at) + '</div>',
+    '    <div><strong>Status:</strong> ' + _esc(payout.status || 'draft') + '</div>',
+    '  </div>',
+    '</header>',
+    '<section class="party">',
+    '  <div><h2>From</h2><div class="name">' + _esc(agency.legal_name || '1891 Interpreter') + '</div></div>',
+    '  <div><h2>Paid to</h2><div class="name">' + _esc(name.trim() || interpreter.interpreter_id || '—') + '</div>' +
+    (interpreter.classification ? '<div style="font-size:12px;color:#5C6670;margin-top:2px">' + _esc(interpreter.classification) + '</div>' : '') + '</div>',
+    '</section>',
+    '<div><strong>Service period:</strong> ' + _fmtDate(payout.period_start) + ' &mdash; ' + _fmtDate(payout.period_end) + '</div>',
+    '<table>',
+    '  <thead><tr><th>Description</th><th>Type</th><th class="right">Minutes</th><th class="right">Rate</th><th class="right">Amount</th></tr></thead>',
+    '  <tbody>' + (rows || '<tr><td colspan="5" style="color:#5C6670;text-align:center">No lines.</td></tr>') + '</tbody>',
+    '</table>',
+    '<table class="totals">',
+    '  <tr class="total"><td>Total paid</td><td class="right">' + _fmtMoney(payout.total_cents) + '</td></tr>',
+    '</table>',
+    (payout.stripe_transfer_id ? '<div class="terms"><strong>Stripe transfer:</strong> ' + _esc(payout.stripe_transfer_id) + '</div>' : ''),
+    '<footer>',
+    '  <div>Generated ' + _fmtDate(new Date().toISOString()) + '</div>',
+    '  <div class="tag">' + _esc(payout.payout_id) + ' &middot; tenant: ' + _esc(payout.tenant_id) + '</div>',
+    '</footer>',
+    '</body></html>'
+  ].join('\n');
+}

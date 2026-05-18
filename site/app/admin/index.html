@@ -120,6 +120,7 @@
         return;
       }
       $('who-name').textContent = (r.user && (r.user.display_name || r.user.email)) || 'unknown';
+      if (window.IntTheme && r.agency) IntTheme.apply(r.agency);
       loadSummary();
     }).catch(function () {
       toast('Could not reach the server.', 'error');

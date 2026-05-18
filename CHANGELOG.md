@@ -4,6 +4,56 @@ Dated history of changes. Newest entries at the top. Note user-visible changes o
 
 ---
 
+## 2026-05-17 — v10: PDF generation + white-label theming + Cloudflare Worker LIVE
+
+The three follow-ups from v9 all shipped.
+
+### Cloudflare Worker — `https://1891-interpreter-api.anthonymowl.workers.dev`
+
+- Deployed via `wrangler deploy`. Durable Object binding `JOB_BOARD_ROOM` active. Worker version `c40760ca-0084`.
+- `JWT_SECRET` set via `wrangler secret put`. Apps Script `HMAC_SECRET` rotated to match via the one-shot `?action=_rotate_hmac&setup=<sheet_id>&new=<secret>` endpoint. Same signing key both sides → Worker can verify Apps Script-issued session JWTs.
+- `site/assets/js/api.js` and `main.js` now point at `https://1891-interpreter-api.anthonymowl.workers.dev/v1/proxy/exec`. **JSONP is no longer required** — the Worker adds `Access-Control-Allow-Origin: https://madeby1891.com` so browser fetches read the JSON response directly. JSONP still works as a fallback (Worker passes `callback` through to the upstream).
+- CSP in `.htaccess` extended with `script-src` + `connect-src` + `wss:` for the Worker subdomain.
+- All existing sessions invalidated by the HMAC rotation. Sign in again.
+
+### PDF generation (`Code_Invoicing.gs`, appended)
+
+- `apiInvoicePdf(?id=...)` — renders a real branded invoice from agency name + brand color + line items + payer info. HTML → PDF via `Utilities.newBlob(html, 'text/html').getAs('application/pdf')` (Drive's converter). PDF is returned to the browser inside an HTML wrapper that embeds it via `data:application/pdf` URL — opens inline in any modern browser, savable from the embed.
+- `apiPayoutPdf(?id=...)` — same shape, pulls assignment-level "lines" from Job_Events `payout_included` ledger, renders an interpreter-facing pay statement with optional Stripe transfer ID.
+- "Download PDF" buttons on `/app/invoices/` and `/app/payouts/` detail views now actually work.
+- Audit-logs `invoice.pdf_generated` / `payout.pdf_generated` on every render.
+
+### White-label theming
+
+- `apiWhoami` now returns `agency: { tenant_id, legal_name, tier, brand_color, timezone, phi_mode }` alongside the user object.
+- New `site/assets/js/whitelabel.js` (loaded before `api.js` on every `/app/*` page):
+  - Reads cached theme from localStorage and applies CSS-var overrides synchronously on first paint (no flash of default branding)
+  - After fresh whoami: derives `--1891int-bloom-deep` (22% darker), `--1891int-bloom-soft` (45% lighter), `--1891int-bloom-tint` (72% lighter) from the agency's brand_color
+  - Replaces the "1891 Scheduler" header lockup with `<Agency name>` + a quiet "powered by 1891" subtext
+  - Prefixes document.title with the agency name
+- Cross-page sweep: Python script patched all 12 `/app/*/index.html` pages to load `whitelabel.js` and call `IntTheme.apply(r.agency)` after whoami. The change is one-and-done.
+
+### Other fixes in this push
+
+- Recovered `site/assets/js/main.js` (also a xattr-loss victim) — marketing forms now POST through the Worker proxy with `mode: 'cors'`, so we read real responses instead of fire-and-forget.
+
+### What's now real that wasn't 30 minutes ago
+
+- **PDF invoices and payouts** — every agency can hand a real branded PDF to a payer or interpreter
+- **Tenants have their own brand identity** — when a tenant sets `brand_color`, it propagates through the entire app shell on next page load
+- **Live edge proxy** — the foundation Worker for live job-board WebSockets, request-level caching, future RPC into AgencyHub DOs
+
+### Still on the vaporware list (now smaller)
+
+- Stripe Connect Express payouts / track1099 / QuickBooks-Xero-NetSuite-Bill.com
+- Document translation pipeline (DeepL Pro + Claude fallback per PRD)
+- VRI WebRTC client / OPI Twilio bridge / Deepgram live STT
+- SSO/SAML, WebAuthn passkey enforcement
+- Logo upload (brand color is enough for now; full logo support needs file storage in R2)
+- Email aliases + verification board members (your call, can't automate)
+
+---
+
 ## 2026-05-17 — v9: Invoicing + Payouts + Multi-tenant provisioning + Cloudflare Worker
 
 Three parallel agents shipped, all integrated into the same `/exec` deployment.
