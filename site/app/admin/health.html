@@ -123,6 +123,16 @@
               <div class="bars" id="trend-bars"></div>
               <div class="muted" style="font-size:11px;margin-top:4px;display:flex;justify-content:space-between" id="trend-labels"></div>
             </div>
+            <div class="card" style="margin-top:var(--1891int-s-4)">
+              <h2 class="mt-0">Top clients · last 30 days</h2>
+              <p class="ink-soft" style="font-size:13.5px;margin-top:-4px">By job volume. <span id="clients-summary"></span></p>
+              <div id="clients-volume"></div>
+            </div>
+            <div class="card" style="margin-top:var(--1891int-s-4)">
+              <h2 class="mt-0">Outstanding A/R by client</h2>
+              <p class="ink-soft" style="font-size:13.5px;margin-top:-4px">Open + sent invoices not yet paid. <span id="ar-summary"></span></p>
+              <div id="clients-ar"></div>
+            </div>
           </section>
 
         </div>
@@ -256,6 +266,46 @@
       return '<div class="bar' + (idx === trend.length - 1 ? ' recent' : '') + '" style="height:' + height + 'px" title="' + esc(w.week_start) + ': ' + w.count + ' jobs"></div>';
     }).join('');
     $('trend-labels').innerHTML = '<span>' + esc((trend[0] || {}).week_start || '') + '</span><span>' + esc((trend[trend.length - 1] || {}).week_start || '') + '</span>';
+
+    // Clients (v18)
+    var clients = r.clients || {};
+    $('clients-summary').textContent = (clients.active || 0) + ' active · ' + (clients.total || 0) + ' total';
+    var vol = clients.top_by_volume_30d || [];
+    if (!vol.length) {
+      $('clients-volume').innerHTML = '<div class="muted" style="font-size:13px">No client-attributed jobs in the last 30 days.</div>';
+    } else {
+      var maxV = vol.reduce(function (m, c) { return Math.max(m, c.job_count); }, 0) || 1;
+      $('clients-volume').innerHTML = vol.map(function (c) {
+        var pct = Math.round(100 * c.job_count / maxV);
+        var doneLabel = c.completed ? c.completed + ' done' : '';
+        var openLabel = c.open ? c.open + ' open' : '';
+        var sub = [doneLabel, openLabel].filter(Boolean).join(' · ');
+        return '<div style="margin-bottom:10px">' +
+          '<div style="display:flex;justify-content:space-between;font-size:13.5px;margin-bottom:2px">' +
+            '<a href="/interpreter/app/clients/profile.html?id=' + encodeURIComponent(c.client_id) + '" style="color:inherit;text-decoration:none;font-weight:600">' + esc(c.display_name) + '</a>' +
+            '<span style="color:var(--1891int-fog);font-variant-numeric:tabular-nums">' + c.job_count + (sub ? ' · ' + esc(sub) : '') + '</span>' +
+          '</div>' +
+          '<div style="background:var(--1891int-paper);border-radius:3px;height:8px;overflow:hidden">' +
+            '<div style="background:var(--1891int-rose);height:100%;width:' + pct + '%"></div>' +
+          '</div>' +
+        '</div>';
+      }).join('');
+    }
+
+    var ar = clients.top_outstanding_ar || [];
+    var arTotal = clients.outstanding_total_cents || 0;
+    function dollars(c) { return '$' + (c / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+    $('ar-summary').textContent = arTotal ? 'Total: ' + dollars(arTotal) : 'All paid up.';
+    if (!ar.length) {
+      $('clients-ar').innerHTML = '<div class="muted" style="font-size:13px">No outstanding invoices.</div>';
+    } else {
+      $('clients-ar').innerHTML = ar.map(function (c) {
+        return '<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--1891int-line);font-size:13.5px">' +
+          '<a href="/interpreter/app/clients/profile.html?id=' + encodeURIComponent(c.client_id) + '" style="color:inherit;text-decoration:none">' + esc(c.display_name) + '</a>' +
+          '<span style="font-variant-numeric:tabular-nums;font-weight:600">' + dollars(c.outstanding_cents) + '</span>' +
+        '</div>';
+      }).join('');
+    }
   }
 })();
 </script>

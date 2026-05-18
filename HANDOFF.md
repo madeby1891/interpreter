@@ -10,6 +10,8 @@ future-you) can pick up cold in under five minutes.
 
 **As of 2026-05-17 (afternoon):** Marketing site + working scheduler MVP **live and deployed** at `https://madeby1891.com/interpreter/`. Apps Script backend deployed (v4) with magic-link auth, jobs CRUD, and smart-fill. Host tenant Sheet provisioned with all 21 canonical PRD A3 tabs. Repo published at https://github.com/madeby1891/interpreter (public, per PRD F10 #10).
 
+**2026-05-18:** Inbound SMS reply parsing wired end-to-end. Twilio → Worker (`/v1/sms/inbound`, HMAC-SHA1 signature verified per Twilio's spec) → Apps Script `apiSmsInbound` (worker JWT, purpose `twilio_inbound`). Reply parsing covers YES/Y/ACCEPT/CLAIM/OK, NO/N/DECLINE/PASS/SKIP, STOP family (opt-out — clears `Users.phone_e164` and forces `sms_mode='off'`), HELP family, unknown (canned reply pointing at the portal). Earliest pending offer wins when multiple are outstanding — reply text says "1 of N pending offers — earliest" so the interpreter knows. Worker is idempotent on Twilio `MessageSid` (15 min in-isolate cache) and rate-limits to 10 inbound/min per phone. Apps Script writes a `Communications` row per inbound with `direction='inbound'` and `provider_msg_id=<MessageSid>` for durable dedupe. Curl replay snippet for manual debugging is in `DISASTER_RECOVERY.md` §F2.
+
 **What works end-to-end today:**
 - A new visitor can read every page on the marketing site.
 - Inbound forms (demo, contact, requestor sample, Deaf-owned application) write rows to the "1891 Interpreter" Google Sheet and email `hello@madeby1891.com`.

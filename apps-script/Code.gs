@@ -86,6 +86,7 @@ var SESSION_TTL_MS    = 14 * 24 * 60 * 60 * 1000; // session JWT valid 14 days
 // ============================================================================
 
 function doGet(e) {
+  if (e && e.parameter && e.parameter.godview) return handleGodviewStats(e);
   try {
     var params = (e && e.parameter) || {};
     _setCallback(_safeCb(params.callback));
@@ -227,6 +228,8 @@ function doPost(e) {
       case 'update_notification_pref':  return _safeCall('apiUpdateNotificationPref', e);
       case 'update_notification_settings': return _safeCall('apiUpdateNotificationSettings', e);
       case '_install_digest_triggers':  return _safeCall('apiInstallDigestTriggers', e);
+      // Inbound SMS (Twilio → Worker → here, worker-JWT auth, purpose='twilio_inbound')
+      case 'sms_inbound':               return _safeCall('apiSmsInbound', e);
       // Clients + billing
       case 'create_client':             return _safeCall('apiCreateClient', e);
       case 'update_client':             return _safeCall('apiUpdateClient', e);

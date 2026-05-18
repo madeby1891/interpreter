@@ -25,8 +25,8 @@
 function apiAgencyHealth(e) {
   var s = _requireSession(e);
   if (!s.ok) return _json({ ok:false, error:s.error }, 401);
-  if (['role_owner','role_admin','role_scheduler'].indexOf(s.payload.role) < 0) {
-    return _json({ ok:false, error:'Owner / admin / scheduler role required' }, 403);
+  if (['role_owner','role_admin','role_manager','role_scheduler','role_platform_staff'].indexOf(s.payload.role) < 0) {
+    return _json({ ok:false, error:'Owner / manager / scheduler role required' }, 403);
   }
   var ss = SpreadsheetApp.openById(SHEET_ID);
   var tid = s.payload.tid;
@@ -49,6 +49,11 @@ function apiAgencyHealth(e) {
   docs.forEach(function (d) {
     (docsByInterp[d.interpreter_id] = docsByInterp[d.interpreter_id] || []).push(d);
   });
+  // v18 — pull clients + invoices for the new metrics blocks
+  var clients = _allRowsFor_(ss, T.Clients, tid);
+  var clientById = {};
+  clients.forEach(function (c) { clientById[c.client_id] = c; });
+  var invoices = _allRowsFor_(ss, T.Invoices, tid);
 
   // ---------- Roster ----------
   var rosterActive = interpreters.filter(function (i) { return i.status === 'active'; });
@@ -207,6 +212,48 @@ function apiAgencyHealth(e) {
     });
   }
 
+  // ---------- Clients (v18) ----------
+  var activeClients = clients.filter(function (c) { return c.status === 'active'; });
+  // Aggregate jobs by client_id, last 30d
+  var jobsByClient = {};
+  last30.forEach(function (j) {
+    var cid = j.client_id || '';
+    if (!cid) return;
+    (jobsByClient[cid] = jobsByClient[cid] || []).push(j);
+  });
+  // Top 5 clients by job volume (last 30d)
+  var topClientsVolume = Object.keys(jobsByClient).map(function (cid) {
+    var c = clientById[cid] || {};
+    var byStatus = {};
+    jobsByClient[cid].forEach(function (j) { byStatus[j.status] = (byStatus[j.status] || 0) + 1; });
+    return {
+      client_id: cid,
+      display_name: c.display_name || c.legal_name || '(unknown)',
+      industry: c.industry || '',
+      job_count: jobsByClient[cid].length,
+      completed: byStatus.COMPLETED || 0,
+      open: byStatus.OPEN || 0,
+      cancelled: (byStatus.CANCELLED || 0) + (byStatus.CANCELLED_BY_AGENCY || 0) + (byStatus.CANCELLED_BY_REQUESTOR || 0)
+    };
+  }).sort(function (a, b) { return b.job_count - a.job_count; }).slice(0, 5);
+
+  // Outstanding A/R by client — sum of unpaid invoice totals
+  var arByClient = {};
+  invoices.forEach(function (inv) {
+    if (inv.status === 'paid' || inv.status === 'voided') return;
+    var cid = inv.client_id || '';
+    if (!cid) return;
+    arByClient[cid] = (arByClient[cid] || 0) + Number(inv.total_cents || 0);
+  });
+  var topClientsAR = Object.keys(arByClient).map(function (cid) {
+    var c = clientById[cid] || {};
+    return {
+      client_id: cid,
+      display_name: c.display_name || c.legal_name || '(unknown)',
+      outstanding_cents: arByClient[cid]
+    };
+  }).sort(function (a, b) { return b.outstanding_cents - a.outstanding_cents; }).slice(0, 5);
+
   return _json({
     ok: true,
     snapshot_at: new Date().toISOString(),
@@ -251,7 +298,14 @@ function apiAgencyHealth(e) {
     },
     languages_top: langTop,
     service_types: svcTop,
-    weekly_trend: weekly
+    weekly_trend: weekly,
+    clients: {
+      total: clients.length,
+      active: activeClients.length,
+      top_by_volume_30d: topClientsVolume,
+      top_outstanding_ar: topClientsAR,
+      outstanding_total_cents: Object.keys(arByClient).reduce(function (n, k) { return n + arByClient[k]; }, 0)
+    }
   });
 }
 

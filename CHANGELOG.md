@@ -4,6 +4,99 @@ Dated history of changes. Newest entries at the top. Note user-visible changes o
 
 ---
 
+## 2026-05-18 — v18.1: Dashboard search/sort, inbound SMS, edit-client, health-dashboard client widgets
+
+Quality-of-life pass on top of v18. Five things landed:
+
+### 1. Sort + search + filter across every list page
+
+Shared helper `site/assets/js/list-filter.js` + `.filter-bar` styles in `app.css`.
+Each of the six scheduler list pages now has the same toolbar pattern:
+
+- Search box with 150ms debounce; case-insensitive substring match across
+  every visible field on each row
+- Sort dropdown with sensible per-page defaults (date for jobs/invoices,
+  name for people, recently-added on every page)
+- Multi-select status chips derived from the data
+- `?q=&sort=&status=` URL-persisted state — back-button safe, URLs shareable
+- "Showing X of N" count + "Clear filters" button when the filter is non-default
+
+Pages updated: `/app/` (day-of board), `/app/clients/`, `/app/interpreters/`,
+`/app/requestors/`, `/app/invoices/`, `/app/payouts/`.
+
+The day-of board now fetches all jobs once and filters client-side, instead
+of re-issuing JSONP on every status-chip click — meaningfully snappier on
+busy boards. The `/` hotkey still works; it now focuses the search box.
+
+The Requestors page fetches `listClients()` alongside `listRequestors()` so
+each requestor card shows the parent client's display name and the client
+name participates in the search index — first user-visible payoff of the
+v18 client hierarchy.
+
+### 2. Inbound SMS reply parsing (YES / NO / STOP)
+
+Outbound offers already SMS'd interpreters in v17. v18.1 closes the loop —
+they can text **YES** / **NO** back and have it claim / decline the offer.
+
+- **Worker** (`workers/api/src/sms.ts`) — Twilio webhook signature
+  verification (HMAC-SHA1 over URL + sorted form params), body parsing
+  (`YES/Y/ACCEPT/CLAIM/OK` → accept; `NO/N/DECLINE/PASS/SKIP` → decline;
+  `STOP/UNSUBSCRIBE` → opt-out; `HELP/INFO` → canned reply), 60s
+  isolate-local idempotency cache keyed by `MessageSid`, per-phone sliding
+  rate-limit (10/min). Dispatches to Apps Script with a 60s worker JWT
+  (`purpose='twilio_inbound'`, same auth pattern Agent C built for Stripe).
+  TwiML reply renders a confirmation back to the interpreter.
+- **Apps Script** (`Code_Sms.gs` — new) — `apiSmsInbound` looks up the user
+  by `phone_e164`, finds their earliest pending offer, calls the same
+  `_acceptOfferCore_` / `_declineOfferCore_` helpers that `apiAcceptOffer` /
+  `apiDeclineOffer` use (refactored out into shared core so SMS and portal
+  paths can't drift). Idempotency mirror on the `Communications` tab.
+- **TCPA**: STOP/UNSUBSCRIBE flips every SMS pref to `off` *and* clears
+  `Users.phone_e164` — opt-in requires logging back into the portal.
+- **No PHI/PII in the SMS reply** — service_type + scheduled_start_human +
+  city/state only. Consumer initials and requestor names stay in the portal.
+- **Multiple pending offers** → earliest scheduled_start wins; reply
+  includes "(1 of 3 pending offers — earliest)" so the interpreter knows
+  exactly which slot they took.
+- 11 new Vitest cases in `workers/api/tests/sms.test.ts` covering signature
+  verification (valid + 4 tampered cases) and body parsing.
+
+### 3. Edit-client modal (`/app/clients/profile.html`)
+
+The "Edit client details" button on the client-profile sidebar now opens a
+modal pre-filled with the client's current values. All editable fields:
+legal_name, display_name, client_type, industry, billing email/phone/address,
+net_terms, tax_exempt flag, status, notes. Saves via existing
+`IntApi.updateClient`. The page reloads after save so the sidebar reflects
+the new values.
+
+### 4. Client metrics on the agency health dashboard
+
+`apiAgencyHealth` payload extended with a `clients` block:
+- `total` / `active` counts
+- `top_by_volume_30d` — top 5 clients by job count in the last 30 days
+- `top_outstanding_ar` — top 5 by unpaid invoice total
+- `outstanding_total_cents` — A/R rollup
+
+`/app/admin/health.html` renders two new cards: a horizontal-bar widget of
+top clients by job volume (with completed / open counts) and an A/R list
+with click-through to each client's profile.
+
+Role gate on `apiAgencyHealth` expanded from `[owner, admin, scheduler]` to
+also include `role_manager` and `role_platform_staff` (the v18 hierarchy).
+
+### 5. Deploy notes
+
+- Apps Script pushed (15 files including new `Code_Sms.gs`).
+- Site deployed to `madeby1891.com/interpreter`; 16/16 smoke checks pass.
+- Worker deployed (Stripe webhook auth from v18 + new SMS inbound auth
+  share the same `_requireSessionOrWorker` purpose-scoped JWT path).
+- **Deferred**: `installDigestTriggers` still needs a one-shot manual Run
+  from the Apps Script editor (Triggers OAuth scope can't be requested
+  from a web-app exec).
+
+---
+
 ## 2026-05-18 — v18: Client hierarchy + per-client billing rules + role expansion
 
 The healthcare-system shape lands. One **Client** (Frederick Health) can have

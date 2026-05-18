@@ -1,5 +1,15 @@
-// SMS dispatcher — Twilio outbound + (future) inbound webhooks.
-// Internal-only (X-1891-Internal header equals JWT_SECRET).
+// SMS dispatcher — Twilio outbound + inbound webhook.
+//
+// Outbound (Apps Script → Worker) is internal-only (X-1891-Internal header
+// equals JWT_SECRET).
+//
+// Inbound (Twilio → Worker) is verified against Twilio's HMAC-SHA1 signature
+// over (fullUrl + sortedFormParams). On success we parse the body, normalise
+// the text, dispatch to Apps Script as `sms_inbound` (signed with a 60s
+// worker JWT, purpose='twilio_inbound') and echo a TwiML confirmation back to
+// the user. The Worker is idempotent on Twilio's MessageSid (cached in
+// memory for the lifetime of the isolate; Apps Script also dedupes on the
+// Communications row), and rate-limits any single phone to 10 inbound/min.
 //
 // Config required to actually send (set via wrangler secret put):
 //   TWILIO_ACCOUNT_SID
@@ -10,6 +20,7 @@
 // so the Apps Script side can degrade gracefully (the platform plan gate).
 
 import type { Env } from './index';
+import { callAppsScript } from './internal';
 
 function jsonResponse(_req: Request, body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
@@ -96,25 +107,287 @@ export async function handleSmsSend(request: Request, env: Env): Promise<Respons
   }
 }
 
-// Inbound webhook (delivery status, replies). Twilio signs requests with
-// the auth token — we verify here. Wire later when an SMS plan is active.
+// ---------------------------------------------------------------------------
+// Inbound webhook (Twilio → Worker)
+// ---------------------------------------------------------------------------
+
+// Twilio retries on 5xx, so we have to be idempotent on MessageSid. We cache
+// the previously-computed TwiML response in this isolate-local map; the
+// Communications row in the Sheet is the durable copy.
+const INBOUND_CACHE: Map<string, { reply: string; at: number }> = new Map();
+const INBOUND_CACHE_MAX = 500;
+const INBOUND_CACHE_TTL_MS = 15 * 60 * 1000; // 15 minutes
+
+// Per-phone rate limiter — 10 inbound / minute. Sliding window of timestamps.
+const RATE_BUCKETS: Map<string, number[]> = new Map();
+const RATE_WINDOW_MS = 60 * 1000;
+const RATE_MAX = 10;
+
+function checkRate(phone: string, nowMs: number): boolean {
+  const bucket = RATE_BUCKETS.get(phone) || [];
+  const fresh = bucket.filter((t) => nowMs - t < RATE_WINDOW_MS);
+  fresh.push(nowMs);
+  RATE_BUCKETS.set(phone, fresh);
+  // Opportunistic cleanup so the map doesn't grow forever on a hot isolate.
+  if (RATE_BUCKETS.size > 1000) {
+    for (const [k, v] of RATE_BUCKETS.entries()) {
+      const stillFresh = v.filter((t) => nowMs - t < RATE_WINDOW_MS);
+      if (!stillFresh.length) RATE_BUCKETS.delete(k);
+      else RATE_BUCKETS.set(k, stillFresh);
+    }
+  }
+  return fresh.length <= RATE_MAX;
+}
+
+function rememberReply(sid: string, reply: string): void {
+  if (!sid) return;
+  INBOUND_CACHE.set(sid, { reply, at: Date.now() });
+  // Crude LRU: prune anything past TTL once we cross the max.
+  if (INBOUND_CACHE.size > INBOUND_CACHE_MAX) {
+    const cutoff = Date.now() - INBOUND_CACHE_TTL_MS;
+    for (const [k, v] of INBOUND_CACHE.entries()) {
+      if (v.at < cutoff) INBOUND_CACHE.delete(k);
+    }
+  }
+}
+
+function previousReply(sid: string): string | null {
+  if (!sid) return null;
+  const hit = INBOUND_CACHE.get(sid);
+  if (!hit) return null;
+  if (Date.now() - hit.at > INBOUND_CACHE_TTL_MS) {
+    INBOUND_CACHE.delete(sid);
+    return null;
+  }
+  return hit.reply;
+}
+
+/**
+ * Base64-encode a Uint8Array (Workers don't have Buffer).
+ */
+function bytesToB64(bytes: Uint8Array): string {
+  let bin = '';
+  for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]!);
+  return btoa(bin);
+}
+
+/**
+ * Twilio request signature.
+ *
+ *   signature = base64(HMAC-SHA1(authToken, fullUrl + sortedConcatOfFormParams))
+ *
+ * where sortedConcatOfFormParams = key1 + value1 + key2 + value2 ... in
+ * alphabetical order of the keys. The URL must be the EXACT one Twilio used
+ * to POST (we reconstruct from the request — same scheme, host, path, query).
+ *
+ * Spec: https://www.twilio.com/docs/usage/security#validating-requests
+ */
+export async function verifyTwilioSignature(
+  fullUrl: string,
+  params: Record<string, string>,
+  signature: string,
+  authToken: string
+): Promise<boolean> {
+  if (!signature || !authToken) return false;
+  const keys = Object.keys(params).sort();
+  let body = fullUrl;
+  for (const k of keys) body += k + params[k];
+
+  const key = await crypto.subtle.importKey(
+    'raw',
+    new TextEncoder().encode(authToken),
+    { name: 'HMAC', hash: 'SHA-1' },
+    false,
+    ['sign']
+  );
+  const macBuf = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(body));
+  const expected = bytesToB64(new Uint8Array(macBuf));
+
+  // Constant-time compare on equal-length strings; bail early otherwise.
+  if (expected.length !== signature.length) return false;
+  let diff = 0;
+  for (let i = 0; i < expected.length; i++) {
+    diff |= expected.charCodeAt(i) ^ signature.charCodeAt(i);
+  }
+  return diff === 0;
+}
+
+type ParsedAction = 'accept' | 'decline' | 'optout' | 'help' | 'unknown';
+
+/**
+ * Map an inbound SMS body to a structured action. Mirrors STOP / HELP keywords
+ * Twilio compliance expects, plus our domain-specific YES/NO/CLAIM/PASS set.
+ *
+ * Returns the lowercase-canonical normalised body too — Apps Script gets the
+ * normalised string for its audit row.
+ */
+export function parseInboundBody(raw: string): { action: ParsedAction; normalised: string } {
+  const normalised = (raw || '').trim().toUpperCase().replace(/\s+/g, ' ');
+  switch (normalised) {
+    case 'YES':
+    case 'Y':
+    case 'ACCEPT':
+    case 'CLAIM':
+    case 'OK':
+    case 'OKAY':
+      return { action: 'accept', normalised };
+    case 'NO':
+    case 'N':
+    case 'DECLINE':
+    case 'PASS':
+    case 'SKIP':
+      return { action: 'decline', normalised };
+    case 'STOP':
+    case 'STOPALL':
+    case 'UNSUBSCRIBE':
+    case 'CANCEL':
+    case 'END':
+    case 'QUIT':
+      return { action: 'optout', normalised };
+    case 'HELP':
+    case 'INFO':
+      return { action: 'help', normalised };
+    default:
+      return { action: 'unknown', normalised };
+  }
+}
+
+function twiml(message: string): Response {
+  // Escape the five XML special chars — Twilio's TwiML parser is strict.
+  const escaped = message
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;');
+  const body = `<?xml version="1.0" encoding="UTF-8"?>\n<Response><Message>${escaped}</Message></Response>`;
+  return new Response(body, {
+    status: 200,
+    headers: { 'Content-Type': 'application/xml; charset=utf-8' }
+  });
+}
+
+function emptyTwiml(): Response {
+  return new Response('<?xml version="1.0" encoding="UTF-8"?>\n<Response></Response>', {
+    status: 200,
+    headers: { 'Content-Type': 'application/xml; charset=utf-8' }
+  });
+}
+
+function buildReplyText(action: ParsedAction, asResult: Record<string, unknown> | null): string {
+  // Fallback canned copy used when Apps Script is unreachable or returns an
+  // unrecognised shape. The Apps Script handler is the source of truth and
+  // returns a `reply_text` field when it wants something specific.
+  if (asResult && typeof asResult.reply_text === 'string' && asResult.reply_text) {
+    return String(asResult.reply_text);
+  }
+  if (asResult && asResult.ok === false) {
+    const err = String(asResult.error || 'unknown_error');
+    if (err === 'no_user') {
+      return "We don't recognize this number. Sign in via the portal to manage your offers.";
+    }
+    if (err === 'no_pending_offers') {
+      return 'No pending offers right now. Open the portal for your upcoming jobs.';
+    }
+    return 'Something went wrong on our end. Please use the portal.';
+  }
+  switch (action) {
+    case 'accept':  return 'Got it — confirmed. Details in the portal.';
+    case 'decline': return 'Got it — declined. Thanks for the quick reply.';
+    case 'optout':  return "You're unsubscribed from 1891 SMS. Reply START to opt back in.";
+    case 'help':    return 'Reply YES to claim the latest offer, NO to decline, STOP to unsubscribe.';
+    default:        return "Sorry, we didn't recognize that. Reply YES, NO, or open the portal.";
+  }
+}
+
 export async function handleSmsInbound(request: Request, env: Env): Promise<Response> {
-  // Verify Twilio signature
-  const sig = request.headers.get('X-Twilio-Signature');
-  if (!sig || !env.TWILIO_AUTH_TOKEN) {
+  // 1) Read the raw form body once — we need it for signature verification AND
+  //    to extract the message fields.
+  let rawText = '';
+  try {
+    rawText = await request.text();
+  } catch {
+    return new Response('Bad Request', { status: 400 });
+  }
+  const params: Record<string, string> = {};
+  for (const [k, v] of new URLSearchParams(rawText).entries()) {
+    params[k] = v;
+  }
+
+  // 2) Signature verification — HARD requirement when AUTH_TOKEN is present.
+  //    If TWILIO_AUTH_TOKEN isn't configured we refuse outright; we never want
+  //    to accept unsigned inbound webhooks in production.
+  const sig = request.headers.get('X-Twilio-Signature') || '';
+  if (!env.TWILIO_AUTH_TOKEN) {
+    console.warn('sms_inbound: TWILIO_AUTH_TOKEN not configured; refusing');
     return new Response('Forbidden', { status: 403 });
   }
-  // TODO: HMAC-SHA1(token, fullUrl + sortedFormParams).base64
-  // For v1 — accept and ack; route to Apps Script for processing.
-  const form = await request.formData();
-  const payload: Record<string, string> = {};
-  form.forEach((v, k) => { payload[k] = String(v); });
+  // Twilio signs the original public URL (scheme + host + path + query). The
+  // Worker sees the request as Twilio sent it, so request.url is exactly what
+  // Twilio used. (If you front this Worker with another proxy that rewrites
+  // the host, you must reconstruct the URL Twilio knows about.)
+  const fullUrl = request.url;
+  const ok = await verifyTwilioSignature(fullUrl, params, sig, env.TWILIO_AUTH_TOKEN);
+  if (!ok) {
+    console.warn('sms_inbound: signature mismatch from=', params.From);
+    return new Response('Forbidden', { status: 403 });
+  }
 
-  // Forward to Apps Script's inbound-SMS handler (future endpoint)
-  // For now, just log
-  console.log('SMS inbound', JSON.stringify(payload));
-  return new Response('<Response></Response>', {
-    status: 200,
-    headers: { 'Content-Type': 'application/xml' }
-  });
+  const from = (params.From || '').trim();
+  const body = params.Body || '';
+  const msgSid = (params.MessageSid || params.SmsMessageSid || '').trim();
+
+  if (!from) return emptyTwiml();
+
+  // 3) Idempotency on MessageSid.
+  const prev = previousReply(msgSid);
+  if (prev !== null) return twiml(prev);
+
+  // 4) Per-phone rate limit.
+  if (!checkRate(from, Date.now())) {
+    const r = "Slow down — too many messages. Try again in a minute.";
+    rememberReply(msgSid, r);
+    return twiml(r);
+  }
+
+  // 5) Parse + dispatch.
+  const { action, normalised } = parseInboundBody(body);
+
+  // HELP is purely informational; never round-trip to Apps Script for it.
+  if (action === 'help') {
+    const r = buildReplyText('help', null);
+    rememberReply(msgSid, r);
+    return twiml(r);
+  }
+
+  let asResult: Record<string, unknown> | null = null;
+  try {
+    const out = await callAppsScript(
+      env.APPS_SCRIPT_URL,
+      env.JWT_SECRET,
+      'sms_inbound',
+      {
+        from_phone: from,
+        body_raw: body,
+        body_normalised: normalised,
+        action,
+        twilio_msg_sid: msgSid
+      },
+      { purpose: 'twilio_inbound', ttlSeconds: 60 }
+    );
+    asResult = (out as Record<string, unknown>) ?? null;
+  } catch (err) {
+    console.error('sms_inbound dispatch failed', err);
+    asResult = { ok: false, error: 'apps_script_unreachable' };
+  }
+
+  const reply = buildReplyText(action, asResult);
+  rememberReply(msgSid, reply);
+  return twiml(reply);
+}
+
+// Test-only helpers — exported so tests can drive the cache deterministically.
+export function __resetInboundCacheForTests(): void {
+  INBOUND_CACHE.clear();
+  RATE_BUCKETS.clear();
 }

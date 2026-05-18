@@ -43,23 +43,19 @@
         <div class="toolbar">
           <h1 style="margin:0;font-size:28px">Invoices</h1>
           <div class="spacer"></div>
-          <div class="filter">
-            <label for="f-status" style="font-size:13px;color:var(--1891int-fog)">Status</label>
-            <select id="f-status">
-              <option value="">All</option>
-              <option value="draft">Draft</option>
-              <option value="issued">Issued</option>
-              <option value="paid">Paid</option>
-              <option value="overdue">Overdue</option>
-              <option value="void">Void</option>
-            </select>
-          </div>
           <button class="btn btn-ghost btn-sm" type="button" id="refresh">Refresh</button>
           <button class="btn btn-primary" type="button" id="new-inv">+ New invoice</button>
         </div>
 
+        <div class="filter-bar" id="filter-bar" style="display:none"></div>
+
         <div id="loading" class="empty-state"><span class="spinner"></span> Loading invoices&hellip;</div>
         <div id="board" class="board" style="display:none"></div>
+        <div id="no-matches" class="empty-state" style="display:none">
+          <h2>No matches.</h2>
+          <p>Try a different search term, or clear the filters to see all invoices.</p>
+          <button class="btn btn-ghost" type="button" id="no-matches-reset">Clear filters</button>
+        </div>
         <div id="empty" class="empty-state" style="display:none">
           <h2>No invoices yet.</h2>
           <p>Invoices roll up completed jobs into a billing run for a payer. Pick a payer and a date range, preview the lines, then issue.</p>
@@ -131,12 +127,14 @@
 <script src="/interpreter/assets/js/whitelabel.js" defer></script>
 <script src="/interpreter/assets/js/api.js" defer></script>
 <script src="/interpreter/assets/js/api-invoices.js" defer></script>
+<script src="/interpreter/assets/js/list-filter.js" defer></script>
 <script>
 (function () {
   'use strict';
   document.addEventListener('DOMContentLoaded', init);
 
   var state = { invoices: [], me: null, payers: [] };
+  var filter = null;
 
   function $(id) { return document.getElementById(id); }
   function escHtml(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
@@ -164,8 +162,11 @@
     }).catch(function () { toast('Could not reach the server.', 'error'); });
 
     $('refresh').addEventListener('click', loadList);
-    $('f-status').addEventListener('change', renderList);
     $('new-inv').addEventListener('click', openNewInv);
+    $('no-matches-reset').addEventListener('click', function () {
+      var resetBtn = document.querySelector('#filter-bar .reset');
+      if (resetBtn) resetBtn.click();
+    });
     $('save-inv').addEventListener('click', saveInv);
     $('preview-inv').addEventListener('click', previewInv);
     var emptyBtn = $('empty-add'); if (emptyBtn) emptyBtn.addEventListener('click', openNewInv);
@@ -189,25 +190,69 @@
     $('loading').style.display = '';
     $('board').style.display = 'none';
     $('empty').style.display = 'none';
+    $('no-matches').style.display = 'none';
+    $('filter-bar').style.display = 'none';
     IntApiInvoices.listInvoices().then(function (r) {
       $('loading').style.display = 'none';
       if (!r || !r.ok) { toast((r && r.error) || 'Load failed', 'error'); return; }
       state.invoices = r.invoices || [];
-      renderList();
+      if (!state.invoices.length) { $('empty').style.display = ''; return; }
+      $('filter-bar').style.display = '';
+      mountFilter(state.invoices);
     }).catch(function () { $('loading').style.display = 'none'; toast('Network error', 'error'); });
   }
 
-  function renderList() {
-    var filter = $('f-status').value;
-    var rows = state.invoices.filter(function (i) { return !filter || String(i.status) === filter; });
-    if (!rows.length) {
-      $('empty').style.display = '';
-      $('board').style.display = 'none';
-      return;
+  function mountFilter(items) {
+    var board = $('board');
+    var noMatch = $('no-matches');
+    if (!filter) {
+      filter = ListFilter.mount({
+        items: items,
+        bar: '#filter-bar',
+        searchPlaceholder: 'Search invoices by payer, invoice #, period…',
+        searchFields: function (i) {
+          return [
+            i.payer_display_name, i.payer_id, i.client_id,
+            i.invoice_number, i.invoice_id,
+            i.period_start, i.period_end, i.status,
+            IntApiInvoices.formatCents(i.total_cents)
+          ];
+        },
+        statuses: ['draft', 'issued', 'paid', 'overdue', 'void'],
+        statusOf: function (i) { return String(i.status || 'draft').toLowerCase(); },
+        sortOptions: [
+          { value: 'recent', label: 'Most recent', cmp: function (a, b) {
+            return String(b.issued_at || b.period_end || '').localeCompare(String(a.issued_at || a.period_end || ''));
+          } },
+          { value: 'oldest', label: 'Oldest first', cmp: function (a, b) {
+            return String(a.issued_at || a.period_start || '').localeCompare(String(b.issued_at || b.period_start || ''));
+          } },
+          { value: 'due_soon', label: 'Due soonest', cmp: function (a, b) {
+            var av = a.due_at || ''; var bv = b.due_at || '';
+            if (!av && !bv) return 0;
+            if (!av) return 1;
+            if (!bv) return -1;
+            return String(av).localeCompare(String(bv));
+          } },
+          { value: 'total_desc', label: 'Largest total', cmp: ListFilter.cmpNumDesc('total_cents') },
+          { value: 'total_asc', label: 'Smallest total', cmp: ListFilter.cmpNumAsc('total_cents') },
+          { value: 'payer', label: 'Payer A→Z', cmp: ListFilter.cmpStrAsc('payer_display_name') }
+        ],
+        defaultSort: 'recent',
+        render: function (rows) {
+          if (!rows.length) {
+            board.style.display = 'none';
+            noMatch.style.display = '';
+            return;
+          }
+          noMatch.style.display = 'none';
+          board.innerHTML = rows.map(invoiceCard).join('');
+          board.style.display = '';
+        }
+      });
+    } else {
+      filter.setItems(items);
     }
-    $('board').innerHTML = rows.map(invoiceCard).join('');
-    $('board').style.display = '';
-    $('empty').style.display = 'none';
   }
 
   function invoiceCard(i) {

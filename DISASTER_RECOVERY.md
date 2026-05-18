@@ -61,6 +61,68 @@ What to do when something breaks. Update with every new failure mode the team le
 - **Mitigation:** `workers/notify` queue retains messages with exponential backoff for 72h. Surface a banner in the agency dashboard if backlog > 50.
 - **Fallback channel:** for any user, if primary channel (push/SMS) fails 3 times, the next attempt goes to email. Configured in PRD D3.1 channel matrix.
 
+### F2. Inbound SMS reply parsing (manual replay)
+
+Twilio posts to `https://<worker>/v1/sms/inbound` with the HMAC signature in
+`X-Twilio-Signature`. The Worker verifies the signature, normalises the body,
+and dispatches to Apps Script's `apiSmsInbound` (action=`sms_inbound`) using a
+60s worker JWT (`iss='worker'`, `purpose='twilio_inbound'`).
+
+To replay an inbound SMS by hand (e.g., a Twilio retry was lost or you're
+debugging a parser edge case), POST a form-encoded payload mimicking Twilio's
+shape AND set a valid `X-Twilio-Signature`:
+
+```bash
+# 1. From an Apps Script script-editor "Run" window or via clasp, get the
+#    current HMAC_SECRET from PropertiesService — that's the Worker's
+#    JWT_SECRET *and* (separately) Twilio's auth token is set via
+#    `wrangler secret put TWILIO_AUTH_TOKEN`.
+
+# 2. Compute the Twilio signature client-side:
+URL="https://1891-interpreter-api.anthonymowl.workers.dev/v1/sms/inbound"
+FROM="+13015551234"
+BODY="YES"
+SID="SMmanual-$(date +%s)"
+TOKEN="<TWILIO_AUTH_TOKEN value>"
+
+# Concat sorted form params after the URL, HMAC-SHA1, base64.
+SIG=$(python3 -c "
+import hashlib, hmac, base64, sys
+url='$URL'
+params={'AccountSid':'ACtest','Body':'$BODY','From':'$FROM','MessageSid':'$SID','To':'+13015550000'}
+payload=url+''.join(k+params[k] for k in sorted(params))
+print(base64.b64encode(hmac.new(b'$TOKEN', payload.encode(), hashlib.sha1).digest()).decode())
+")
+
+curl -i -X POST "$URL" \
+  -H "X-Twilio-Signature: $SIG" \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  --data-urlencode "AccountSid=ACtest" \
+  --data-urlencode "From=$FROM" \
+  --data-urlencode "To=+13015550000" \
+  --data-urlencode "Body=$BODY" \
+  --data-urlencode "MessageSid=$SID"
+```
+
+Expected response is TwiML:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<Response><Message>Confirmed for Tue 2:00 PM EDT — cardiology at Frederick, MD. Details in the portal.</Message></Response>
+```
+
+If the response is `<Response></Response>` (empty), the `From` number isn't in
+`Users.phone_e164`. If you get an HTTP 403, the signature didn't match —
+double-check the URL (must match exactly what curl POSTs to, query string
+included) and that you're using the same `TWILIO_AUTH_TOKEN`.
+
+Idempotency: same `MessageSid` posted twice replays the same TwiML reply; the
+second call does NOT re-apply the accept/decline. Bump `SID` to force a fresh
+run.
+
+Rate limit: a phone exceeding 10 inbound/minute gets a `Slow down — too many
+messages.` reply; the Worker drops the message before hitting Apps Script.
+
 ### G. Anthropic API outage / rate-limited
 
 - **Symptom:** NL intake stops working; AI brief generator returns errors.

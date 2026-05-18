@@ -51,10 +51,17 @@
         <button class="btn btn-primary" type="button" id="new-client">+ Add client</button>
       </div>
 
-      <p class="ink-soft" style="font-size:14px;max-width:64ch;margin:0 0 var(--1891int-s-4)">A client is the parent organization an invoice goes to — Frederick Health, Montgomery County Schools, the District Court. Under one client you can have many requestors (departments), locations (campuses), and specialists (the doctor on the chart). One billing office consolidates them all.</p>
+      <p class="ink-soft" style="font-size:14px;max-width:64ch;margin:0 0 var(--1891int-s-4)">A client is the parent organization an invoice goes to — the hospital, the school district, the court. Under one client you can have many requestors (departments), locations (campuses), and specialists (the doctor on the chart). One billing office consolidates them all.</p>
+
+      <div class="filter-bar" id="filter-bar" style="display:none"></div>
 
       <div id="loading" class="empty-state"><span class="spinner"></span> Loading&hellip;</div>
       <div id="list" class="grid" style="display:none"></div>
+      <div id="no-matches" class="empty-state" style="display:none">
+        <h2>No matches.</h2>
+        <p>Try a different search term, or clear the filters to see everything.</p>
+        <button class="btn btn-ghost" type="button" id="no-matches-reset">Clear filters</button>
+      </div>
       <div id="empty" class="empty-state" style="display:none">
         <h2>No clients yet.</h2>
         <p>Add your first client — they're the org an invoice goes to. You can attach requestors and locations afterward.</p>
@@ -134,9 +141,11 @@
 
 <script src="/interpreter/assets/js/whitelabel.js" defer></script>
 <script src="/interpreter/assets/js/api.js" defer></script>
+<script src="/interpreter/assets/js/list-filter.js" defer></script>
 <script>
 (function () {
   'use strict';
+  var filter = null;
   function $(id) { return document.getElementById(id); }
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]; }); }
   function toast(msg, kind) { var t = $('toast'); t.textContent = msg; t.className = 'toast show' + (kind ? ' ' + kind : ''); setTimeout(function () { t.className = 'toast'; }, 3200); }
@@ -155,6 +164,10 @@
     $('new-client').addEventListener('click', openNew);
     $('empty-add').addEventListener('click', openNew);
     $('save-client').addEventListener('click', save);
+    $('no-matches-reset').addEventListener('click', function () {
+      var resetBtn = document.querySelector('#filter-bar .reset');
+      if (resetBtn) resetBtn.click();
+    });
     $('signout').addEventListener('click', function () { IntApi.clearSession(); location.href = '/interpreter/'; });
     document.querySelectorAll('[data-close]').forEach(function (b) {
       b.addEventListener('click', function () { document.querySelectorAll('.modal-backdrop.open').forEach(function (m) { m.classList.remove('open'); }); });
@@ -170,14 +183,52 @@
     $('loading').style.display = '';
     $('list').style.display = 'none';
     $('empty').style.display = 'none';
+    $('no-matches').style.display = 'none';
+    $('filter-bar').style.display = 'none';
     IntApi.listClients().then(function (r) {
       $('loading').style.display = 'none';
       if (!r || !r.ok) { toast(r && r.error || 'Load failed', 'error'); return; }
       var clients = r.clients || [];
       if (!clients.length) { $('empty').style.display = ''; return; }
-      $('list').innerHTML = clients.map(card).join('');
-      $('list').style.display = '';
+      $('filter-bar').style.display = '';
+      mountFilter(clients);
     });
+  }
+
+  function mountFilter(clients) {
+    var listEl = $('list');
+    var noMatch = $('no-matches');
+    var statuses = Array.from(new Set(clients.map(function (c) { return (c.status || 'active').toLowerCase(); })));
+    if (!filter) {
+      filter = ListFilter.mount({
+        items: clients,
+        bar: '#filter-bar',
+        searchPlaceholder: 'Search clients by name, industry, or billing email…',
+        searchFields: function (c) {
+          return [c.display_name, c.legal_name, c.industry, c.client_type, c.billing_email, c.net_terms, c.status];
+        },
+        statuses: statuses,
+        statusOf: function (c) { return c.status || 'active'; },
+        sortOptions: [
+          { value: 'name_asc', label: 'Name A→Z', cmp: ListFilter.cmpStrAsc('display_name') },
+          { value: 'name_desc', label: 'Name Z→A', cmp: ListFilter.cmpStrDesc('display_name') },
+          { value: 'recent', label: 'Recently added', cmp: ListFilter.cmpDateDesc('_created_at') }
+        ],
+        defaultSort: 'name_asc',
+        render: function (rows) {
+          if (!rows.length) {
+            listEl.style.display = 'none';
+            noMatch.style.display = '';
+            return;
+          }
+          noMatch.style.display = 'none';
+          listEl.innerHTML = rows.map(card).join('');
+          listEl.style.display = '';
+        }
+      });
+    } else {
+      filter.setItems(clients);
+    }
   }
 
   function card(c) {

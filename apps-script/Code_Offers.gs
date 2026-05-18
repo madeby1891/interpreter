@@ -168,65 +168,16 @@ function apiAcceptOffer(e) {
   if (!assignmentId) return _json({ ok:false, error:'assignment_id required' });
   var ss = SpreadsheetApp.openById(SHEET_ID);
 
-  // Look up assignment
-  var asgSh = ss.getSheetByName(T.JobAssignments);
-  var data = asgSh.getDataRange().getValues();
-  var hdr = data[0];
-  var iId = hdr.indexOf('assignment_id');
-  var iResp = hdr.indexOf('response');
-  var iStatus = hdr.indexOf('status');
-  var iResponded = hdr.indexOf('responded_at');
-  var iInterp = hdr.indexOf('interpreter_id');
-  var iJob = hdr.indexOf('job_id');
-  var iUpdated = hdr.indexOf('_updated_at');
-  var iRev = hdr.indexOf('_rev');
-  for (var r = 1; r < data.length; r++) {
-    if (String(data[r][iId]) !== assignmentId) continue;
-    var asgInterpId = String(data[r][iInterp]);
-    // Authorize: the assignee (via user_id link) or staff
-    var isStaff = (s.payload.role === 'role_owner' || s.payload.role === 'role_admin' || s.payload.role === 'role_scheduler');
-    var interp = _findInterpreterById(ss, asgInterpId);
-    var isSelf = interp && interp.user_id === s.payload.uid;
-    if (!isStaff && !isSelf) return _json({ ok:false, error:'Forbidden' }, 403);
+  var asg = _findAssignmentRow_(ss, assignmentId);
+  if (!asg) return _json({ ok:false, error:'Assignment not found' }, 404);
 
-    var currentResp = String(data[r][iResp]);
-    if (currentResp === 'claim') return _json({ ok:false, error:'Already accepted' });
-    if (currentResp === 'decline') return _json({ ok:false, error:'Already declined; request a fresh offer' });
+  var isStaff = (s.payload.role === 'role_owner' || s.payload.role === 'role_admin' || s.payload.role === 'role_scheduler');
+  var interp = _findInterpreterById(ss, asg.row.interpreter_id);
+  var isSelf = interp && interp.user_id === s.payload.uid;
+  if (!isStaff && !isSelf) return _json({ ok:false, error:'Forbidden' }, 403);
 
-    var nowIso = new Date().toISOString();
-    asgSh.getRange(r + 1, iResp + 1).setValue('claim');
-    asgSh.getRange(r + 1, iStatus + 1).setValue('CLAIMED');
-    asgSh.getRange(r + 1, iResponded + 1).setValue(nowIso);
-    asgSh.getRange(r + 1, iUpdated + 1).setValue(nowIso);
-    asgSh.getRange(r + 1, iRev + 1).setValue(Number(data[r][iRev] || 0) + 1);
-
-    // Flip the job to CLAIMED — but only if its current status is OPEN or OFFERED
-    var jobId = String(data[r][iJob]);
-    var job = _findJob(ss, s.payload.tid, jobId);
-    if (job && (job.status === 'OPEN' || job.status === 'OFFERED')) {
-      _setJobField(ss, s.payload.tid, jobId, 'status', 'CLAIMED');
-      _appendJobEvent(ss, jobId, s.payload.uid, 'status_change', job.status, 'CLAIMED',
-                      JSON.stringify({ assignment_id: assignmentId }));
-    }
-    _appendJobEvent(ss, jobId, s.payload.uid, 'offer_accepted', 'offered', 'claim',
-                    JSON.stringify({ assignment_id: assignmentId, interpreter_id: asgInterpId }));
-    _logAudit('offer.accept', s.payload.tid, s.payload.uid, assignmentId);
-
-    // For team-of-2 — if both legs are now claimed, fire a team-formed event +
-    // schedule contact-exchange emails (deferred to v17 cron; for now, just event)
-    if (job && (job.team_config === 'team-of-2' || job.team_config === 'cdi+hearing' || job.team_config === 'voicer+signer')) {
-      var cos = _findCoInterpreters_(ss, jobId, assignmentId);
-      var anyOutstanding = cos.some(function (c) { return c.response !== 'claim'; });
-      if (!anyOutstanding && cos.length > 0) {
-        _appendJobEvent(ss, jobId, 'system', 'team_formed', '', '',
-                        JSON.stringify({ members: cos.map(function (c) { return c.interpreter_id; }) }));
-        _sendTeamContactExchange_(ss, s.payload.tid, jobId, cos.concat([{ assignment_id: assignmentId, interpreter_id: asgInterpId }]));
-      }
-    }
-
-    return _json({ ok:true, assignment_id: assignmentId, status:'CLAIMED' });
-  }
-  return _json({ ok:false, error:'Assignment not found' }, 404);
+  var out = _acceptOfferCore_(ss, asg, s.payload.tid, s.payload.uid);
+  return _json(out, out.ok ? 200 : 400);
 }
 
 function apiDeclineOffer(e) {
@@ -237,55 +188,164 @@ function apiDeclineOffer(e) {
   if (!assignmentId) return _json({ ok:false, error:'assignment_id required' });
   var ss = SpreadsheetApp.openById(SHEET_ID);
 
-  var asgSh = ss.getSheetByName(T.JobAssignments);
-  var data = asgSh.getDataRange().getValues();
+  var asg = _findAssignmentRow_(ss, assignmentId);
+  if (!asg) return _json({ ok:false, error:'Assignment not found' }, 404);
+
+  var isStaff = (s.payload.role === 'role_owner' || s.payload.role === 'role_admin' || s.payload.role === 'role_scheduler');
+  var interp = _findInterpreterById(ss, asg.row.interpreter_id);
+  var isSelf = interp && interp.user_id === s.payload.uid;
+  if (!isStaff && !isSelf) return _json({ ok:false, error:'Forbidden' }, 403);
+
+  var out = _declineOfferCore_(ss, asg, s.payload.tid, s.payload.uid, reason);
+  return _json(out, out.ok ? 200 : 400);
+}
+
+// ============================================================================
+// CORE HELPERS — shared between the user-session endpoints above and the SMS
+// inbound dispatcher (Code_Sms.gs). Auth happens at the caller; these helpers
+// just apply the writes + side effects (job state, events, team contact
+// exchange) and return a plain result object.
+// ============================================================================
+
+/**
+ * Look up an assignment row by id and return the parsed object PLUS the row
+ * index (1-based, including the header row at index 1, so first data row = 2)
+ * and the header so callers can write back via getRange().
+ *
+ * Returns null when not found.
+ */
+function _findAssignmentRow_(ss, assignmentId) {
+  var sh = ss.getSheetByName(T.JobAssignments);
+  if (!sh) return null;
+  var data = sh.getDataRange().getValues();
+  if (data.length < 2) return null;
   var hdr = data[0];
   var iId = hdr.indexOf('assignment_id');
-  var iResp = hdr.indexOf('response');
-  var iStatus = hdr.indexOf('status');
-  var iResponded = hdr.indexOf('responded_at');
-  var iInterp = hdr.indexOf('interpreter_id');
-  var iJob = hdr.indexOf('job_id');
-  var iUpdated = hdr.indexOf('_updated_at');
-  var iRev = hdr.indexOf('_rev');
+  if (iId < 0) return null;
   for (var r = 1; r < data.length; r++) {
-    if (String(data[r][iId]) !== assignmentId) continue;
-    var asgInterpId = String(data[r][iInterp]);
-    var isStaff = (s.payload.role === 'role_owner' || s.payload.role === 'role_admin' || s.payload.role === 'role_scheduler');
-    var interp = _findInterpreterById(ss, asgInterpId);
-    var isSelf = interp && interp.user_id === s.payload.uid;
-    if (!isStaff && !isSelf) return _json({ ok:false, error:'Forbidden' }, 403);
-
-    if (String(data[r][iResp]) === 'claim') return _json({ ok:false, error:'Already accepted; cannot decline' });
-
-    var nowIso = new Date().toISOString();
-    asgSh.getRange(r + 1, iResp + 1).setValue('decline');
-    asgSh.getRange(r + 1, iStatus + 1).setValue('DECLINED');
-    asgSh.getRange(r + 1, iResponded + 1).setValue(nowIso);
-    asgSh.getRange(r + 1, iUpdated + 1).setValue(nowIso);
-    asgSh.getRange(r + 1, iRev + 1).setValue(Number(data[r][iRev] || 0) + 1);
-
-    var jobId = String(data[r][iJob]);
-    _appendJobEvent(ss, jobId, s.payload.uid, 'offer_declined', 'offered', 'decline',
-                    JSON.stringify({ assignment_id: assignmentId, reason: reason }));
-    _logAudit('offer.decline', s.payload.tid, s.payload.uid, assignmentId + ' reason=' + reason);
-
-    // If this was the only outstanding offer on the job AND no claim exists,
-    // flip job back to OPEN so the scheduler can re-fill
-    var job = _findJob(ss, s.payload.tid, jobId);
-    if (job && job.status === 'OFFERED') {
-      var allAsg = _allAssignmentsForJob_(ss, jobId);
-      var anyClaimed = allAsg.some(function (a) { return a.response === 'claim'; });
-      var anyOutstanding = allAsg.some(function (a) { return a.response === 'offered'; });
-      if (!anyClaimed && !anyOutstanding) {
-        _setJobField(ss, s.payload.tid, jobId, 'status', 'OPEN');
-        _appendJobEvent(ss, jobId, 'system', 'status_change', 'OFFERED', 'OPEN',
-                        JSON.stringify({ reason: 'all offers declined' }));
-      }
+    if (String(data[r][iId]) === String(assignmentId)) {
+      return { sheet: sh, hdr: hdr, rowIndex: r + 1, row: _rowToObj(hdr, data[r]) };
     }
-    return _json({ ok:true, assignment_id: assignmentId, status:'DECLINED' });
   }
-  return _json({ ok:false, error:'Assignment not found' }, 404);
+  return null;
+}
+
+function _acceptOfferCore_(ss, asg, actorTenantId, actorUserId) {
+  var assignmentId = asg.row.assignment_id;
+  var asgInterpId = String(asg.row.interpreter_id);
+  var jobId = String(asg.row.job_id);
+  var currentResp = String(asg.row.response || '');
+  if (currentResp === 'claim') return { ok:false, error:'Already accepted' };
+  if (currentResp === 'decline') return { ok:false, error:'Already declined; request a fresh offer' };
+
+  var sh = asg.sheet, hdr = asg.hdr, r = asg.rowIndex;
+  var nowIso = new Date().toISOString();
+  sh.getRange(r, hdr.indexOf('response') + 1).setValue('claim');
+  sh.getRange(r, hdr.indexOf('status') + 1).setValue('CLAIMED');
+  sh.getRange(r, hdr.indexOf('responded_at') + 1).setValue(nowIso);
+  sh.getRange(r, hdr.indexOf('_updated_at') + 1).setValue(nowIso);
+  sh.getRange(r, hdr.indexOf('_rev') + 1).setValue(Number(asg.row._rev || 0) + 1);
+
+  // Flip the parent job to CLAIMED if it is still OPEN/OFFERED.
+  var job = _findJob(ss, actorTenantId, jobId);
+  if (!job) {
+    // The row exists but no matching job for this tenant — fall back to a
+    // cross-tenant lookup (the SMS path uses tid='*' for the worker token).
+    job = _findJobAnyTenant_(ss, jobId);
+  }
+  if (job && (job.status === 'OPEN' || job.status === 'OFFERED')) {
+    _setJobField(ss, job.tenant_id, jobId, 'status', 'CLAIMED');
+    _appendJobEvent(ss, jobId, actorUserId, 'status_change', job.status, 'CLAIMED',
+                    JSON.stringify({ assignment_id: assignmentId }));
+  }
+  _appendJobEvent(ss, jobId, actorUserId, 'offer_accepted', 'offered', 'claim',
+                  JSON.stringify({ assignment_id: assignmentId, interpreter_id: asgInterpId }));
+  _logAudit('offer.accept', job ? job.tenant_id : actorTenantId, actorUserId, assignmentId);
+
+  // Team-of-2 / cdi+hearing / voicer+signer: when every leg is claimed, fire
+  // team_formed + the contact-exchange emails. Same logic as the original
+  // apiAcceptOffer — preserved verbatim, just lifted into the helper.
+  if (job && (job.team_config === 'team-of-2' || job.team_config === 'cdi+hearing' || job.team_config === 'voicer+signer')) {
+    var cos = _findCoInterpreters_(ss, jobId, assignmentId);
+    var anyOutstanding = cos.some(function (c) { return c.response !== 'claim'; });
+    if (!anyOutstanding && cos.length > 0) {
+      _appendJobEvent(ss, jobId, 'system', 'team_formed', '', '',
+                      JSON.stringify({ members: cos.map(function (c) { return c.interpreter_id; }) }));
+      _sendTeamContactExchange_(ss, job.tenant_id, jobId, cos.concat([{ assignment_id: assignmentId, interpreter_id: asgInterpId }]));
+    }
+  }
+
+  return {
+    ok: true,
+    assignment_id: assignmentId,
+    job_id: jobId,
+    status: 'CLAIMED',
+    scheduled_start: job ? job.scheduled_start : '',
+    service_type: job ? job.service_type : '',
+    team_config: job ? job.team_config : ''
+  };
+}
+
+function _declineOfferCore_(ss, asg, actorTenantId, actorUserId, reason) {
+  var assignmentId = asg.row.assignment_id;
+  var jobId = String(asg.row.job_id);
+  if (String(asg.row.response || '') === 'claim') {
+    return { ok:false, error:'Already accepted; cannot decline' };
+  }
+
+  var sh = asg.sheet, hdr = asg.hdr, r = asg.rowIndex;
+  var nowIso = new Date().toISOString();
+  sh.getRange(r, hdr.indexOf('response') + 1).setValue('decline');
+  sh.getRange(r, hdr.indexOf('status') + 1).setValue('DECLINED');
+  sh.getRange(r, hdr.indexOf('responded_at') + 1).setValue(nowIso);
+  sh.getRange(r, hdr.indexOf('_updated_at') + 1).setValue(nowIso);
+  sh.getRange(r, hdr.indexOf('_rev') + 1).setValue(Number(asg.row._rev || 0) + 1);
+
+  _appendJobEvent(ss, jobId, actorUserId, 'offer_declined', 'offered', 'decline',
+                  JSON.stringify({ assignment_id: assignmentId, reason: reason || '' }));
+
+  // If the only outstanding offer just declined AND no claim exists, flip the
+  // job back to OPEN so a scheduler can re-fill.
+  var job = _findJob(ss, actorTenantId, jobId);
+  if (!job) job = _findJobAnyTenant_(ss, jobId);
+  _logAudit('offer.decline', job ? job.tenant_id : actorTenantId, actorUserId,
+            assignmentId + ' reason=' + (reason || ''));
+  if (job && job.status === 'OFFERED') {
+    var allAsg = _allAssignmentsForJob_(ss, jobId);
+    var anyClaimed = allAsg.some(function (a) { return a.response === 'claim'; });
+    var anyOutstanding = allAsg.some(function (a) { return a.response === 'offered'; });
+    if (!anyClaimed && !anyOutstanding) {
+      _setJobField(ss, job.tenant_id, jobId, 'status', 'OPEN');
+      _appendJobEvent(ss, jobId, 'system', 'status_change', 'OFFERED', 'OPEN',
+                      JSON.stringify({ reason: 'all offers declined' }));
+    }
+  }
+  return {
+    ok: true,
+    assignment_id: assignmentId,
+    job_id: jobId,
+    status: 'DECLINED',
+    scheduled_start: job ? job.scheduled_start : '',
+    service_type: job ? job.service_type : ''
+  };
+}
+
+/**
+ * Cross-tenant job lookup — used when an SMS reply arrives with a worker token
+ * (tid='*'). The Sheet is single-instance so an unprefixed lookup is safe; we
+ * still return the tenant_id so the caller can scope audit + downstream writes.
+ */
+function _findJobAnyTenant_(ss, jobId) {
+  var sh = ss.getSheetByName(T.Jobs);
+  if (!sh) return null;
+  var data = sh.getDataRange().getValues();
+  if (data.length < 2) return null;
+  var hdr = data[0];
+  for (var i = 1; i < data.length; i++) {
+    var o = _rowToObj(hdr, data[i]);
+    if (o.job_id === jobId) return o;
+  }
+  return null;
 }
 
 // ============================================================================

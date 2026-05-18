@@ -44,23 +44,19 @@
       <div class="toolbar">
         <h1 style="margin:0;font-size:28px">Today's jobs</h1>
         <div class="spacer"></div>
-        <div class="filter">
-          <label for="f-status" style="font-size:13px;color:var(--1891int-fog)">Status</label>
-          <select id="f-status">
-            <option value="">All</option>
-            <option value="OPEN">Open</option>
-            <option value="OFFERED">Offered</option>
-            <option value="CLAIMED">Claimed</option>
-            <option value="CONFIRMED">Confirmed</option>
-            <option value="COMPLETED">Completed</option>
-          </select>
-        </div>
         <button class="btn btn-ghost btn-sm" type="button" id="refresh">Refresh</button>
         <button class="btn btn-primary" type="button" id="new-job">+ New job</button>
       </div>
 
+      <div class="filter-bar" id="filter-bar" style="display:none"></div>
+
       <div id="loading" class="empty-state"><span class="spinner"></span> Loading jobs&hellip;</div>
       <div id="board" class="board" style="display:none"></div>
+      <div id="no-matches" class="empty-state" style="display:none">
+        <h2>No matches.</h2>
+        <p>Try a different search term, or clear the filters to see the whole board.</p>
+        <button class="btn btn-ghost" type="button" id="no-matches-reset">Clear filters</button>
+      </div>
       <div id="empty" class="empty-state" style="display:none">
         <h2>Nothing on the board.</h2>
         <p>Quiet day, or did the office close early? Tap "+ New job" to create your first.</p>
@@ -183,12 +179,14 @@
 
 <script src="/interpreter/assets/js/whitelabel.js" defer></script>
 <script src="/interpreter/assets/js/api.js" defer></script>
+<script src="/interpreter/assets/js/list-filter.js" defer></script>
 <script>
 (function () {
   'use strict';
   document.addEventListener('DOMContentLoaded', init);
 
   var state = { jobs: [], me: null };
+  var filter = null;
 
   function $(id) { return document.getElementById(id); }
   function escHtml(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
@@ -226,8 +224,11 @@
     });
 
     $('refresh').addEventListener('click', loadJobs);
-    $('f-status').addEventListener('change', loadJobs);
     $('new-job').addEventListener('click', openNewJob);
+    $('no-matches-reset').addEventListener('click', function () {
+      var resetBtn = document.querySelector('#filter-bar .reset');
+      if (resetBtn) resetBtn.click();
+    });
     $('save-job').addEventListener('click', saveJob);
     $('signout').addEventListener('click', function () {
       IntApi.clearSession();
@@ -241,8 +242,8 @@
     document.addEventListener('keydown', function (e) {
       if (e.key === 'Escape') document.querySelectorAll('.modal-backdrop.open').forEach(function (m) { m.classList.remove('open'); });
       if (e.key === '/' && document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA') {
-        e.preventDefault();
-        $('f-status').focus();
+        var s = document.querySelector('#filter-bar input[type="search"]');
+        if (s) { e.preventDefault(); s.focus(); }
       }
     });
   }
@@ -251,16 +252,74 @@
     $('loading').style.display = '';
     $('board').style.display = 'none';
     $('empty').style.display = 'none';
-    var status = $('f-status').value;
-    IntApi.listJobs(status).then(function (r) {
+    $('no-matches').style.display = 'none';
+    $('filter-bar').style.display = 'none';
+    // Pull the whole working set; status filtering happens client-side now.
+    IntApi.listJobs('').then(function (r) {
       $('loading').style.display = 'none';
       if (!r || !r.ok) { toast((r && r.error) || 'Load failed', 'error'); return; }
       state.jobs = r.jobs || [];
-      render();
+      if (!state.jobs.length) { $('empty').style.display = ''; return; }
+      $('filter-bar').style.display = '';
+      mountFilter(state.jobs);
     }).catch(function () {
       $('loading').style.display = 'none';
       toast('Network error', 'error');
     });
+  }
+
+  function mountFilter(items) {
+    var board = $('board');
+    var noMatch = $('no-matches');
+    if (!filter) {
+      filter = ListFilter.mount({
+        items: items,
+        bar: '#filter-bar',
+        searchPlaceholder: 'Search jobs by language, requestor, location, job ID…',
+        searchFields: function (j) {
+          var loc = j.location_general || {};
+          var req = j.requestor || {};
+          var cons = j.consumer || {};
+          return [
+            j.job_id, j.status, j.modality, j.service_type,
+            j.source_language_id, j.target_language_id,
+            j.team_config, j.notes_to_interpreter,
+            req.display_name, req.requestor_id,
+            loc.city, loc.state,
+            cons.display_initials
+          ];
+        },
+        statuses: ['OPEN', 'OFFERED', 'CLAIMED', 'CONFIRMED', 'IN_PROGRESS', 'COMPLETED'],
+        statusOf: function (j) { return String(j.status || '').toUpperCase(); },
+        sortOptions: [
+          { value: 'next', label: 'Next up', cmp: ListFilter.cmpDateAsc('scheduled_start') },
+          { value: 'recent', label: 'Most recent', cmp: ListFilter.cmpDateDesc('scheduled_start') },
+          { value: 'status', label: 'By status', cmp: function (a, b) {
+            var order = { OPEN: 0, OFFERED: 1, CLAIMED: 2, CONFIRMED: 3, IN_PROGRESS: 4, COMPLETED: 5, BILLED: 6, PAID: 7, CANCELLED: 8 };
+            var ao = order[String(a.status || '').toUpperCase()];
+            var bo = order[String(b.status || '').toUpperCase()];
+            if (ao == null) ao = 99;
+            if (bo == null) bo = 99;
+            if (ao !== bo) return ao - bo;
+            return String(a.scheduled_start || '').localeCompare(String(b.scheduled_start || ''));
+          } }
+        ],
+        defaultSort: 'next',
+        render: function (rows) {
+          if (!rows.length) {
+            board.style.display = 'none';
+            noMatch.style.display = '';
+            return;
+          }
+          noMatch.style.display = 'none';
+          board.innerHTML = rows.map(jobCard).join('');
+          board.style.display = '';
+          bindCardActions();
+        }
+      });
+    } else {
+      filter.setItems(items);
+    }
   }
 
   function render() {

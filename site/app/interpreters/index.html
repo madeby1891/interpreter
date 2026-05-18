@@ -43,8 +43,15 @@
         <button class="btn btn-primary" type="button" id="new-int">+ Add interpreter</button>
       </div>
 
+      <div class="filter-bar" id="filter-bar" style="display:none"></div>
+
       <div id="loading" class="empty-state"><span class="spinner"></span> Loading roster&hellip;</div>
       <div id="list" class="board" style="display:none"></div>
+      <div id="no-matches" class="empty-state" style="display:none">
+        <h2>No matches.</h2>
+        <p>Try a different search term, or clear the filters to see the whole roster.</p>
+        <button class="btn btn-ghost" type="button" id="no-matches-reset">Clear filters</button>
+      </div>
       <div id="empty" class="empty-state" style="display:none">
         <h2>Your roster is empty.</h2>
         <p>Add your first interpreter to make smart-fill useful. You can also bulk-import later from the Sheet directly.</p>
@@ -146,9 +153,11 @@
 
 <script src="/interpreter/assets/js/whitelabel.js" defer></script>
 <script src="/interpreter/assets/js/api.js" defer></script>
+<script src="/interpreter/assets/js/list-filter.js" defer></script>
 <script>
 (function () {
   'use strict';
+  var filter = null;
   document.addEventListener('DOMContentLoaded', init);
   function $(id) { return document.getElementById(id); }
   function escHtml(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]; }); }
@@ -171,6 +180,10 @@
     $('new-int').addEventListener('click', openNew);
     $('empty-add').addEventListener('click', openNew);
     $('save-int').addEventListener('click', save);
+    $('no-matches-reset').addEventListener('click', function () {
+      var resetBtn = document.querySelector('#filter-bar .reset');
+      if (resetBtn) resetBtn.click();
+    });
     $('signout').addEventListener('click', function () { IntApi.clearSession(); location.href = '/interpreter/'; });
     document.querySelectorAll('[data-close]').forEach(function (b) {
       b.addEventListener('click', function () {
@@ -186,14 +199,79 @@
     $('loading').style.display = '';
     $('list').style.display = 'none';
     $('empty').style.display = 'none';
+    $('no-matches').style.display = 'none';
+    $('filter-bar').style.display = 'none';
     IntApi.listInterpreters().then(function (r) {
       $('loading').style.display = 'none';
       if (!r || !r.ok) { toast(r && r.error || 'Load failed', 'error'); return; }
       var ints = r.interpreters || [];
       if (!ints.length) { $('empty').style.display = ''; return; }
-      $('list').innerHTML = ints.map(card).join('');
-      $('list').style.display = '';
+      $('filter-bar').style.display = '';
+      mountFilter(ints);
     });
+  }
+
+  function searchTextForInt(i) {
+    var langText = '';
+    try {
+      var p = JSON.parse(i.languages || '[]');
+      langText = p.map(function (x) { return (x.lang || '') + ' ' + (x.dir || ''); }).join(' ');
+    } catch (_) { langText = i.languages || ''; }
+    var certText = '';
+    try {
+      var c = JSON.parse(i.certifications || '[]');
+      certText = c.map(function (x) { return (x.cert || '') + ' ' + (x.number || ''); }).join(' ');
+    } catch (_) { certText = i.certifications || ''; }
+    return [
+      i.legal_first, i.legal_last, i.pronouns, i.classification,
+      i.home_city, i.home_state, i.home_zip,
+      langText, certText,
+      String(i.modalities || '').replace(/[\[\]"]/g, ' '),
+      i.status, i.notes_internal,
+      (i.deaf === true || i.deaf === 'true' ? 'cdi deaf' : '')
+    ];
+  }
+
+  function mountFilter(items) {
+    var listEl = $('list');
+    var noMatch = $('no-matches');
+    var statuses = ['active', 'inactive'];
+    if (!filter) {
+      filter = ListFilter.mount({
+        items: items,
+        bar: '#filter-bar',
+        searchPlaceholder: 'Search interpreters by name, language, cert, city…',
+        searchFields: searchTextForInt,
+        statuses: statuses,
+        statusOf: function (i) { return (i.status || 'active').toLowerCase(); },
+        sortOptions: [
+          { value: 'name_asc', label: 'Name A→Z', cmp: function (a, b) {
+            var an = ((a.legal_last || '') + ' ' + (a.legal_first || '')).toLowerCase();
+            var bn = ((b.legal_last || '') + ' ' + (b.legal_first || '')).toLowerCase();
+            return an.localeCompare(bn);
+          } },
+          { value: 'name_desc', label: 'Name Z→A', cmp: function (a, b) {
+            var an = ((a.legal_last || '') + ' ' + (a.legal_first || '')).toLowerCase();
+            var bn = ((b.legal_last || '') + ' ' + (b.legal_first || '')).toLowerCase();
+            return bn.localeCompare(an);
+          } },
+          { value: 'recent', label: 'Recently added', cmp: ListFilter.cmpDateDesc('_created_at') }
+        ],
+        defaultSort: 'name_asc',
+        render: function (rows) {
+          if (!rows.length) {
+            listEl.style.display = 'none';
+            noMatch.style.display = '';
+            return;
+          }
+          noMatch.style.display = 'none';
+          listEl.innerHTML = rows.map(card).join('');
+          listEl.style.display = '';
+        }
+      });
+    } else {
+      filter.setItems(items);
+    }
   }
 
   function card(i) {

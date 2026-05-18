@@ -353,8 +353,112 @@
   font-size: 14px;
 }
 
+/* =============================================================================
+   Filter bar — shared across list pages (clients, interpreters, requestors,
+   invoices, payouts, day-of board). Search + status chips + sort dropdown
+   in one consistent strip. Hydrated/persisted by ListFilter (api-listfilter.js).
+   ============================================================================= */
+.filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--1891int-s-3);
+  align-items: center;
+  background: var(--1891int-paper);
+  border: 1px solid var(--1891int-line);
+  border-radius: var(--1891int-radius-md);
+  padding: 10px 12px;
+  margin-bottom: var(--1891int-s-5);
+}
+.filter-bar input[type="search"] {
+  flex: 1 1 220px;
+  min-width: 180px;
+  background: var(--1891int-bg);
+  border: 1px solid var(--1891int-line);
+  border-radius: var(--1891int-radius-sm);
+  padding: 8px 12px;
+  font-size: 14px;
+  outline: none;
+  color: var(--1891int-ink);
+}
+.filter-bar input[type="search"]:focus {
+  border-color: var(--1891int-bloom);
+  box-shadow: 0 0 0 2px var(--1891int-bloom-tint);
+}
+.filter-bar select {
+  background: var(--1891int-bg);
+  border: 1px solid var(--1891int-line);
+  border-radius: var(--1891int-radius-sm);
+  padding: 8px 28px 8px 10px;
+  font-size: 14px;
+  cursor: pointer;
+  color: var(--1891int-ink);
+}
+.filter-bar .chip-row {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+.filter-bar .chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--1891int-paper-deep);
+  border: 1px solid var(--1891int-line);
+  border-radius: var(--1891int-radius-pill);
+  padding: 4px 10px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--1891int-ink-soft);
+  cursor: pointer;
+  user-select: none;
+  transition: background var(--1891int-dur) var(--1891int-ease), border-color var(--1891int-dur) var(--1891int-ease), color var(--1891int-dur) var(--1891int-ease);
+}
+.filter-bar .chip:hover { border-color: var(--1891int-bloom-soft); color: var(--1891int-ink); }
+.filter-bar .chip.on {
+  background: var(--1891int-bloom-tint);
+  border-color: var(--1891int-bloom-soft);
+  color: var(--1891int-bloom-deep);
+}
+.filter-bar .chip-row-label {
+  font-size: 12px;
+  color: var(--1891int-fog);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  margin-right: 2px;
+}
+.filter-bar .count {
+  font-size: 12.5px;
+  color: var(--1891int-fog);
+  font-variant-numeric: tabular-nums;
+  margin-left: auto;
+  white-space: nowrap;
+}
+.filter-bar .reset {
+  background: transparent;
+  border: 1px solid var(--1891int-line);
+  border-radius: var(--1891int-radius-sm);
+  padding: 6px 10px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--1891int-ink-soft);
+  cursor: pointer;
+}
+.filter-bar .reset:hover { border-color: var(--1891int-rose); color: var(--1891int-rose); }
+.filter-bar .sort-label {
+  font-size: 12px;
+  color: var(--1891int-fog);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+}
+
 /* Mobile responsiveness */
 @media (max-width: 640px) {
   .board { grid-template-columns: 1fr; }
   .app-header .who span { display: none; }
+  .filter-bar { padding: 8px; }
+  .filter-bar input[type="search"] { flex-basis: 100%; }
+  .filter-bar .count { margin-left: 0; }
 }

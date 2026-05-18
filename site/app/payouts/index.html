@@ -43,21 +43,19 @@
         <div class="toolbar">
           <h1 style="margin:0;font-size:28px">Payouts</h1>
           <div class="spacer"></div>
-          <div class="filter">
-            <label for="f-status" style="font-size:13px;color:var(--1891int-fog)">Status</label>
-            <select id="f-status">
-              <option value="">All</option>
-              <option value="pending">Pending</option>
-              <option value="paid">Paid</option>
-              <option value="void">Void</option>
-            </select>
-          </div>
           <button class="btn btn-ghost btn-sm" type="button" id="refresh">Refresh</button>
           <button class="btn btn-primary" type="button" id="new-po">+ New payout</button>
         </div>
 
+        <div class="filter-bar" id="filter-bar" style="display:none"></div>
+
         <div id="loading" class="empty-state"><span class="spinner"></span> Loading payouts&hellip;</div>
         <div id="board" class="board" style="display:none"></div>
+        <div id="no-matches" class="empty-state" style="display:none">
+          <h2>No matches.</h2>
+          <p>Try a different search term, or clear the filters to see all payouts.</p>
+          <button class="btn btn-ghost" type="button" id="no-matches-reset">Clear filters</button>
+        </div>
         <div id="empty" class="empty-state" style="display:none">
           <h2>No payouts yet.</h2>
           <p>Payouts roll up an interpreter's completed assignments into a single pay run. Pick an interpreter and a period, preview the hours, then issue.</p>
@@ -140,12 +138,14 @@
 <script src="/interpreter/assets/js/whitelabel.js" defer></script>
 <script src="/interpreter/assets/js/api.js" defer></script>
 <script src="/interpreter/assets/js/api-invoices.js" defer></script>
+<script src="/interpreter/assets/js/list-filter.js" defer></script>
 <script>
 (function () {
   'use strict';
   document.addEventListener('DOMContentLoaded', init);
 
   var state = { payouts: [], me: null, interpreters: [] };
+  var filter = null;
 
   function $(id) { return document.getElementById(id); }
   function escHtml(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
@@ -172,8 +172,11 @@
     }).catch(function () { toast('Could not reach the server.', 'error'); });
 
     $('refresh').addEventListener('click', loadList);
-    $('f-status').addEventListener('change', renderList);
     $('new-po').addEventListener('click', openNewPo);
+    $('no-matches-reset').addEventListener('click', function () {
+      var resetBtn = document.querySelector('#filter-bar .reset');
+      if (resetBtn) resetBtn.click();
+    });
     $('save-po').addEventListener('click', savePo);
     $('preview-po').addEventListener('click', previewPo);
     var emptyBtn = $('empty-add'); if (emptyBtn) emptyBtn.addEventListener('click', openNewPo);
@@ -197,25 +200,62 @@
     $('loading').style.display = '';
     $('board').style.display = 'none';
     $('empty').style.display = 'none';
+    $('no-matches').style.display = 'none';
+    $('filter-bar').style.display = 'none';
     IntApiInvoices.listPayouts().then(function (r) {
       $('loading').style.display = 'none';
       if (!r || !r.ok) { toast((r && r.error) || 'Load failed', 'error'); return; }
       state.payouts = r.payouts || [];
-      renderList();
+      if (!state.payouts.length) { $('empty').style.display = ''; return; }
+      $('filter-bar').style.display = '';
+      mountFilter(state.payouts);
     }).catch(function () { $('loading').style.display = 'none'; toast('Network error', 'error'); });
   }
 
-  function renderList() {
-    var filter = $('f-status').value;
-    var rows = state.payouts.filter(function (p) { return !filter || String(p.status) === filter; });
-    if (!rows.length) {
-      $('empty').style.display = '';
-      $('board').style.display = 'none';
-      return;
+  function mountFilter(items) {
+    var board = $('board');
+    var noMatch = $('no-matches');
+    if (!filter) {
+      filter = ListFilter.mount({
+        items: items,
+        bar: '#filter-bar',
+        searchPlaceholder: 'Search payouts by interpreter, period, status…',
+        searchFields: function (p) {
+          return [
+            p.interpreter_display_name, p.interpreter_id, p.payout_id,
+            p.period_start, p.period_end, p.status,
+            p.stripe_transfer_id,
+            IntApiInvoices.formatCents(p.total_cents)
+          ];
+        },
+        statuses: ['pending', 'paid', 'void'],
+        statusOf: function (p) { return String(p.status || 'pending').toLowerCase(); },
+        sortOptions: [
+          { value: 'recent', label: 'Most recent', cmp: function (a, b) {
+            return String(b.issued_at || b.period_end || '').localeCompare(String(a.issued_at || a.period_end || ''));
+          } },
+          { value: 'oldest', label: 'Oldest first', cmp: function (a, b) {
+            return String(a.issued_at || a.period_start || '').localeCompare(String(b.issued_at || b.period_start || ''));
+          } },
+          { value: 'total_desc', label: 'Largest total', cmp: ListFilter.cmpNumDesc('total_cents') },
+          { value: 'total_asc', label: 'Smallest total', cmp: ListFilter.cmpNumAsc('total_cents') },
+          { value: 'interp', label: 'Interpreter A→Z', cmp: ListFilter.cmpStrAsc('interpreter_display_name') }
+        ],
+        defaultSort: 'recent',
+        render: function (rows) {
+          if (!rows.length) {
+            board.style.display = 'none';
+            noMatch.style.display = '';
+            return;
+          }
+          noMatch.style.display = 'none';
+          board.innerHTML = rows.map(payoutCard).join('');
+          board.style.display = '';
+        }
+      });
+    } else {
+      filter.setItems(items);
     }
-    $('board').innerHTML = rows.map(payoutCard).join('');
-    $('board').style.display = '';
-    $('empty').style.display = 'none';
   }
 
   function payoutCard(p) {

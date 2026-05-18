@@ -196,6 +196,80 @@
   </main>
 </div>
 
+<div class="modal-backdrop" id="m-client">
+  <div class="modal">
+    <div class="modal-header"><h2>Edit client</h2><button class="close" type="button" data-close>&times;</button></div>
+    <form id="form-client" class="modal-body">
+      <input type="hidden" id="cl-id">
+      <div class="field">
+        <label for="cl-legal">Legal name <span aria-hidden="true">*</span></label>
+        <input id="cl-legal" type="text" required>
+      </div>
+      <div class="field">
+        <label for="cl-display">Display name</label>
+        <input id="cl-display" type="text">
+        <div class="help">Shorthand shown on invoices and dashboards. Falls back to legal name.</div>
+      </div>
+      <div class="field">
+        <label for="cl-type">Client type</label>
+        <select id="cl-type">
+          <option value="business">Business / Corporate</option>
+          <option value="healthcare">Healthcare system</option>
+          <option value="education">School district / University</option>
+          <option value="legal">Court / Legal</option>
+          <option value="gov">Government</option>
+          <option value="nonprofit">Nonprofit</option>
+          <option value="individual">Individual</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="cl-industry">Industry / department</label>
+        <input id="cl-industry" type="text">
+      </div>
+      <div class="field">
+        <label for="cl-bill-email">Billing email</label>
+        <input id="cl-bill-email" type="email">
+      </div>
+      <div class="field">
+        <label for="cl-bill-phone">Billing phone</label>
+        <input id="cl-bill-phone" type="tel">
+      </div>
+      <div class="field">
+        <label for="cl-bill-addr">Billing address</label>
+        <textarea id="cl-bill-addr" rows="3"></textarea>
+      </div>
+      <div class="field">
+        <label for="cl-terms">Net terms</label>
+        <select id="cl-terms">
+          <option value="NET15">NET 15</option>
+          <option value="NET30">NET 30</option>
+          <option value="NET45">NET 45</option>
+          <option value="NET60">NET 60</option>
+          <option value="DUE_ON_RECEIPT">Due on receipt</option>
+        </select>
+      </div>
+      <div class="field">
+        <label class="check"><input type="checkbox" id="cl-tax-exempt"> <span>Tax-exempt</span></label>
+      </div>
+      <div class="field">
+        <label for="cl-status">Status</label>
+        <select id="cl-status">
+          <option value="active">Active</option>
+          <option value="inactive">Inactive (hide from new bookings)</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="cl-notes">Notes</label>
+        <textarea id="cl-notes" rows="2"></textarea>
+      </div>
+    </form>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" type="button" data-close>Cancel</button>
+      <button class="btn btn-primary" type="button" id="save-client">Save changes</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-backdrop" id="m-spec">
   <div class="modal">
     <div class="modal-header"><h2>Add specialist</h2><button class="close" type="button" data-close>&times;</button></div>
@@ -280,8 +354,56 @@
     $('save-contact').addEventListener('click', saveContact);
     $('add-requestor').addEventListener('click', addRequestor);
     $('add-req-2').addEventListener('click', addRequestor);
-    $('edit-client').addEventListener('click', function () {
-      toast('Edit form — wire next iteration; use the sheet directly for now.', 'ok');
+    $('edit-client').addEventListener('click', openEditClient);
+    $('save-client').addEventListener('click', saveEditClient);
+  }
+
+  function openEditClient() {
+    var c = STATE.client;
+    if (!c) return;
+    $('cl-id').value = c.client_id || '';
+    $('cl-legal').value = c.legal_name || '';
+    $('cl-display').value = c.display_name || '';
+    $('cl-type').value = c.client_type || 'business';
+    $('cl-industry').value = c.industry || '';
+    $('cl-bill-email').value = c.billing_email || '';
+    $('cl-bill-phone').value = c.billing_phone || '';
+    $('cl-bill-addr').value = c.billing_address || '';
+    $('cl-terms').value = c.net_terms || 'NET30';
+    $('cl-tax-exempt').checked = c.tax_exempt === true || c.tax_exempt === 'true';
+    $('cl-status').value = c.status || 'active';
+    $('cl-notes').value = c.notes || '';
+    $('m-client').classList.add('open');
+  }
+
+  function saveEditClient() {
+    var form = $('form-client');
+    if (!form.reportValidity()) return;
+    var fields = {
+      client_id: $('cl-id').value,
+      legal_name: $('cl-legal').value.trim(),
+      display_name: $('cl-display').value.trim(),
+      client_type: $('cl-type').value,
+      industry: $('cl-industry').value.trim(),
+      billing_email: $('cl-bill-email').value.trim(),
+      billing_phone: $('cl-bill-phone').value.trim(),
+      billing_address: $('cl-bill-addr').value.trim(),
+      net_terms: $('cl-terms').value,
+      tax_exempt: $('cl-tax-exempt').checked ? 'true' : 'false',
+      status: $('cl-status').value,
+      notes: $('cl-notes').value.trim()
+    };
+    var btn = $('save-client');
+    btn.disabled = true; btn.textContent = 'Saving…';
+    IntApi.updateClient(fields).then(function (r) {
+      btn.disabled = false; btn.textContent = 'Save changes';
+      if (!r || !r.ok) { toast((r && r.error) || 'Save failed.', 'error'); return; }
+      toast('Client updated.', 'ok');
+      $('m-client').classList.remove('open');
+      load();
+    }).catch(function () {
+      btn.disabled = false; btn.textContent = 'Save changes';
+      toast('Save failed.', 'error');
     });
   }
 

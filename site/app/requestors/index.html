@@ -39,11 +39,17 @@
         <button class="btn btn-ghost btn-sm" type="button" id="refresh">Refresh</button>
         <button class="btn btn-primary" type="button" id="new-req">+ Add requestor</button>
       </div>
+      <div class="filter-bar" id="filter-bar" style="display:none"></div>
       <div id="loading" class="empty-state"><span class="spinner"></span> Loading&hellip;</div>
       <div id="list" class="board" style="display:none"></div>
+      <div id="no-matches" class="empty-state" style="display:none">
+        <h2>No matches.</h2>
+        <p>Try a different search term, or clear the filters to see everyone.</p>
+        <button class="btn btn-ghost" type="button" id="no-matches-reset">Clear filters</button>
+      </div>
       <div id="empty" class="empty-state" style="display:none">
         <h2>No requestors yet.</h2>
-        <p>Requestors are the organizations who book interpreters — hospitals, school districts, courts, employers. They're who an invoice goes to.</p>
+        <p>Requestors are the departments or contacts that book on behalf of a client — the L&amp;D coordinator at a hospital, the principal at a school, the clerk at a court.</p>
         <button class="btn btn-primary" type="button" id="empty-add">+ Add your first requestor</button>
       </div>
     </div>
@@ -89,9 +95,12 @@
 
 <script src="/interpreter/assets/js/whitelabel.js" defer></script>
 <script src="/interpreter/assets/js/api.js" defer></script>
+<script src="/interpreter/assets/js/list-filter.js" defer></script>
 <script>
 (function () {
   'use strict';
+  var filter = null;
+  var clientById = {};
   document.addEventListener('DOMContentLoaded', init);
   function $(id) { return document.getElementById(id); }
   function escHtml(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]; }); }
@@ -109,6 +118,10 @@
     $('new-req').addEventListener('click', function () { $('new-req-form').reset(); $('m-new').classList.add('open'); });
     $('empty-add').addEventListener('click', function () { $('new-req-form').reset(); $('m-new').classList.add('open'); });
     $('save-req').addEventListener('click', save);
+    $('no-matches-reset').addEventListener('click', function () {
+      var resetBtn = document.querySelector('#filter-bar .reset');
+      if (resetBtn) resetBtn.click();
+    });
     $('signout').addEventListener('click', function () { IntApi.clearSession(); location.href = '/interpreter/'; });
     document.querySelectorAll('[data-close]').forEach(function (b) {
       b.addEventListener('click', function () { document.querySelectorAll('.modal-backdrop.open').forEach(function (m) { m.classList.remove('open'); }); });
@@ -120,29 +133,84 @@
     $('loading').style.display = '';
     $('list').style.display = 'none';
     $('empty').style.display = 'none';
-    IntApi.listRequestors().then(function (r) {
+    $('no-matches').style.display = 'none';
+    $('filter-bar').style.display = 'none';
+    // Resolve client_id → client display name in parallel.
+    Promise.all([
+      IntApi.listRequestors(),
+      IntApi.listClients ? IntApi.listClients() : Promise.resolve({ ok: true, clients: [] })
+    ]).then(function (results) {
+      var r = results[0], cr = results[1];
       $('loading').style.display = 'none';
       if (!r || !r.ok) { toast(r && r.error || 'Load failed', 'error'); return; }
+      clientById = {};
+      if (cr && cr.ok && cr.clients) {
+        cr.clients.forEach(function (c) {
+          clientById[c.client_id] = c.display_name || c.legal_name || c.client_id;
+        });
+      }
       var reqs = r.requestors || [];
       if (!reqs.length) { $('empty').style.display = ''; return; }
-      $('list').innerHTML = reqs.map(card).join('');
-      $('list').style.display = '';
+      $('filter-bar').style.display = '';
+      mountFilter(reqs);
+    }).catch(function () {
+      $('loading').style.display = 'none';
+      toast('Load failed', 'error');
     });
   }
 
   function card(r) {
+    var clientName = r.client_id ? (clientById[r.client_id] || r.client_id) : '';
     return [
       '<article class="job-card" data-status="OPEN">',
       '  <span class="status-strip" aria-hidden="true"></span>',
       '  <div class="job-status">' + escHtml((r.type || 'other').replace(/-/g,' ')) + '</div>',
       '  <h3>' + escHtml(r.display_name) + '</h3>',
       '  <dl class="meta">',
+      (clientName ? '    <dt>Client</dt><dd>' + escHtml(clientName) + '</dd>' : ''),
       '    <dt>Status</dt><dd>' + escHtml(r.status || 'active') + '</dd>',
       (r.po_required === true || r.po_required === 'true' ? '    <dt>PO</dt><dd>Required on every invoice</dd>' : ''),
       (r.notes ? '    <dt>Notes</dt><dd>' + escHtml(r.notes) + '</dd>' : ''),
       '  </dl>',
       '</article>'
     ].join('\n');
+  }
+
+  function mountFilter(items) {
+    var listEl = $('list');
+    var noMatch = $('no-matches');
+    var statuses = ['active', 'inactive'];
+    if (!filter) {
+      filter = ListFilter.mount({
+        items: items,
+        bar: '#filter-bar',
+        searchPlaceholder: 'Search requestors by name, type, parent client…',
+        searchFields: function (r) {
+          var clientName = r.client_id ? (clientById[r.client_id] || r.client_id) : '';
+          return [r.display_name, r.type, r.status, r.notes, clientName, r.client_id];
+        },
+        statuses: statuses,
+        statusOf: function (r) { return (r.status || 'active').toLowerCase(); },
+        sortOptions: [
+          { value: 'name_asc', label: 'Name A→Z', cmp: ListFilter.cmpStrAsc('display_name') },
+          { value: 'name_desc', label: 'Name Z→A', cmp: ListFilter.cmpStrDesc('display_name') },
+          { value: 'recent', label: 'Recently added', cmp: ListFilter.cmpDateDesc('_created_at') }
+        ],
+        defaultSort: 'name_asc',
+        render: function (rows) {
+          if (!rows.length) {
+            listEl.style.display = 'none';
+            noMatch.style.display = '';
+            return;
+          }
+          noMatch.style.display = 'none';
+          listEl.innerHTML = rows.map(card).join('');
+          listEl.style.display = '';
+        }
+      });
+    } else {
+      filter.setItems(items);
+    }
   }
 
   function save() {
