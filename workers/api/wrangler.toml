@@ -35,5 +35,5 @@ new_classes = ["JobBoardRoom"]
 # and paste the resulting ids below before the next `wrangler deploy`.
 [[kv_namespaces]]
 binding = "IDEMPOTENCY"
-id = "<placeholder>"
-preview_id = "<placeholder>"
+id = "eb7d57a82a514664bab188ad12e13c0a"
+preview_id = "7531f980a2ca475c8346f1dee1476960"
