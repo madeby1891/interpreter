@@ -30,7 +30,15 @@ import {
   isConfigured as stripeConfigured,
   isTestMode as stripeTestMode,
   unconfigured as stripeUnconfigured,
+  SUBSCRIBED_EVENTS,
 } from "./stripe";
+import {
+  createSubscriptionCheckoutSession,
+  isTier,
+  isBilling,
+  type Tier,
+  type Billing,
+} from "./billing";
 import {
   createNec1099,
   getForm as get1099Form,
@@ -66,6 +74,10 @@ export interface Env {
   // PHI column-level encryption — set with `wrangler secret put PHI_MASTER_KEY`.
   // Must be ≥32 random bytes, base64url-encoded. Never set in wrangler.toml.
   PHI_MASTER_KEY?: string;
+  // Stripe webhook idempotency log (PAYMENTS.md §7.2). Optional so a Worker
+  // can boot without the binding — we emit a one-time warning and proceed.
+  // Bind via wrangler.toml's [[kv_namespaces]] block (binding = "IDEMPOTENCY").
+  IDEMPOTENCY?: KVNamespace;
 }
 
 function corsConfig(env: Env): CorsConfig {
@@ -85,9 +97,24 @@ async function handle(req: Request, env: Env, ctx: ExecutionContext): Promise<Re
 
   if (req.method === "OPTIONS") return handlePreflight(req, cfg);
 
-  // Health.
+  // Health. Reports stripe_mode so the public /pay/* pages can render a
+  // TEST MODE banner when the worker is wired to a `sk_test_*` key.
   if (url.pathname === "/" || url.pathname === "/health") {
-    return withCors(json({ ok: true, service: "1891-interpreter-api" }), req, cfg);
+    const stripeMode = !stripeConfigured(env)
+      ? "unconfigured"
+      : stripeTestMode(env)
+        ? "test"
+        : "live";
+    return withCors(
+      json({
+        ok: true,
+        service: "1891-interpreter-api",
+        stripe_mode: stripeMode,
+        webhook_events: SUBSCRIBED_EVENTS.length, // AGENT_B_ADDED: count of Stripe events subscribed
+      }),
+      req,
+      cfg
+    );
   }
 
   // CORS proxy — strip the prefix and forward.
@@ -137,6 +164,20 @@ async function handle(req: Request, env: Env, ctx: ExecutionContext): Promise<Re
     return withCors(await handleStripeInternal(req, env, url.pathname), req, cfg);
   }
 
+  // Subscription Checkout — internal (Apps Script → Worker, gated by X-1891-Internal).
+  if (url.pathname === "/v1/billing/checkout" && req.method === "POST") {
+    return withCors(await handleBillingCheckoutInternal(req, env), req, cfg);
+  }
+
+  // PUBLIC ROUTE — rate-limited, no auth.
+  // The marketing site (pricing.html → /pay/subscribe) posts here unauthenticated
+  // to start a Stripe Checkout. Rate-limited per IP because there is no signed-in
+  // user yet. Body is strictly limited to safe params (tier, billing, email,
+  // optional agency_name) — no IDs, no amounts, no metadata pass-through.
+  if (url.pathname === "/v1/public/billing/checkout" && req.method === "POST") {
+    return withCors(await handlePublicBillingCheckout(req, env), req, cfg);
+  }
+
   // Internal track1099 routes (Apps Script → Worker).
   if (url.pathname.startsWith("/v1/track1099/")) {
     return withCors(await handleTrack1099(req, env, url.pathname), req, cfg);
@@ -157,6 +198,11 @@ async function handle(req: Request, env: Env, ctx: ExecutionContext): Promise<Re
 // Stripe webhook receiver
 // ---------------------------------------------------------------------------
 
+// Flag we flip the first time we observe a missing IDEMPOTENCY binding, so we
+// don't spam logs on every webhook. Module-scoped — a fresh isolate resets it,
+// which is fine: we'll re-warn once per isolate boot.
+let warnedMissingIdempotency = false;
+
 async function handleStripeWebhook(req: Request, env: Env): Promise<Response> {
   if (!env.STRIPE_WEBHOOK_SECRET) {
     return json(
@@ -164,14 +210,57 @@ async function handleStripeWebhook(req: Request, env: Env): Promise<Response> {
       { status: 503 }
     );
   }
+
+  // Read raw bytes BEFORE any JSON parsing — signature is over the raw body.
   const rawBody = await req.text();
   const sig = req.headers.get("Stripe-Signature");
   const v = await verifyWebhookSignature(rawBody, sig, env.STRIPE_WEBHOOK_SECRET);
   if (!v.ok || !v.event) {
     return json({ ok: false, error: `webhook signature: ${v.reason ?? "unknown"}` }, { status: 400 });
   }
-  const result = await handleWebhookEvent(env, v.event);
-  return json({ received: true, ...result });
+  const event = v.event;
+
+  // Idempotency: if we've already processed this event.id, return 200 "seen"
+  // without re-forwarding. KV is optional; if the binding is missing, log
+  // once per isolate and proceed (Apps Script also de-dupes on event_id).
+  const kv = env.IDEMPOTENCY;
+  if (kv) {
+    try {
+      const seen = await kv.get(event.id);
+      if (seen) return json({ received: true, idempotent: true, action: event.type });
+    } catch (err) {
+      console.error("IDEMPOTENCY KV get failed", event.id, String(err));
+      // Fall through — better to risk a dup than to drop the event.
+    }
+  } else if (!warnedMissingIdempotency) {
+    warnedMissingIdempotency = true;
+    console.warn(
+      "IDEMPOTENCY KV binding is missing. Stripe webhook retries will be re-forwarded to Apps Script. " +
+        "Create with `npx wrangler kv namespace create 1891-interpreter-idempotency` and add the id to wrangler.toml."
+    );
+  }
+
+  // Process. Throws here flow up to the catch in default.fetch which returns
+  // 500 — that's what we want for Stripe retries (PAYMENTS.md §7.2 step 4).
+  try {
+    const result = await handleWebhookEvent(env, event);
+    // Record success AFTER forwarding so a thrown call to Apps Script
+    // doesn't silently swallow the retry path.
+    if (kv) {
+      try {
+        await kv.put(event.id, "1", { expirationTtl: 60 * 60 * 24 * 7 });
+      } catch (err) {
+        console.error("IDEMPOTENCY KV put failed", event.id, String(err));
+      }
+    }
+    return json({ received: true, ...result });
+  } catch (err) {
+    console.error("webhook handler failed", event.id, event.type, String(err));
+    return json(
+      { ok: false, error: "webhook_handler_failed", event_id: event.id, detail: String(err) },
+      { status: 500 }
+    );
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -271,6 +360,118 @@ async function handleStripeInternal(req: Request, env: Env, pathname: string): P
     default:
       return json({ ok: false, error: "unknown stripe internal route" }, { status: 404 });
   }
+}
+
+// ---------------------------------------------------------------------------
+// Subscription Checkout (SaaS billing for the pricing page)
+// ---------------------------------------------------------------------------
+
+interface BillingCheckoutBody {
+  tier?: unknown;
+  billing?: unknown;
+  customer_email?: unknown;
+  agency_name?: unknown;
+}
+
+async function parseBillingCheckoutBody(req: Request): Promise<
+  | { ok: true; tier: Tier; billing: Billing; customer_email: string; agency_name?: string }
+  | { ok: false; error: string }
+> {
+  let body: BillingCheckoutBody = {};
+  try {
+    body = (await req.json()) as BillingCheckoutBody;
+  } catch {
+    return { ok: false, error: "bad json" };
+  }
+  const tier = body.tier;
+  const billing = body.billing;
+  const email = String(body.customer_email ?? "").trim();
+  if (!isTier(tier)) return { ok: false, error: "tier must be solo|practice|studio" };
+  if (!isBilling(billing)) return { ok: false, error: "billing must be monthly|annual" };
+  if (!email || !email.includes("@") || email.length > 200) {
+    return { ok: false, error: "valid customer_email required" };
+  }
+  const agency = body.agency_name ? String(body.agency_name).slice(0, 200) : undefined;
+  return { ok: true, tier, billing, customer_email: email, agency_name: agency };
+}
+
+async function runBillingCheckout(
+  env: Env,
+  parsed: { tier: Tier; billing: Billing; customer_email: string; agency_name?: string }
+): Promise<Response> {
+  if (!stripeConfigured(env)) {
+    // Match the stripeUnconfigured() contract — 200 with ok:false so the
+    // calling page can distinguish "not wired up yet" from a real error.
+    return json(stripeUnconfigured(), { status: 200 });
+  }
+  const session = await createSubscriptionCheckoutSession(env, {
+    tier: parsed.tier,
+    billing: parsed.billing,
+    customer_email: parsed.customer_email,
+    agency_name: parsed.agency_name,
+  });
+  if ((session as { ok?: false }).ok === false) {
+    return json({ ok: false, error: (session as { error: string }).error }, { status: 502 });
+  }
+  const s = session as { id: string; url: string };
+  return json({
+    ok: true,
+    url: s.url,
+    session_id: s.id,
+    test_mode: stripeTestMode(env),
+  });
+}
+
+async function handleBillingCheckoutInternal(req: Request, env: Env): Promise<Response> {
+  const auth = verifyInternalHeader(req, env.JWT_SECRET);
+  if (!auth.authorized) {
+    return json({ ok: false, error: auth.error ?? "unauthorized" }, { status: 401 });
+  }
+  const parsed = await parseBillingCheckoutBody(req);
+  if (!parsed.ok) return json({ ok: false, error: parsed.error }, { status: 400 });
+  return runBillingCheckout(env, parsed);
+}
+
+// --- public route rate-limit ------------------------------------------------
+// Per-IP, in-memory token bucket. Resets when the Worker isolate cycles.
+// Generous limit (10 checkouts / 5 min / IP) because legitimate retries do
+// happen (typo email → corrected email), and the idempotency-key bucket in
+// billing.ts already coalesces duplicate clicks server-side.
+//
+// In-memory is intentional: an attacker that hops isolates gets a small reset,
+// but the worst they can do is open Checkout Sessions (no charge until Stripe
+// collects card data). The Sheet/PHI never gets touched on this path.
+const PUBLIC_RATE_LIMIT = { max: 10, windowMs: 5 * 60 * 1000 };
+const publicRateBuckets = new Map<string, { count: number; resetAt: number }>();
+
+function publicRateLimitOk(ip: string, now: number = Date.now()): boolean {
+  const bucket = publicRateBuckets.get(ip);
+  if (!bucket || now > bucket.resetAt) {
+    publicRateBuckets.set(ip, { count: 1, resetAt: now + PUBLIC_RATE_LIMIT.windowMs });
+    return true;
+  }
+  if (bucket.count >= PUBLIC_RATE_LIMIT.max) return false;
+  bucket.count++;
+  return true;
+}
+
+async function handlePublicBillingCheckout(req: Request, env: Env): Promise<Response> {
+  // Cloudflare sets CF-Connecting-IP; fall back to the first X-Forwarded-For
+  // entry if absent (test harness, local wrangler). Empty string = treat as
+  // a single shared bucket so misconfigured callers don't get unlimited burst.
+  const ip =
+    req.headers.get("CF-Connecting-IP") ||
+    (req.headers.get("X-Forwarded-For") || "").split(",")[0]?.trim() ||
+    "unknown";
+  if (!publicRateLimitOk(ip)) {
+    return json(
+      { ok: false, error: "Too many checkout attempts. Try again in a few minutes." },
+      { status: 429 }
+    );
+  }
+  const parsed = await parseBillingCheckoutBody(req);
+  if (!parsed.ok) return json({ ok: false, error: parsed.error }, { status: 400 });
+  return runBillingCheckout(env, parsed);
 }
 
 // ---------------------------------------------------------------------------

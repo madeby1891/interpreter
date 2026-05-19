@@ -1,0 +1,305 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Subscribe — 1891 Interpreter</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="description" content="Subscribe to 1891 Interpreter. Pick your tier, pay through Stripe, get back to work.">
+<meta name="theme-color" content="#C8553D">
+<meta name="robots" content="noindex,nofollow">
+<link rel="icon" type="image/svg+xml" href="/interpreter/assets/img/favicon.svg">
+<link rel="stylesheet" href="/interpreter/assets/css/site.css">
+<link rel="stylesheet" href="/interpreter/assets/css/marketing-interact.css">
+<style>
+  .pay-test-banner { background: #FFF1A8; color: #5B4400; text-align: center;
+    padding: 10px 16px; font-weight: 600; font-size: 14px;
+    border-bottom: 2px solid #E0C200; }
+  .pay-summary { background: var(--1891int-paper-warm); border-radius: 12px;
+    padding: var(--1891int-s-5); margin: var(--1891int-s-5) 0; }
+  .pay-summary__row { display: flex; justify-content: space-between;
+    padding: 6px 0; font-size: 15.5px; }
+  .pay-summary__row strong { font-weight: 600; }
+  .pay-summary__total { border-top: 1px solid var(--1891int-line);
+    margin-top: 8px; padding-top: 10px; font-size: 17px; font-weight: 700; }
+  .pay-form-row { margin-bottom: var(--1891int-s-4); }
+  .pay-form-row label { display: block; font-weight: 600; margin-bottom: 6px;
+    font-size: 15px; }
+  .pay-form-row input { width: 100%; padding: 12px 14px; font-size: 16px;
+    border: 1px solid var(--1891int-line); border-radius: 8px; font-family: inherit; }
+  .pay-form-row input:focus { outline: 3px solid var(--1891int-bloom);
+    outline-offset: 1px; border-color: var(--1891int-bloom); }
+  .pay-form-row .pay-hint { font-size: 13.5px; color: var(--1891int-ink-soft);
+    margin-top: 4px; }
+  .pay-error { background: #FFEAEA; border-left: 4px solid #C8553D;
+    padding: 12px 14px; margin-top: var(--1891int-s-3); border-radius: 6px;
+    color: #6B1A0E; font-size: 14.5px; display: none; }
+  .pay-error.is-show { display: block; }
+  .pay-disclaimer { font-size: 13.5px; color: var(--1891int-ink-soft);
+    margin-top: var(--1891int-s-4); text-align: center; line-height: 1.5; }
+</style>
+</head>
+<body>
+<a href="#main" class="skip">Skip to main content</a>
+<header class="site-header">
+  <div class="wrap">
+    <a href="/interpreter/" class="brand" aria-label="1891 Interpreter, home">
+      <img src="/interpreter/assets/img/brand-mark.svg" alt="" class="brand-mark" width="32" height="32">
+      <span>1891 <span class="brand-sub">Interpreter</span></span>
+    </a>
+    <button class="nav-toggle" aria-expanded="false" aria-controls="primary-nav">
+      <span aria-hidden="true">☰</span> Menu
+    </button>
+    <nav class="nav-primary" id="primary-nav" aria-label="Primary">
+      <a href="/interpreter/for-agencies">Agencies</a>
+      <a href="/interpreter/for-schedulers">Schedulers</a>
+      <a href="/interpreter/for-interpreters">Interpreters</a>
+      <a href="/interpreter/features/">Features</a>
+      <a href="/interpreter/pricing">Pricing</a>
+      <a href="/interpreter/free-for-deaf-owned">Free for Deaf-owned</a>
+      <a href="/interpreter/security">Security</a>
+      <a href="/interpreter/about">About</a>
+      <a href="/interpreter/get-a-demo" class="btn btn-primary btn-sm nav-cta">Get a demo</a>
+    </nav>
+  </div>
+</header>
+<nav class="breadcrumb" aria-label="Breadcrumb"><div class="wrap"><a href="/interpreter/">Home</a> › <a href="/interpreter/pricing">Pricing</a> › <span aria-current="page">Subscribe</span></div></nav>
+
+<main id="main">
+  <section class="section">
+    <div class="wrap-narrow">
+      <span class="eyebrow">Subscribe</span>
+      <h1 id="subscribe-heading">Confirm and continue to Stripe.</h1>
+      <p class="lede">We'll take you to Stripe to enter your card or bank. Stripe handles payment securely — 1891 never sees your card number.</p>
+
+      <div class="card mt-5">
+        <div class="pay-summary" id="summary" aria-live="polite">
+          <div class="pay-summary__row">
+            <span>Plan</span><strong id="summary-tier">—</strong>
+          </div>
+          <div class="pay-summary__row">
+            <span>Billing</span><strong id="summary-billing">—</strong>
+          </div>
+          <div class="pay-summary__row pay-summary__total">
+            <span id="summary-price-label">Price</span><strong id="summary-price">—</strong>
+          </div>
+        </div>
+
+        <form id="subscribe-form" novalidate>
+          <div class="pay-form-row">
+            <label for="email">Your email</label>
+            <input type="email" id="email" name="email" required autocomplete="email"
+                   placeholder="you@youragency.com">
+            <p class="pay-hint">Receipts and the login link go here. Use a real inbox you check.</p>
+          </div>
+
+          <div class="pay-form-row">
+            <label for="agency_name">Agency name <span style="font-weight:400; color: var(--1891int-ink-soft)">(optional)</span></label>
+            <input type="text" id="agency_name" name="agency_name" autocomplete="organization"
+                   placeholder="Your agency, LLC">
+            <p class="pay-hint">Helps us pre-fill your tenant. You can change it later.</p>
+          </div>
+
+          <div class="pay-error" id="form-error" role="alert" aria-live="assertive"></div>
+
+          <button type="submit" id="submit-btn" class="btn btn-primary btn-lg" style="width:100%">
+            <span id="submit-label">Continue to Stripe</span>
+          </button>
+
+          <p class="pay-disclaimer">
+            By continuing, you agree to the
+            <a href="/interpreter/legal/terms">terms of service</a>
+            and acknowledge our
+            <a href="/interpreter/legal/privacy">privacy policy</a>.
+            Cancel any time — your data exports on the way out, one click.
+          </p>
+        </form>
+
+        <p class="muted" style="margin-top:var(--1891int-s-5); font-size:13.5px; text-align:center">
+          Verified Deaf-owned agency? <a href="/interpreter/free-for-deaf-owned">Use the free path instead</a> — no card required.
+        </p>
+      </div>
+
+      <p class="muted" style="margin-top:var(--1891int-s-5); text-align:center">
+        <a href="/interpreter/pricing">← Back to pricing</a>
+      </p>
+    </div>
+  </section>
+</main>
+
+<footer class="site-footer">
+  <div class="wrap">
+    <div class="footer-meta">
+      <div>© <span data-year>2026</span> 1891 LLC. Built in Frederick. Carried forward since 1891.</div>
+      <div><a href="/interpreter/sign-in">Sign in</a> · <a href="https://madeby1891.com/">madeby1891.com</a></div>
+    </div>
+  </div>
+</footer>
+
+<script src="/interpreter/assets/js/payments-config.js" defer></script>
+<script src="/interpreter/assets/js/main.js" defer></script>
+<script defer>
+(function () {
+  'use strict';
+
+  // ---- Tier catalog (must match workers/api/src/billing.ts PRICE_CATALOG) ---
+  var CATALOG = {
+    solo: {
+      label: 'Solo',
+      monthly: { price: '$11/mo', total: '$11 today, then monthly' },
+      annual:  { price: '$108/yr', total: '$108 today, then yearly' }
+    },
+    practice: {
+      label: 'Practice',
+      monthly: { price: '$299/mo', total: '$299 today, then monthly' },
+      annual:  { price: '$2,988/yr', total: '$2,988 today, then yearly' }
+    },
+    studio: {
+      label: 'Studio',
+      monthly: { price: '$899/mo', total: '$899 today, then monthly' },
+      annual:  { price: '$8,988/yr', total: '$8,988 today, then yearly' }
+    }
+  };
+
+  function $(id) { return document.getElementById(id); }
+  function qp(name) {
+    try { return new URLSearchParams(window.location.search).get(name) || ''; }
+    catch (e) { return ''; }
+  }
+  function showError(msg) {
+    var el = $('form-error');
+    el.textContent = msg;
+    el.classList.add('is-show');
+  }
+  function clearError() {
+    var el = $('form-error');
+    el.textContent = '';
+    el.classList.remove('is-show');
+  }
+
+  // ---- TEST MODE banner ----------------------------------------------------
+  function renderTestBannerIfNeeded() {
+    var base = (window.IntPayments && window.IntPayments.workerBase) || '';
+    if (!base) return;
+    fetch(base.replace(/\/$/, '') + '/health', { cache: 'no-store' })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (body) {
+        if (!body) return;
+        if (body.stripe_mode === 'test') {
+          var b = document.createElement('div');
+          b.className = 'pay-test-banner';
+          b.setAttribute('role', 'status');
+          b.innerHTML = '<strong>TEST MODE</strong> — this page is for testing. Cards will not be charged.';
+          document.body.insertBefore(b, document.body.firstChild);
+        } else if (body.stripe_mode === 'unconfigured') {
+          var b2 = document.createElement('div');
+          b2.className = 'pay-test-banner';
+          b2.setAttribute('role', 'status');
+          b2.innerHTML = '<strong>NOT CONFIGURED</strong> — Stripe is not wired up yet. This form will fail.';
+          document.body.insertBefore(b2, document.body.firstChild);
+        }
+      })
+      .catch(function () { /* /health unreachable — fail quiet */ });
+  }
+
+  // ---- Render summary from query params -----------------------------------
+  function renderSummary() {
+    var tier = qp('tier');
+    var billing = qp('billing');
+    var cat = CATALOG[tier];
+    if (!cat || (billing !== 'monthly' && billing !== 'annual')) {
+      // Default to Practice annual so the page still has something to show.
+      tier = 'practice';
+      billing = 'annual';
+      cat = CATALOG[tier];
+      // Quietly correct the URL for share-ability.
+      try {
+        var u = new URL(window.location.href);
+        u.searchParams.set('tier', tier);
+        u.searchParams.set('billing', billing);
+        window.history.replaceState({}, '', u.toString());
+      } catch (e) { /* no-op */ }
+    }
+    $('summary-tier').textContent = cat.label;
+    $('summary-billing').textContent = billing === 'annual' ? 'Annual' : 'Monthly';
+    $('summary-price').textContent = cat[billing].price;
+    $('summary-price-label').textContent = billing === 'annual' ? 'Billed yearly' : 'Billed monthly';
+    document.title = 'Subscribe — ' + cat.label + ' — 1891 Interpreter';
+    return { tier: tier, billing: billing };
+  }
+
+  // ---- Submit handler -----------------------------------------------------
+  function setSubmitting(submitting) {
+    var btn = $('submit-btn');
+    var lbl = $('submit-label');
+    btn.disabled = submitting;
+    lbl.textContent = submitting ? 'Opening Stripe…' : 'Continue to Stripe';
+  }
+
+  function handleSubmit(e) {
+    e.preventDefault();
+    clearError();
+    var pick = renderSummary();
+    var email = ($('email').value || '').trim();
+    var agency = ($('agency_name').value || '').trim();
+    if (!email || email.indexOf('@') < 0) {
+      showError('Please enter a valid email address.');
+      $('email').focus();
+      return;
+    }
+    var base = (window.IntPayments && window.IntPayments.workerBase) || '';
+    if (!base) {
+      showError('Payments are not configured yet. Email hello@madeby1891.com and we will sort this out.');
+      return;
+    }
+    setSubmitting(true);
+    fetch(base.replace(/\/$/, '') + '/v1/public/billing/checkout', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        tier: pick.tier,
+        billing: pick.billing,
+        customer_email: email,
+        agency_name: agency || undefined
+      })
+    })
+      .then(function (r) {
+        return r.json().then(function (body) { return { status: r.status, body: body }; });
+      })
+      .then(function (res) {
+        if (res.body && res.body.ok && res.body.url) {
+          // Stripe Checkout URL — redirect.
+          window.location.assign(res.body.url);
+          return;
+        }
+        setSubmitting(false);
+        if (res.body && res.body.status === 'unconfigured') {
+          showError('Payments are not configured yet. Email hello@madeby1891.com and we will sort this out.');
+          return;
+        }
+        var msg = (res.body && res.body.error) || ('Something went wrong (HTTP ' + res.status + ').');
+        showError(msg);
+      })
+      .catch(function (err) {
+        setSubmitting(false);
+        showError('Could not reach the payments service. Check your connection and try again.');
+        try { console.warn('[subscribe]', err); } catch (e) { /* ignore */ }
+      });
+  }
+
+  function init() {
+    renderSummary();
+    renderTestBannerIfNeeded();
+    document.getElementById('subscribe-form').addEventListener('submit', handleSubmit);
+    var y = document.querySelector('[data-year]');
+    if (y) y.textContent = String(new Date().getFullYear());
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
+})();
+</script>
+</body>
+</html>
