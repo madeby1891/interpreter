@@ -36,6 +36,16 @@ var NOTIFY_EMAIL         = 'hello@madeby1891.com';
 var ACCESSIBILITY_NOTIFY = 'accessibility@madeby1891.com';
 var SECURITY_NOTIFY      = 'security@madeby1891.com';
 
+// Brand identity for customer-facing email. Mirrors the FDT pattern
+// (BRAND_NAME / BRAND_FROM_EMAIL / BRAND_REPLY_TO). Every MailApp.sendEmail
+// that goes to a paying customer should pass `name: BRAND_NAME` and
+// `replyTo: BRAND_REPLY_TO` so receipts/welcomes look like they came from
+// "1891 Interpreter" — not "Anthony Mowl" (the Apps Script owner).
+var BRAND_NAME       = '1891 Interpreter';
+var BRAND_FROM_EMAIL = 'contact@madeby1891.com';
+var BRAND_REPLY_TO   = 'contact@madeby1891.com';
+var BRAND_DOMAIN     = 'madeby1891.com/interpreter';
+
 // Sheet tabs (canonical names per PRD A3)
 var T = {
   Agencies: 'Agencies',

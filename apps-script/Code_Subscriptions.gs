@@ -289,6 +289,62 @@ function _subRedactPayload_(s) {
   return s.replace(/\b\d{3}-\d{2}-\d{4}\b/g, '[REDACTED-SSN]');
 }
 
+// ---- branded welcome email ---------------------------------------------------
+// Sent once per net-new subscription (on the customer.subscription.created
+// path — guarded by the "row didn't exist before" check in the upsert).
+// Plain text only; this is the brand moment, NOT a Stripe receipt. Stripe's
+// own receipt with the dollar amount + invoice link will arrive separately
+// once the account-level "Email customers about successful payments" toggle
+// flips on (dashboard-only setting at dashboard.stripe.com/settings/emails).
+// Until that toggle is on, this welcome IS the receipt the customer gets.
+function _subSendBrandedWelcome_(toEmail, info) {
+  if (!toEmail) return { sent: false, reason: 'no_email' };
+  var tier  = (info.tier || '').replace(/^\w/, function(c){ return c.toUpperCase(); }) || 'paid';
+  var billing = info.billing_interval === 'annual' ? 'annually' :
+                info.billing_interval === 'month'  ? 'monthly' :
+                info.billing_interval || 'on your selected schedule';
+  var subject = 'Welcome to ' + BRAND_NAME + ' — your ' + tier + ' subscription is active';
+  var body = [
+    'Hi,',
+    '',
+    'Welcome to ' + BRAND_NAME + '. You\'re on the ' + tier + ' plan, billed ' + billing + '.',
+    '',
+    'What happens next:',
+    '',
+    '  1. Sign in at https://' + BRAND_DOMAIN + '/sign-in. We\'ll send a',
+    '     magic-link to ' + toEmail + ' when you ask.',
+    '  2. Add your first interpreters and your first requestor.',
+    '  3. Schedule your first job. The platform takes it from there.',
+    '',
+    'A separate receipt from Stripe will land in this inbox within a few',
+    'minutes (look for "MADE BY 1891" or "1891 INTERPRETER" on your card',
+    'statement — same charge). Keep that receipt for your tax records.',
+    '',
+    'Manage your subscription — change plan, update card, cancel any time —',
+    'from the "Manage subscription" link in your Stripe receipt, or write us',
+    'at ' + BRAND_REPLY_TO + ' and we\'ll send you a fresh portal link.',
+    '',
+    'Questions? Just reply to this email. We read everything that lands at',
+    BRAND_REPLY_TO + '.',
+    '',
+    'Built in Frederick. Carried forward since 1891.',
+    '— The ' + BRAND_NAME + ' team'
+  ].join('\n');
+  try {
+    MailApp.sendEmail({
+      to:      toEmail,
+      subject: subject,
+      body:    body,
+      name:    BRAND_NAME,
+      replyTo: BRAND_REPLY_TO
+    });
+    return { sent: true };
+  } catch (err) {
+    Logger.log('welcome email send failed for ' + toEmail + ': ' + err);
+    return { sent: false, reason: String(err) };
+  }
+}
+
 // ============================================================================
 // DISPATCH TABLE
 // ============================================================================
@@ -429,6 +485,18 @@ function _subHandleSubscriptionEvent_(ctx) {
       nowIso,                      // updated_at
       ''                           // notes
     ]);
+    // Brand-voice welcome — only on the first create per subscription. The
+    // append-row guard above is our idempotency key (a row exists ⇒ already
+    // sent). Stripe sometimes fires .created twice on retry after the first
+    // invoice fails; the existing-row check absorbs the duplicate.
+    if (ctx.eventType === 'customer.subscription.created' && status !== 'canceled') {
+      _subSendBrandedWelcome_(billingEmail, {
+        tier: tier,
+        billing_interval: billingInterval,
+        subscription_id: subscriptionId,
+        agency_id: agencyId
+      });
+    }
   }
 
   // Patch the Agencies row if we matched one.
