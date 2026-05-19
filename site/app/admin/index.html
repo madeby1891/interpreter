@@ -21,7 +21,11 @@
   .summary .stat { padding:var(--1891int-s-4); border:1px solid var(--1891int-line); border-radius:var(--1891int-r-2); background:#fff; }
   .summary .stat .n { font-size:28px; font-weight:600; color:var(--1891int-river); }
   .summary .stat .l { font-size:12px; color:var(--1891int-fog); text-transform:uppercase; letter-spacing:.05em; }
+  .rev-strip { margin-top:var(--1891int-s-5); }
+  .rev-card { border-radius:var(--1891int-r-2); }
 </style>
+<link rel="stylesheet" href="https://stripe-revenue.anthonymowl.workers.dev/widget.css">
+<script src="https://stripe-revenue.anthonymowl.workers.dev/widget.js" defer></script>
 </head>
 <body>
 <a href="#main" class="skip">Skip to main content</a>
@@ -62,6 +66,10 @@
         <div class="stat"><div class="n" id="s-tenants">—</div><div class="l">Tenants</div></div>
         <div class="stat"><div class="n" id="s-active">—</div><div class="l">Active tenants</div></div>
         <div class="stat"><div class="n" id="s-owners">—</div><div class="l">Tenant owner seats</div></div>
+      </div>
+
+      <div class="rev-strip">
+        <revenue-card project="interpreter" title="1891 Interpreter revenue"></revenue-card>
       </div>
 
       <div class="admin-cards">
