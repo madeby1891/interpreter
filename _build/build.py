@@ -20,6 +20,26 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 SITE = ROOT / "site"
 BASE_PATH = "/interpreter"
+
+# Release stamping — shared/specs/CONTINUOUS_LEARNING.md §2.5.
+import sys as _sys
+_sys.path.insert(0, str(Path(__file__).resolve().parent))
+from build_release_json import emit_release_json  # noqa: E402
+from compute_event_token import event_token  # noqa: E402
+
+EVENT_TOKEN = event_token("interpreter")
+EVENT_TAGS = (
+    f'<link rel="stylesheet" href="https://cdn.madeby1891.com/shared/components/feedback-widget/feedback-widget.css">\n'
+    f'<script src="https://cdn.madeby1891.com/shared/lib/event-capture/event-capture.js" '
+    f'data-event-capture-key="interpreter" '
+    f'data-event-capture-url="https://1891-events.workers.dev/e" '
+    f'data-event-capture-token="{EVENT_TOKEN}" '
+    f'data-event-capture-errors="true" defer></script>\n'
+    f'<script src="https://cdn.madeby1891.com/shared/components/feedback-widget/feedback-widget.js" '
+    f'data-project="interpreter" '
+    f'data-endpoint="https://1891-events.workers.dev/feedback" '
+    f'data-token="{EVENT_TOKEN}" defer></script>'
+)
 CANONICAL_BASE = "https://madeby1891.com" + BASE_PATH
 BUILD_DATE = "2026-05-17"
 
@@ -65,6 +85,7 @@ HEAD_TPL = """<!doctype html>
   "description": "The interpreting agency platform built by the community it serves — free, forever, for Deaf-owned agencies."
 }}
 </script>{extra_head}
+{event_tags}
 </head>
 <body>
 <a href="#main" class="skip">Skip to main content</a>
@@ -2490,6 +2511,7 @@ def render(page: Page) -> str:
         og_title=(page.og_title or page.title),
         base=BASE_PATH,
         extra_head=page.extra_head,
+        event_tags=EVENT_TAGS,
     )
     return head + header_html(page.nav_active) + page.breadcrumb_html + f'<main id="main">\n{page.body}\n</main>\n' + FOOTER
 
@@ -2544,6 +2566,7 @@ def main() -> None:
         print(f"  {p.relative_to(ROOT)}")
     print(f"Wrote {sm.relative_to(ROOT)}")
     print(f"Wrote {rb.relative_to(ROOT)}")
+    emit_release_json("interpreter", SITE, repo_root=ROOT)
 
 
 if __name__ == "__main__":
