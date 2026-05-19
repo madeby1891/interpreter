@@ -163,7 +163,11 @@ export async function createSubscriptionCheckoutSession(
       cancel_url: `${SUCCESS_URL_BASE}/cancel`,
       allow_promotion_codes: true,
       billing_address_collection: "auto",
-      automatic_tax: { enabled: true },
+      // automatic_tax is OFF until head_office is set in Stripe Tax settings
+      // and we register in any state that actually taxes interpreting services
+      // (HI, NM, SD per E_billing.md §E6.1; MD does not). Flip to true once
+      // Stripe Tax status is "active" and a per-state nexus has registered.
+      // automatic_tax: { enabled: true },
       // Mirror metadata onto the resulting subscription so webhook handlers
       // get the same tier/billing tags without re-deriving from price IDs.
       subscription_data: { metadata },
