@@ -191,8 +191,16 @@ Worker source: `workers/api/src/stripe.ts` → `createTransfer`.
 
 ---
 
-### 1.5 Agency Stripe Connect OAuth read-only reporting (Pattern G — Mode A canonical)
+### 1.5 Agency Stripe Connect OAuth read-only reporting (Pattern G — Mode A canonical) — ⏸️ DEFERRED 2026-05-19
 
+> **Status: code shipped + dormant. Not driving Stripe activation until a real agency asks for the reporting view.**
+>
+> **Why deferred** — Stripe's modern Connect onboarding blocks live-mode platform setup behind a sandbox-prototype gate ("You must set up this feature in your sandbox account before using it in your live account"). To get a live `ca_…`, the platform owner has to (a) walk through Stripe's sandbox wizard, (b) build the integration against test keys, (c) submit Connect for live activation review (Stripe's queue, hours-to-days). All for a feature with zero current customer demand. Not worth the operational tax today.
+>
+> **What's already shipped and waiting** — every code surface below exists in git + the deployed worker + the deployed site. Each route gracefully returns `{ok:false, status:'unconfigured'}` while `STRIPE_CONNECT_CLIENT_ID` is unset. The "Connect with Stripe" card on `/app/payments` shows a yellow "platform not enabled yet" banner. Nothing is broken; nothing is half-built.
+>
+> **To re-light Pattern G when a customer asks** — see "Gated on:" at the bottom of this subsection. Roughly: switch to sandbox, walk wizard, get `ca_test_…`, submit Connect for live activation, swap in live `ca_…`, set `STRIPE_CONNECT_CLIENT_ID` worker secret, retry `clasp push` for `Code_Connect.gs`, run `migrateSubscriptionsSchema()`, build the `/app/reports` UI to consume `/v1/connect/report`. Budget: ~1-2 days work + Stripe's review wait.
+>
 > **Added 2026-05-19 from the Mode-A pivot. See `shared/specs/PAYMENTS.md` §2.6 Pattern G for the full canonical pattern.**
 
 The agency clicks "Connect your Stripe" in the in-app Payments tab. The platform redirects them to Stripe's OAuth consent screen with `scope=read_only`. The agency logs into their Stripe (or creates a Standard Connect account if they don't have one yet). Stripe redirects back with a `code`; the platform exchanges it for the agency's `stripe_user_id` (`acct_…`) and stamps it on the agency row. Subsequent platform calls use the platform's restricted key with the `Stripe-Account: acct_<agency>` header to pull read-only data: balance, AR, recent invoices, recent payouts.
