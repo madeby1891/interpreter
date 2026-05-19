@@ -151,6 +151,15 @@ export async function createSubscriptionCheckoutSession(
     metadata.agency_name = String(params.agency_name).trim().slice(0, 500);
   }
 
+  // Human-readable tier name for invoice description + email subject lines.
+  const tierName = tier.charAt(0).toUpperCase() + tier.slice(1);
+  const billingLabel = billing === "annual" ? "annual" : "monthly";
+  const subscriptionDescription = `1891 Interpreter — ${tierName} plan (billed ${billingLabel})`;
+  const invoiceFooter =
+    `Questions about this invoice? Email contact@madeby1891.com or visit ` +
+    `https://madeby1891.com/interpreter. Manage your subscription any time ` +
+    `from the link in your receipt — change plan, update card, or cancel.`;
+
   return stripeApi<CheckoutSession>(env, "/checkout/sessions", {
     method: "POST",
     body: {
@@ -168,9 +177,15 @@ export async function createSubscriptionCheckoutSession(
       // (HI, NM, SD per E_billing.md §E6.1; MD does not). Flip to true once
       // Stripe Tax status is "active" and a per-state nexus has registered.
       // automatic_tax: { enabled: true },
-      // Mirror metadata onto the resulting subscription so webhook handlers
-      // get the same tier/billing tags without re-deriving from price IDs.
-      subscription_data: { metadata },
+      // Brand-clear subscription description renders on the Stripe-generated
+      // invoice PDF + the receipt email, replacing the default "Subscription
+      // creation" stub with something the customer actually recognizes.
+      // The footer + brand color come from account.settings.invoices (set
+      // separately via the Stripe API at deploy time).
+      subscription_data: {
+        metadata,
+        description: subscriptionDescription,
+      },
       metadata,
     },
     idempotencyKey,
