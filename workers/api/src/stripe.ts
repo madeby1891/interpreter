@@ -16,8 +16,33 @@
 // modes hit the same host; we surface the mode in audit logs only.
 //
 // What's intentionally NOT in this module:
-//   - Apps Script state flips. Those go via internal.ts → Apps Script callback.
 //   - PII. Stripe IDs only. We never log card numbers, CVV, SSN, or bank PANs.
+//
+// ---------------------------------------------------------------------------
+// Apps Script bridge — every Stripe event the worker handles posts to:
+//   POST <APPS_SCRIPT_URL>?action=payments_webhook_event
+//   body: {
+//     session,           // worker-issued 60s JWT, purpose='stripe_webhook'
+//     event_id,          // Stripe event.id (idempotency key on the AS side)
+//     event_type,        // e.g. 'invoice.paid', 'charge.dispute.created'
+//     livemode,          // 'true' | 'false'
+//     created,           // Stripe unix timestamp, stringified
+//     object_id,         // pi_… | in_… | tr_… | acct_… | sub_… | dp_… | po_… | cs_…
+//     object_type,       // 'payment_intent' | 'invoice' | 'transfer' | …
+//     metadata,          // JSON-stringified flat string→string map from the object
+//     summary,           // short human string ("PaymentIntent succeeded — $125.00 USD")
+//     payload_excerpt    // JSON.stringify(event.data.object) truncated to ~3000 chars
+//   }
+//
+// Apps Script is responsible for: idempotent write to a Stripe_Events tab,
+// then any downstream Sheet updates (subscription state, payout state, etc.)
+// based on event_type. Worker is source of truth for Stripe state;
+// Apps Script is source of truth for the Sheet.
+//
+// Idempotency is enforced TWICE: the worker checks KV (env.IDEMPOTENCY) before
+// forwarding, and Apps Script de-dupes on event_id when writing the Sheet row.
+// Belt-and-suspenders — Stripe retries are routine.
+// ---------------------------------------------------------------------------
 
 import { callAppsScript } from "./internal";
 
@@ -424,89 +449,340 @@ export async function verifyWebhookSignature(
 }
 
 // ---------------------------------------------------------------------------
-// Webhook event router → Apps Script callbacks
+// Webhook event router → Apps Script bridge
 // ---------------------------------------------------------------------------
+//
+// Every supported event normalizes to a single bridge payload and forwards via
+// `callAppsScript(..., 'payments_webhook_event', ...)`. Apps Script de-dupes
+// on event_id and dispatches downstream Sheet writes per event_type.
+//
+// The list of "supported" events is exactly the 19 we subscribe the live
+// webhook endpoint to (PAYMENTS.md §7.1). Unknown event_types are still
+// forwarded so Apps Script can record them in Stripe_Events for forensics —
+// we never throw on an unrecognized type, because Stripe occasionally adds
+// new ones and we'd rather keep the 200 flowing than block retries.
 
 export interface WebhookHandlerResult {
-  ok: boolean;
-  handled: string;
+  ok: true;
+  action: string;
   apps_script?: unknown;
-  skipped?: string;
 }
 
+// Events we explicitly subscribe to. Kept here for /health to surface the
+// count and for callers (tests, the Worker entry) to reason about coverage.
+export const SUBSCRIBED_EVENTS: readonly string[] = [
+  "checkout.session.completed",
+  "payment_intent.succeeded",
+  "payment_intent.payment_failed",
+  "charge.refunded",
+  "charge.dispute.created",
+  "charge.dispute.closed",
+  "account.updated",
+  "account.application.deauthorized",
+  "payout.paid",
+  "payout.failed",
+  "transfer.created",
+  "transfer.reversed",
+  "transfer.canceled",
+  "invoice.paid",
+  "invoice.payment_failed",
+  "customer.subscription.created",
+  "customer.subscription.updated",
+  "customer.subscription.deleted",
+  "radar.early_fraud_warning.created",
+] as const;
+
+const PAYLOAD_EXCERPT_MAX = 3000;
+
+function fmtUsd(cents: number | undefined, currency: string | undefined): string {
+  if (typeof cents !== "number" || Number.isNaN(cents)) return "—";
+  const amt = (cents / 100).toFixed(2);
+  const cur = (currency ?? "usd").toUpperCase();
+  return `$${amt} ${cur}`;
+}
+
+function strMetadata(obj: unknown): Record<string, string> {
+  const meta = (obj as { metadata?: Record<string, unknown> } | null | undefined)?.metadata;
+  if (!meta || typeof meta !== "object") return {};
+  const out: Record<string, string> = {};
+  for (const [k, v] of Object.entries(meta)) {
+    if (v === null || v === undefined) continue;
+    out[k] = String(v);
+  }
+  return out;
+}
+
+function safeExcerpt(obj: unknown): string {
+  let json: string;
+  try {
+    json = JSON.stringify(obj);
+  } catch {
+    return "";
+  }
+  if (json.length <= PAYLOAD_EXCERPT_MAX) return json;
+  return json.slice(0, PAYLOAD_EXCERPT_MAX) + "…[truncated]";
+}
+
+interface NormalizedEvent {
+  object_id: string;
+  object_type: string;
+  summary: string;
+}
+
+function normalize(event: StripeWebhookEvent): NormalizedEvent {
+  const o = event.data.object as Record<string, unknown>;
+  const id = typeof o.id === "string" ? o.id : "";
+  const objectType = typeof o.object === "string" ? o.object : "";
+
+  switch (event.type) {
+    case "checkout.session.completed": {
+      const mode = String(o.mode ?? "payment");
+      const amount = Number(o.amount_total ?? 0);
+      const currency = String(o.currency ?? "usd");
+      return {
+        object_id: id,
+        object_type: objectType || "checkout.session",
+        summary: `Checkout completed (${mode}) — ${fmtUsd(amount, currency)}`,
+      };
+    }
+    case "payment_intent.succeeded": {
+      const amount = Number(o.amount_received ?? o.amount ?? 0);
+      const currency = String(o.currency ?? "usd");
+      return {
+        object_id: id,
+        object_type: objectType || "payment_intent",
+        summary: `PaymentIntent succeeded — ${fmtUsd(amount, currency)}`,
+      };
+    }
+    case "payment_intent.payment_failed": {
+      const lpe = (o.last_payment_error as { message?: string } | undefined)?.message ?? "unknown";
+      return {
+        object_id: id,
+        object_type: objectType || "payment_intent",
+        summary: `PaymentIntent failed — ${lpe}`,
+      };
+    }
+    case "charge.refunded": {
+      const amount = Number(o.amount_refunded ?? 0);
+      const currency = String(o.currency ?? "usd");
+      return {
+        object_id: id,
+        object_type: objectType || "charge",
+        summary: `Charge refunded — ${fmtUsd(amount, currency)}`,
+      };
+    }
+    case "charge.dispute.created": {
+      const amount = Number(o.amount ?? 0);
+      const currency = String(o.currency ?? "usd");
+      const reason = String(o.reason ?? "unknown");
+      return {
+        object_id: id,
+        object_type: objectType || "dispute",
+        summary: `Dispute opened (${reason}) — ${fmtUsd(amount, currency)}`,
+      };
+    }
+    case "charge.dispute.closed": {
+      const status = String(o.status ?? "closed");
+      return {
+        object_id: id,
+        object_type: objectType || "dispute",
+        summary: `Dispute closed — ${status}`,
+      };
+    }
+    case "account.updated": {
+      const detailsSubmitted = Boolean(o.details_submitted);
+      const payoutsEnabled = Boolean(o.payouts_enabled);
+      const chargesEnabled = Boolean(o.charges_enabled);
+      return {
+        object_id: id,
+        object_type: objectType || "account",
+        summary: `Account updated — details_submitted=${detailsSubmitted} charges_enabled=${chargesEnabled} payouts_enabled=${payoutsEnabled}`,
+      };
+    }
+    case "account.application.deauthorized": {
+      return {
+        object_id: id,
+        object_type: objectType || "account",
+        summary: `Connect application deauthorized`,
+      };
+    }
+    case "payout.paid": {
+      const amount = Number(o.amount ?? 0);
+      const currency = String(o.currency ?? "usd");
+      return {
+        object_id: id,
+        object_type: objectType || "payout",
+        summary: `Payout paid — ${fmtUsd(amount, currency)}`,
+      };
+    }
+    case "payout.failed": {
+      const amount = Number(o.amount ?? 0);
+      const currency = String(o.currency ?? "usd");
+      const code = String(o.failure_code ?? "unknown");
+      return {
+        object_id: id,
+        object_type: objectType || "payout",
+        summary: `Payout failed (${code}) — ${fmtUsd(amount, currency)}`,
+      };
+    }
+    case "transfer.created": {
+      const amount = Number(o.amount ?? 0);
+      const currency = String(o.currency ?? "usd");
+      return {
+        object_id: id,
+        object_type: objectType || "transfer",
+        summary: `Transfer created — ${fmtUsd(amount, currency)}`,
+      };
+    }
+    case "transfer.reversed": {
+      const amount = Number(o.amount_reversed ?? o.amount ?? 0);
+      const currency = String(o.currency ?? "usd");
+      return {
+        object_id: id,
+        object_type: objectType || "transfer",
+        summary: `Transfer reversed — ${fmtUsd(amount, currency)}`,
+      };
+    }
+    case "transfer.canceled": {
+      return {
+        object_id: id,
+        object_type: objectType || "transfer",
+        summary: `Transfer canceled`,
+      };
+    }
+    case "invoice.paid": {
+      const amount = Number(o.amount_paid ?? o.total ?? 0);
+      const currency = String(o.currency ?? "usd");
+      return {
+        object_id: id,
+        object_type: objectType || "invoice",
+        summary: `Invoice paid — ${fmtUsd(amount, currency)}`,
+      };
+    }
+    case "invoice.payment_failed": {
+      const amount = Number(o.amount_due ?? o.total ?? 0);
+      const currency = String(o.currency ?? "usd");
+      const attempt = Number(o.attempt_count ?? 0);
+      return {
+        object_id: id,
+        object_type: objectType || "invoice",
+        summary: `Invoice payment failed (attempt ${attempt}) — ${fmtUsd(amount, currency)}`,
+      };
+    }
+    case "customer.subscription.created": {
+      const status = String(o.status ?? "unknown");
+      return {
+        object_id: id,
+        object_type: objectType || "subscription",
+        summary: `Subscription created — ${status}`,
+      };
+    }
+    case "customer.subscription.updated": {
+      const status = String(o.status ?? "unknown");
+      const cancelAtPeriodEnd = Boolean(o.cancel_at_period_end);
+      return {
+        object_id: id,
+        object_type: objectType || "subscription",
+        summary: `Subscription updated — status=${status}${cancelAtPeriodEnd ? " (cancel_at_period_end)" : ""}`,
+      };
+    }
+    case "customer.subscription.deleted": {
+      return {
+        object_id: id,
+        object_type: objectType || "subscription",
+        summary: `Subscription deleted`,
+      };
+    }
+    case "radar.early_fraud_warning.created": {
+      const actionable = Boolean(o.actionable);
+      const reason = String(o.fraud_type ?? "unknown");
+      return {
+        object_id: id,
+        object_type: objectType || "radar.early_fraud_warning",
+        summary: `Early fraud warning (${reason})${actionable ? " — actionable" : ""}`,
+      };
+    }
+    default: {
+      return {
+        object_id: id,
+        object_type: objectType || "unknown",
+        summary: `Unhandled event type ${event.type}`,
+      };
+    }
+  }
+}
+
+/**
+ * Forward a verified Stripe webhook event to Apps Script. Never throws on
+ * a known-bad event shape — returns `{ ok: true, action: <event_type> }` so
+ * the caller can 200 Stripe even when there's nothing more to do. The caller
+ * is expected to handle network/throw from `callAppsScript` by returning 500.
+ */
 export async function handleWebhookEvent(
   env: StripeEnv,
   event: StripeWebhookEvent
 ): Promise<WebhookHandlerResult> {
-  switch (event.type) {
-    case "invoice.paid":
-    case "invoice.payment_succeeded": {
-      const obj = event.data.object as { metadata?: Record<string, string>; id?: string };
-      const ourInvoiceId = obj?.metadata?.our_invoice_id;
-      if (!ourInvoiceId) return { ok: true, handled: event.type, skipped: "no our_invoice_id metadata" };
-      const result = await callAppsScript(
-        env.APPS_SCRIPT_URL,
-        env.JWT_SECRET,
-        "mark_invoice_paid",
-        {
-          invoice_id: ourInvoiceId,
-          stripe_invoice_id: obj.id ?? "",
-          paid_at: new Date().toISOString(),
-        },
-        { purpose: "stripe_webhook" }
-      );
-      return { ok: true, handled: event.type, apps_script: result };
-    }
-    case "transfer.paid":
-    case "transfer.created": {
-      const obj = event.data.object as { metadata?: Record<string, string>; id?: string };
-      const payoutId = obj?.metadata?.payout_id;
-      if (!payoutId) return { ok: true, handled: event.type, skipped: "no payout_id metadata" };
-      const result = await callAppsScript(
-        env.APPS_SCRIPT_URL,
-        env.JWT_SECRET,
-        "mark_payout_paid",
-        {
-          payout_id: payoutId,
-          stripe_transfer_id: obj.id ?? "",
-          paid_at: new Date().toISOString(),
-        },
-        { purpose: "stripe_webhook" }
-      );
-      return { ok: true, handled: event.type, apps_script: result };
-    }
-    case "account.updated": {
-      const obj = event.data.object as {
-        id?: string;
-        metadata?: Record<string, string>;
-        charges_enabled?: boolean;
-        payouts_enabled?: boolean;
-        details_submitted?: boolean;
-      };
-      const interpreterId = obj?.metadata?.interpreter_id;
-      if (!interpreterId) return { ok: true, handled: event.type, skipped: "no interpreter_id metadata" };
-      const result = await callAppsScript(
-        env.APPS_SCRIPT_URL,
-        env.JWT_SECRET,
-        "update_interpreter",
-        {
-          interpreter_id: interpreterId,
-          stripe_account_id: obj.id ?? "",
-          stripe_charges_enabled: String(obj.charges_enabled ?? false),
-          stripe_payouts_enabled: String(obj.payouts_enabled ?? false),
-          stripe_details_submitted: String(obj.details_submitted ?? false),
-          _internal_source: "stripe_webhook",
-        },
-        { purpose: "stripe_webhook" }
-      );
-      return { ok: true, handled: event.type, apps_script: result };
-    }
-    case "charge.dispute.created":
-    case "charge.refunded":
-    case "charge.failed":
-      // Acknowledge and forward as audit-only; state flips happen in admin UI.
-      return { ok: true, handled: event.type, skipped: "audit_only_for_v1" };
-    default:
-      return { ok: true, handled: event.type, skipped: "unhandled_event_type" };
+  const norm = normalize(event);
+  const metadata = strMetadata(event.data.object);
+
+  // High-priority alerts. We don't have Slack wired yet, so console.error is
+  // the cheapest way to surface in `wrangler tail`. Worker logs are retained
+  // by Cloudflare for 24h on the free plan; that's enough for Anthony to
+  // spot a dispute the same day.
+  if (event.type === "charge.dispute.created") {
+    console.error("STRIPE DISPUTE", {
+      event_id: event.id,
+      object_id: norm.object_id,
+      summary: norm.summary,
+      metadata,
+    });
   }
+  if (event.type === "radar.early_fraud_warning.created") {
+    console.error("STRIPE EARLY FRAUD WARNING", {
+      event_id: event.id,
+      object_id: norm.object_id,
+      summary: norm.summary,
+      metadata,
+    });
+  }
+
+  // account.updated carries Connect-onboarding state we want to forward in
+  // first-class form so Apps Script doesn't have to re-parse the payload.
+  const extra: Record<string, string> = {};
+  if (event.type === "account.updated") {
+    const o = event.data.object as {
+      details_submitted?: boolean;
+      payouts_enabled?: boolean;
+      charges_enabled?: boolean;
+      requirements?: { currently_due?: string[] };
+    };
+    extra.details_submitted = String(Boolean(o.details_submitted));
+    extra.payouts_enabled = String(Boolean(o.payouts_enabled));
+    extra.charges_enabled = String(Boolean(o.charges_enabled));
+    const due = o.requirements?.currently_due;
+    if (Array.isArray(due)) extra.requirements_currently_due = JSON.stringify(due);
+  }
+
+  const params: Record<string, string> = {
+    event_id: event.id,
+    event_type: event.type,
+    livemode: String(Boolean(event.livemode)),
+    created: String(event.created ?? Math.floor(Date.now() / 1000)),
+    object_id: norm.object_id,
+    object_type: norm.object_type,
+    metadata: JSON.stringify(metadata),
+    summary: norm.summary,
+    payload_excerpt: safeExcerpt(event.data.object),
+    ...extra,
+  };
+
+  const result = await callAppsScript(
+    env.APPS_SCRIPT_URL,
+    env.JWT_SECRET,
+    "payments_webhook_event",
+    params,
+    { purpose: "stripe_webhook" }
+  );
+
+  return { ok: true, action: event.type, apps_script: result };
 }

@@ -297,8 +297,12 @@ describe("stripe — webhook signature", () => {
   });
 });
 
-describe("stripe — webhook event router", () => {
-  it("invoice.paid calls Apps Script with our_invoice_id", async () => {
+describe("stripe — webhook event bridge", () => {
+  // Every event the worker subscribes to is forwarded to Apps Script under the
+  // single action 'payments_webhook_event' with a normalized payload. These
+  // tests pin the payload shape and the summary string for each event class.
+
+  function mockFetchOk() {
     let captured: { url: string; body: string; header: string } | null = null;
     globalThis.fetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = typeof input === "string" ? input : input.toString();
@@ -307,78 +311,211 @@ describe("stripe — webhook event router", () => {
         body: String(init?.body ?? ""),
         header: (init?.headers as Record<string, string>)["X-1891-Internal"] ?? "",
       };
-      return new Response(JSON.stringify({ ok: true }), { status: 200, headers: { "Content-Type": "application/json" } });
+      return new Response(JSON.stringify({ ok: true }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
     }) as typeof fetch;
+    return () => captured!;
+  }
 
+  function bodyParam(body: string, key: string): string | null {
+    const params = new URLSearchParams(body);
+    return params.get(key);
+  }
+
+  it("invoice.paid → action=payments_webhook_event with normalized fields", async () => {
+    const get = mockFetchOk();
     const r = await handleWebhookEvent(ENV_OK, {
       id: "evt_1",
       type: "invoice.paid",
-      data: { object: { id: "in_TEST", metadata: { our_invoice_id: "inv_abc" } } },
+      livemode: false,
+      created: 1700000000,
+      data: {
+        object: {
+          id: "in_TEST",
+          object: "invoice",
+          amount_paid: 12500,
+          currency: "usd",
+          metadata: { our_invoice_id: "inv_abc" },
+        },
+      },
     });
     expect(r.ok).toBe(true);
-    expect(r.handled).toBe("invoice.paid");
-    expect(captured!.url).toContain("action=mark_invoice_paid");
-    expect(captured!.body).toContain("invoice_id=inv_abc");
-    expect(captured!.body).toContain("stripe_invoice_id=in_TEST");
-    expect(captured!.header).toBe(ENV_OK.JWT_SECRET);
+    expect(r.action).toBe("invoice.paid");
+    const cap = get();
+    expect(cap.url).toContain("action=payments_webhook_event");
+    expect(cap.header).toBe(ENV_OK.JWT_SECRET);
+    expect(bodyParam(cap.body, "event_id")).toBe("evt_1");
+    expect(bodyParam(cap.body, "event_type")).toBe("invoice.paid");
+    expect(bodyParam(cap.body, "object_id")).toBe("in_TEST");
+    expect(bodyParam(cap.body, "object_type")).toBe("invoice");
+    expect(bodyParam(cap.body, "livemode")).toBe("false");
+    expect(bodyParam(cap.body, "summary")).toContain("Invoice paid");
+    expect(bodyParam(cap.body, "summary")).toContain("$125.00");
+    const meta = JSON.parse(bodyParam(cap.body, "metadata") ?? "{}");
+    expect(meta.our_invoice_id).toBe("inv_abc");
   });
 
-  it("invoice.paid without metadata is skipped, not errored", async () => {
-    globalThis.fetch = vi.fn(async () => {
-      throw new Error("should not be called");
-    }) as typeof fetch;
-    const r = await handleWebhookEvent(ENV_OK, {
-      id: "evt_2",
-      type: "invoice.paid",
-      data: { object: { id: "in_NOMETA" } },
+  it("payment_intent.succeeded uses amount_received for summary", async () => {
+    const get = mockFetchOk();
+    await handleWebhookEvent(ENV_OK, {
+      id: "evt_pi_ok",
+      type: "payment_intent.succeeded",
+      data: {
+        object: {
+          id: "pi_TEST",
+          object: "payment_intent",
+          amount_received: 5000,
+          currency: "usd",
+        },
+      },
     });
-    expect(r.ok).toBe(true);
-    expect(r.skipped).toContain("no our_invoice_id");
+    expect(bodyParam(get().body, "summary")).toContain("PaymentIntent succeeded — $50.00 USD");
   });
 
-  it("transfer.paid forwards payout_id metadata", async () => {
-    let capturedBody = "";
-    globalThis.fetch = vi.fn(async (_i: RequestInfo | URL, init?: RequestInit) => {
-      capturedBody = String(init?.body ?? "");
-      return new Response(JSON.stringify({ ok: true }), { status: 200, headers: { "Content-Type": "application/json" } });
-    }) as typeof fetch;
-    const r = await handleWebhookEvent(ENV_OK, {
+  it("transfer.created forwards object_id + USD summary", async () => {
+    const get = mockFetchOk();
+    await handleWebhookEvent(ENV_OK, {
       id: "evt_3",
-      type: "transfer.paid",
-      data: { object: { id: "tr_TEST", metadata: { payout_id: "po_abc" } } },
+      type: "transfer.created",
+      data: {
+        object: {
+          id: "tr_TEST",
+          object: "transfer",
+          amount: 12500,
+          currency: "usd",
+          metadata: { payout_id: "po_abc" },
+        },
+      },
     });
-    expect(r.ok).toBe(true);
-    expect(capturedBody).toContain("payout_id=po_abc");
-    expect(capturedBody).toContain("stripe_transfer_id=tr_TEST");
+    const body = get().body;
+    expect(bodyParam(body, "object_id")).toBe("tr_TEST");
+    expect(bodyParam(body, "object_type")).toBe("transfer");
+    expect(bodyParam(body, "summary")).toContain("Transfer created — $125.00");
+    const meta = JSON.parse(bodyParam(body, "metadata") ?? "{}");
+    expect(meta.payout_id).toBe("po_abc");
   });
 
-  it("account.updated forwards interpreter_id + capability flags", async () => {
-    let capturedBody = "";
-    globalThis.fetch = vi.fn(async (_i: RequestInfo | URL, init?: RequestInit) => {
-      capturedBody = String(init?.body ?? "");
-      return new Response(JSON.stringify({ ok: true }), { status: 200, headers: { "Content-Type": "application/json" } });
-    }) as typeof fetch;
-    const r = await handleWebhookEvent(ENV_OK, {
+  it("account.updated forwards Connect onboarding flags as first-class params", async () => {
+    const get = mockFetchOk();
+    await handleWebhookEvent(ENV_OK, {
       id: "evt_4",
       type: "account.updated",
-      data: { object: { id: "acct_X", metadata: { interpreter_id: "int_42" }, charges_enabled: true, payouts_enabled: true, details_submitted: true } },
+      data: {
+        object: {
+          id: "acct_X",
+          object: "account",
+          charges_enabled: true,
+          payouts_enabled: true,
+          details_submitted: true,
+          requirements: { currently_due: ["external_account"] },
+          metadata: { interpreter_id: "int_42" },
+        },
+      },
     });
-    expect(r.ok).toBe(true);
-    expect(capturedBody).toContain("interpreter_id=int_42");
-    expect(capturedBody).toContain("stripe_charges_enabled=true");
-    expect(capturedBody).toContain("stripe_payouts_enabled=true");
+    const body = get().body;
+    expect(bodyParam(body, "object_id")).toBe("acct_X");
+    expect(bodyParam(body, "charges_enabled")).toBe("true");
+    expect(bodyParam(body, "payouts_enabled")).toBe("true");
+    expect(bodyParam(body, "details_submitted")).toBe("true");
+    expect(bodyParam(body, "requirements_currently_due")).toBe('["external_account"]');
+    const meta = JSON.parse(bodyParam(body, "metadata") ?? "{}");
+    expect(meta.interpreter_id).toBe("int_42");
   });
 
-  it("unhandled event types do not call Apps Script", async () => {
-    globalThis.fetch = vi.fn(async () => {
-      throw new Error("should not be called");
-    }) as typeof fetch;
+  it("charge.dispute.created still forwards (no swallowing) and logs to console.error", async () => {
+    const get = mockFetchOk();
+    const errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     const r = await handleWebhookEvent(ENV_OK, {
-      id: "evt_5",
-      type: "some.random.event",
-      data: { object: {} },
+      id: "evt_dispute",
+      type: "charge.dispute.created",
+      data: {
+        object: {
+          id: "dp_TEST",
+          object: "dispute",
+          amount: 7500,
+          currency: "usd",
+          reason: "fraudulent",
+        },
+      },
     });
     expect(r.ok).toBe(true);
-    expect(r.skipped).toBe("unhandled_event_type");
+    expect(r.action).toBe("charge.dispute.created");
+    expect(bodyParam(get().body, "summary")).toContain("Dispute opened (fraudulent)");
+    expect(errSpy).toHaveBeenCalledWith("STRIPE DISPUTE", expect.any(Object));
+    errSpy.mockRestore();
+  });
+
+  it("radar.early_fraud_warning.created forwards + logs", async () => {
+    mockFetchOk();
+    const errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    await handleWebhookEvent(ENV_OK, {
+      id: "evt_efw",
+      type: "radar.early_fraud_warning.created",
+      data: {
+        object: {
+          id: "issfr_TEST",
+          object: "radar.early_fraud_warning",
+          actionable: true,
+          fraud_type: "made_with_stolen_card",
+        },
+      },
+    });
+    expect(errSpy).toHaveBeenCalledWith("STRIPE EARLY FRAUD WARNING", expect.any(Object));
+    errSpy.mockRestore();
+  });
+
+  it("checkout.session.completed includes mode in summary", async () => {
+    const get = mockFetchOk();
+    await handleWebhookEvent(ENV_OK, {
+      id: "evt_co",
+      type: "checkout.session.completed",
+      data: {
+        object: {
+          id: "cs_TEST",
+          object: "checkout.session",
+          mode: "subscription",
+          amount_total: 9900,
+          currency: "usd",
+        },
+      },
+    });
+    expect(bodyParam(get().body, "summary")).toContain("Checkout completed (subscription)");
+  });
+
+  it("unknown event types are still forwarded (not dropped)", async () => {
+    const get = mockFetchOk();
+    const r = await handleWebhookEvent(ENV_OK, {
+      id: "evt_unknown",
+      type: "some.random.event",
+      data: { object: { id: "obj_X", object: "weird" } },
+    });
+    expect(r.ok).toBe(true);
+    expect(r.action).toBe("some.random.event");
+    expect(bodyParam(get().body, "event_type")).toBe("some.random.event");
+    expect(bodyParam(get().body, "summary")).toContain("Unhandled event type some.random.event");
+  });
+
+  it("payload_excerpt is JSON-stringified raw object and capped to ~3000 chars", async () => {
+    const get = mockFetchOk();
+    const longString = "x".repeat(5000);
+    await handleWebhookEvent(ENV_OK, {
+      id: "evt_long",
+      type: "payment_intent.succeeded",
+      data: {
+        object: {
+          id: "pi_LONG",
+          object: "payment_intent",
+          amount_received: 100,
+          currency: "usd",
+          description: longString,
+        },
+      },
+    });
+    const excerpt = bodyParam(get().body, "payload_excerpt") ?? "";
+    expect(excerpt.length).toBeGreaterThan(2900);
+    expect(excerpt.length).toBeLessThanOrEqual(3000 + "…[truncated]".length);
+    expect(excerpt.endsWith("…[truncated]")).toBe(true);
   });
 });

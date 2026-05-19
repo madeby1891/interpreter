@@ -25,3 +25,15 @@ class_name = "JobBoardRoom"
 [[migrations]]
 tag = "v1"
 new_classes = ["JobBoardRoom"]
+
+# Stripe webhook idempotency. Every inbound Stripe event.id is recorded here
+# with a 7-day TTL so retries are short-circuited per PAYMENTS.md §7.2.
+#
+# Anthony: create with
+#   npx wrangler kv namespace create 1891-interpreter-idempotency
+#   npx wrangler kv namespace create 1891-interpreter-idempotency --preview
+# and paste the resulting ids below before the next `wrangler deploy`.
+[[kv_namespaces]]
+binding = "IDEMPOTENCY"
+id = "<placeholder>"
+preview_id = "<placeholder>"
