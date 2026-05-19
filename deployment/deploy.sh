@@ -99,6 +99,18 @@ if [[ -f "$PROJECT_ROOT/_build/strip_html_urls.py" ]]; then
   python3 "$PROJECT_ROOT/_build/strip_html_urls.py"
 fi
 
+# ADVERTISING.md §3 — UMBRELLA-CONSENT injection AFTER build.py.  build.py
+# regenerates marketing pages from its content registry; if we injected
+# before build, the regen would wipe the sentinel.  Run the umbrella's
+# inject-chrome.py as a post-build pass so the consent banner survives.
+UMBRELLA_INJECT="$HOME/Desktop/1891/_build/inject-chrome.py"
+if [[ -f "$UMBRELLA_INJECT" ]]; then
+  echo "==> Inject UMBRELLA-CONSENT (advertising §3)…"
+  python3 "$UMBRELLA_INJECT" --consent-only \
+    --site-root "$PROJECT_ROOT/site" \
+    --url-prefix /interpreter/
+fi
+
 # --- Rsync ------------------------------------------------------------------
 echo "==> Ensure remote dir exists"
 if [[ $DRY_RUN -eq 0 ]]; then
