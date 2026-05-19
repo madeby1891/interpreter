@@ -1010,6 +1010,9 @@ def for_payers_body() -> str:
 
 
 def pricing_body() -> str:
+    # tier_slug: paid tier slug ("solo"/"practice"/"studio") wires the card to
+    # the /pay/subscribe Checkout flow. None routes to the legacy single-CTA
+    # path (Deaf-Owned → Apply, Network → Talk to us).
     tiers = [
         ("Deaf-Owned", "$0", "/mo", "Verified Deaf-owned agencies, any size.",
          ["Unlimited interpreters, jobs, requestors, storage",
@@ -1017,14 +1020,14 @@ def pricing_body() -> str:
           "BAA included",
           "Full feature parity with paid tiers",
           "No time limit, no payment method"],
-         "Apply for verification", "/free-for-deaf-owned", True),
+         "Apply for verification", "/free-for-deaf-owned", True, None),
         ("Solo", "$9", "/mo (annual)", "Individual freelance interpreters acting as their own agency.",
          ["1 user",
           "200 jobs/year",
           "1099 + invoicing",
           "Stripe Connect payouts",
           "BAA available on request"],
-         "Get a demo", "/get-a-demo", False),
+         None, None, False, "solo"),
         ("Practice", "$249", "/mo (annual)", "Small agencies, up to 25 active interpreters.",
          ["Unlimited schedulers and requestors",
           "Standard AI intake",
@@ -1032,7 +1035,7 @@ def pricing_body() -> str:
           "Document translation",
           "CART scheduling",
           "QuickBooks / Xero export"],
-         "Get a demo", "/get-a-demo", False),
+         None, None, False, "practice"),
         ("Studio", "$749", "/mo (annual)", "Mid agencies, up to 100 active interpreters.",
          ["Everything in Practice",
           "SSO / SAML",
@@ -1040,7 +1043,7 @@ def pricing_body() -> str:
           "Per-location phone numbers",
           "Advanced reporting",
           "NetSuite + Bill.com connectors"],
-         "Get a demo", "/get-a-demo", False),
+         None, None, False, "studio"),
         ("Network", "from $2,400", "/mo (annual)", "Large agencies (100+ interpreters), multi-state.",
          ["Everything in Studio",
           "White-label tenant",
@@ -1048,19 +1051,26 @@ def pricing_body() -> str:
           "Dedicated SLA + named CSM",
           "Custom integrations",
           "Multi-region option"],
-         "Talk to us", "/contact", False),
+         "Talk to us", "/contact", False, None),
     ]
     tier_html = []
-    for name, price, unit, sub, features, cta, href, featured in tiers:
+    for name, price, unit, sub, features, cta, href, featured, tier_slug in tiers:
         feat_class = "tier featured" if featured else "tier"
         lis = "".join(f"<li>{f}</li>" for f in features)
+        if tier_slug:
+            cta_block = f"""
+          <a class="btn btn-primary" href="{BASE_PATH}/pay/subscribe?tier={tier_slug}&amp;billing=annual">Subscribe annually</a>
+          <a class="btn btn-ghost btn-sm" href="{BASE_PATH}/pay/subscribe?tier={tier_slug}&amp;billing=monthly" style="margin-left:8px">Or monthly</a>
+          <p style="margin-top:var(--1891int-s-3); font-size:13.5px"><a href="{BASE_PATH}/get-a-demo">Get a demo first &rarr;</a></p>"""
+        else:
+            cta_block = f"""
+          <a class="btn {'btn-primary' if featured else 'btn-secondary'}" href="{BASE_PATH}{href}">{cta}</a>"""
         tier_html.append(f"""
         <div class="{feat_class}">
           <h3>{name}</h3>
           <p class="ink-soft" style="font-size:14.5px; margin-bottom:0">{sub}</p>
           <div class="price">{price} <small>{unit}</small></div>
-          <ul>{lis}</ul>
-          <a class="btn {'btn-primary' if featured else 'btn-secondary'}" href="{BASE_PATH}{href}">{cta}</a>
+          <ul>{lis}</ul>{cta_block}
         </div>
         """)
     return f"""
