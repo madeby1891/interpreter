@@ -63,13 +63,23 @@ var SUB_SUBSCRIPTION_HEADERS = [
 ];
 
 // Columns appended (idempotent) to the existing Agencies tab.
+// Pattern F columns (SaaS subscription — 1891 charges the agency).
+// Pattern G columns (Connect OAuth — agency lets 1891 read their Stripe).
+// See docs/PAYMENTS_IMPL.md §1 mode-map for the architectural shape.
 var SUB_AGENCY_COLS = [
+  // Pattern F — agency-as-customer-of-1891
   'stripe_customer_id',
   'subscription_tier',
   'subscription_status',
   'subscription_price_id',
   'current_period_end',
-  'billing_email'
+  'billing_email',
+  // Pattern G — agency-linked-Stripe-via-OAuth (read-only reporting)
+  'stripe_connect_account_id',   // acct_… when linked; blank otherwise
+  'stripe_connect_status',       // 'none' | 'linked' | 'deauthorized'
+  'stripe_connect_scopes',       // 'read_only' (we never ask for read_write)
+  'stripe_connect_linked_at',    // ISO timestamp
+  'stripe_connect_linked_by'     // user email of admin who clicked Connect
 ];
 
 // Live Stripe price IDs → tier + billing_interval. Source of truth lives in

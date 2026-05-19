@@ -6,16 +6,18 @@ future-you) can pick up cold in under five minutes.
 
 ---
 
-## Payments — live as of 2026-05-18
+## Payments — architectural pivot 2026-05-19 → Mode A canonical
 
-Full implementation spec in [`docs/PAYMENTS_IMPL.md`](docs/PAYMENTS_IMPL.md). Live-mode go-live runbook in [`deployment/PAYMENTS_LIVE_DEPLOY.md`](deployment/PAYMENTS_LIVE_DEPLOY.md).
+> **Read [`docs/PAYMENTS_IMPL.md`](docs/PAYMENTS_IMPL.md) §1 mode-map first.** Pattern F (SaaS subscription) is live and validated end-to-end. Pattern G (Connect OAuth read-only reporting) code shipped 2026-05-19, gated on Anthony enabling Connect-as-platform in the Stripe dashboard. Pattern A code paths (platform issues invoices, platform runs transfers) are intentionally preserved but deferred — they assume a money-transmitter posture we are NOT taking by default.
 
-**Four flows shipped:**
+**State of the six flows as of 2026-05-19:**
 
-1. **SaaS subscription** — agency lands on `/pricing`, picks tier + cadence, hits `/pay/subscribe`, completes Stripe Checkout. Webhook flips the Agencies row to `subscription_status='active'`. Public Worker route: `POST /v1/public/billing/checkout` (rate-limited 10/5min/IP). In-app upgrade route: `POST /v1/billing/checkout` (auth via `X-1891-Internal`).
-2. **Connect onboarding** — `POST /v1/stripe/account/create` + `POST /v1/stripe/account/onboard` issue a Stripe Express account + KYC link per interpreter. `account.updated` webhook flips `Users.stripe_payouts_enabled`.
-3. **Payer invoicing** — `POST /v1/stripe/invoice/send` creates a Stripe Invoice (one line per closed-job line item) on the payer's Stripe Customer and sends. `invoice.paid` webhook flips Invoices row to paid.
-4. **Payout transfers** — `POST /v1/stripe/transfer/send` runs a Connect Transfer to the interpreter's account. `transfer.created` webhook flips Payouts row to transferred.
+1. **✅ SaaS subscription (Pattern F — LIVE).** Agency lands on `/pricing`, picks tier + cadence, hits `/pay/subscribe`, completes Stripe Checkout. Webhook flips the Agencies row to `subscription_status='active'`. Public Worker route: `POST /v1/public/billing/checkout` (rate-limited 10/5min/IP). In-app upgrade route: `POST /v1/billing/checkout` (auth via `X-1891-Internal`).
+2. **✅ Branded welcome email (Pattern F support — LIVE).** Apps Script sends a plain-text welcome from `contact@madeby1891.com` with `name: BRAND_NAME` on every new `customer.subscription.created`. Idempotent on the new-Subscriptions-row guard.
+3. **🔌 Agency Connect OAuth read-only reporting (Pattern G — CODE READY).** Worker `POST /v1/connect/oauth/start` returns the Stripe Connect OAuth authorize URL; `POST /v1/connect/oauth/callback` exchanges the code + stamps `Agencies.stripe_connect_account_id`. Apps Script reads agency Stripe data via `Stripe-Account` header for in-app reports. **Gated on Anthony enabling Connect-as-platform + setting `STRIPE_CONNECT_CLIENT_ID` worker secret.**
+4. **⚠️ Interpreter Connect Express onboarding (Pattern A — DEFERRED).** Worker code preserved at `workers/api/src/stripe.ts:createConnectAccount` for a future per-agency opt-in (Mode B). Would 400 at Stripe today (platform isn't a Connect platform yet).
+5. **⚠️ Payer invoicing via platform Stripe (Pattern A — DEFERRED).** Same. The agency issues invoices in their own Stripe under Mode A; the platform shows them via Pattern G reporting.
+6. **⚠️ Platform → interpreter transfer (Pattern A — DEFERRED).** Same. The agency runs payouts from their own Stripe.
 
 **Live Stripe identifiers (acct_1TYabRRyhX2OZu5s — Made By 1891):**
 

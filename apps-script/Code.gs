@@ -251,6 +251,11 @@ function doPost(e) {
       case 'setup_plaid_credentials':   return _safeCall('apiSetupPlaidCredentials', e);
       // Stripe webhook bridge — Worker forwards verified events here.
       case 'payments_webhook_event':    return _safeCall('apiPaymentsWebhookEvent', e);
+      // Pattern G — agency Stripe Connect OAuth (read-only reporting, Mode A).
+      case 'agency_connect_start':      return _safeCall('apiAgencyConnectStart', e);
+      case 'agency_connect_callback':   return _safeCall('apiAgencyConnectCallback', e);
+      case 'agency_connect_report':     return _safeCall('apiAgencyConnectReport', e);
+      case 'agency_connect_disconnect': return _safeCall('apiAgencyConnectDisconnect', e);
       // Public marketing-page hop (no session). Also exposed via doGet for
       // JSONP-friendly callers; registered here so a regular POST also works.
       case 'subscription_intent_url':   return _safeCall('apiSubscriptionIntentUrl', e);

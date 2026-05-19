@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Connecting your Stripe — 1891 Interpreter</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#C8553D">
+<link rel="icon" type="image/svg+xml" href="/interpreter/assets/img/favicon.svg">
+<link rel="stylesheet" href="/interpreter/assets/css/site.css">
+<link rel="stylesheet" href="/interpreter/assets/css/app.css">
+</head>
+<body>
+<a href="#main" class="skip">Skip to main content</a>
+<div class="app-shell">
+  <header class="app-header">
+    <div class="wrap">
+      <a href="/interpreter/app/" class="brand"><img src="/interpreter/assets/img/brand-mark.svg" alt="" width="32" height="32"><span>1891 <span class="brand-sub">Interpreter</span></span></a>
+    </div>
+  </header>
+  <main id="main" class="app-main">
+    <div class="wrap" style="max-width:640px;margin:0 auto">
+      <h1 style="font-size:28px;margin-top:var(--1891int-s-6)">Connecting your Stripe</h1>
+
+      <section class="card" id="working" style="margin-top:var(--1891int-s-4)">
+        <p class="ink-soft" style="margin:0"><span class="spinner"></span> Finishing the connection with Stripe&hellip;</p>
+      </section>
+
+      <section class="card" id="done" style="display:none;margin-top:var(--1891int-s-4);background:#F2EEE3">
+        <h2 class="mt-0">Connected.</h2>
+        <p style="font-size:14.5px">Your Stripe account is now linked to 1891 Interpreter (read-only). We'll display your revenue, AR, and recent payouts in the Payments tab.</p>
+        <p style="font-size:13.5px"><strong>Account:</strong> <code id="done-acct"></code> · <strong>Scope:</strong> <code id="done-scope"></code></p>
+        <div class="cluster" style="margin-top:var(--1891int-s-4)">
+          <a class="btn btn-primary" href="/interpreter/app/payments/">Back to Payments</a>
+          <a class="btn btn-ghost" href="/interpreter/app/">Day-of board</a>
+        </div>
+      </section>
+
+      <section class="card" id="failed" style="display:none;margin-top:var(--1891int-s-4);border-left:4px solid #B62D33">
+        <h2 class="mt-0">We couldn't finish the connection.</h2>
+        <p id="fail-msg" style="font-size:14.5px"></p>
+        <div class="cluster" style="margin-top:var(--1891int-s-4)">
+          <a class="btn btn-secondary" href="/interpreter/app/payments/">Back to Payments</a>
+          <a class="btn btn-ghost" href="mailto:contact@madeby1891.com">Email support</a>
+        </div>
+      </section>
+
+      <section class="card" id="not-signed-in" style="display:none;margin-top:var(--1891int-s-4);border-left:4px solid var(--1891int-bloom)">
+        <h2 class="mt-0">Please sign in first.</h2>
+        <p style="font-size:14.5px">Your session expired during the Stripe redirect. Sign back in and click "Connect with Stripe" again — Stripe will recognize your account and finish the link in one click.</p>
+        <div class="cluster" style="margin-top:var(--1891int-s-4)">
+          <a class="btn btn-primary" href="/interpreter/sign-in?return=/interpreter/app/payments/">Sign in</a>
+        </div>
+      </section>
+    </div>
+  </main>
+</div>
+
+<script src="/interpreter/assets/js/api.js" defer></script>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  'use strict';
+  function $(id) { return document.getElementById(id); }
+  function show(id) {
+    ['working', 'done', 'failed', 'not-signed-in'].forEach(function (i) {
+      var el = $(i); if (el) el.style.display = (i === id) ? '' : 'none';
+    });
+  }
+  function fail(msg) { var m = $('fail-msg'); if (m) m.textContent = msg; show('failed'); }
+
+  // Parse code + state from query string OR error params from Stripe-side decline.
+  var qs = new URLSearchParams(location.search);
+  var code = qs.get('code');
+  var state = qs.get('state');
+  var stripeErr = qs.get('error');
+  var stripeErrDesc = qs.get('error_description');
+
+  if (stripeErr) {
+    fail('Stripe returned an error: ' + (stripeErrDesc || stripeErr) + '. You can try again from the Payments tab.');
+    return;
+  }
+  if (!code || !state) {
+    fail('Missing code or state from Stripe. The link may have expired — please try again from the Payments tab.');
+    return;
+  }
+
+  // Session check — we need to be logged in to bind this OAuth result to our tenant.
+  if (!window.IntApi || !IntApi.getSession()) {
+    show('not-signed-in');
+    return;
+  }
+
+  // POST through to Apps Script via the standard JSONP read-side wrapper.
+  IntApi.jsonp({ action: 'agency_connect_callback', code: code, state: state }).then(function (r) {
+    if (r && r.ok && r.stripe_user_id) {
+      var acct = $('done-acct'); if (acct) acct.textContent = r.stripe_user_id;
+      var scope = $('done-scope'); if (scope) scope.textContent = r.scope || 'read_only';
+      show('done');
+      return;
+    }
+    fail((r && r.error) ? r.error : 'Unknown error finishing the OAuth handshake.');
+  }).catch(function (err) {
+    fail('Network error talking to the platform. Please try again.');
+  });
+});
+</script>
+</body>
+</html>

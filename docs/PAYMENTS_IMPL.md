@@ -1,15 +1,25 @@
-// 1891 Interpreter — Payments Implementation Spec
 # 1891 Interpreter — Payments Implementation Spec
 
-**Status:** Live since 2026-05-18.
+**Status:** Mode A canonical since 2026-05-19. Pattern F (SaaS subscription) live since 2026-05-18.
 **Owners:** Anthony Mowl (operator), Fallon Brizendine (domain SME).
-**Audience:** any agent (human or AI) modifying the SaaS billing, Connect onboarding, payer invoicing, or interpreter-payout paths.
-**Reads first:** `~/Desktop/1891/CLAUDE.md`, `~/Desktop/1891/shared/specs/PAYMENTS.md` (the contract), this file, `projects/fairytale-dreamers/FDT Web Assets/docs/PAYMENTS_IMPL.md` (the reference implementation we mirror).
+**Audience:** any agent (human or AI) modifying SaaS billing, Connect OAuth reporting, or future Mode B opt-in.
+**Reads first:** `~/Desktop/1891/CLAUDE.md`, `~/Desktop/1891/shared/specs/PAYMENTS.md` (the contract, esp. **Pattern G + Pattern F**), this file.
 
-This is **1891 Interpreter's** Stripe implementation. The canonical pattern lives in `shared/specs/PAYMENTS.md` — this file documents how it shows up in this project. Two big differences from FDT:
+> 🚨 **Architectural pivot — 2026-05-19.** The original 2026-05-18 build wired interpreter Connect Express accounts + platform-side invoicing + platform-side transfers — i.e. **Pattern A (platform-PayFac)**. That was a wrong default. The 1891 canonical for multi-tenant products is **Mode A = Pattern F + Pattern G**:
+> - **Pattern F:** agency pays 1891 a SaaS subscription (already live and tested with a $11 test charge on 2026-05-18).
+> - **Pattern G:** agency connects their own Stripe via OAuth (read-only). 1891 displays their revenue / AR / payout data in the in-app dashboard. The agency runs all customer billing + contractor payouts in their own Stripe — 1891 never touches the money.
+>
+> Mode A means we are NOT a money transmitter. No state licensing. Lowest compliance burden. Highest leverage.
+>
+> The Pattern A code paths (`account.create({type:'express'})`, `invoices.send` on our key, `transfers.create`) remain in the worker, marked **deferred pending platform Connect enablement + per-tenant opt-in**. They do not run today: the platform account is `type: standard`, not a Connect platform, so any Pattern A call would 400 at Stripe.
 
-1. **The platform is the product.** 1891 sells the Interpreter SaaS to interpreting agencies; agencies pay 1891 a monthly/annual subscription. FDT itself was free-to-use for agents.
-2. **Pattern E lives here too** — for the agency-of-record flow where a court / hospital / school district pays the agency (via Stripe Invoice), the agency runs a payout to the individual interpreter on their Connect Express account.
+This file documents 1891 Interpreter's Stripe implementation. The canonical pattern lives in `shared/specs/PAYMENTS.md` — this file documents how it shows up in this project.
+
+**Three Stripe-side states this project lives in:**
+
+1. **Pattern F live (today).** Agencies pay 1891 the platform subscription. Validated end-to-end.
+2. **Pattern G ready, awaiting platform Connect enable (today).** All worker routes, Apps Script handlers, Sheet columns, and UI scaffolding exist. Won't function until Anthony enables Stripe Connect as a platform (dashboard click + terms agreement) and the `ca_…` client_id is set as a worker secret.
+3. **Pattern A deferred.** Code preserved in `workers/api/src/stripe.ts` (deprecated comments mark the relevant functions). A future per-agency opt-in flow would unlock it, but that's an opt-in, not the default.
 
 ---
 
@@ -28,9 +38,21 @@ This is **1891 Interpreter's** Stripe implementation. The canonical pattern live
 
 ---
 
-## 1. The four flows
+## 1. The flows
 
-This project moves money in four distinct shapes. Each gets its own ASCII diagram so the next agent doesn't have to reverse-engineer it from code.
+> **Mode map** — as of the 2026-05-19 pivot:
+>
+> | Flow | Mode A (canonical default) | Mode B (deferred opt-in) |
+> |---|---|---|
+> | §1.1 SaaS subscription (Pattern F) | ✅ **LIVE — primary revenue path** | ✅ Same shape under either mode |
+> | §1.5 Connect OAuth read-only reporting (Pattern G) | ✅ **Code shipped, gated on platform Connect enable** | — (Mode B reads via direct ownership instead) |
+> | §1.2 Interpreter Connect Express onboarding (Pattern A) | ❌ **DEFERRED** — agency does this in their own Stripe | ✅ Per-agency opt-in after MTL review |
+> | §1.3 Payer invoice via platform Stripe (Pattern A) | ❌ **DEFERRED** — agency invoices payer from their own Stripe | ✅ Per-agency opt-in after MTL review |
+> | §1.4 Payout transfer platform → interpreter (Pattern A) | ❌ **DEFERRED** — agency runs payouts from their own Stripe | ✅ Per-agency opt-in after MTL review |
+>
+> The §1.2–.4 code paths are intentionally preserved in the worker — they'll come back online if a future agency opts into Mode B with a money-transmitter review attached. Until then, they 400 at Stripe (platform account is `type: standard`, not a Connect platform).
+
+This project moves money in five distinct shapes. Each gets its own ASCII diagram so the next agent doesn't have to reverse-engineer it from code.
 
 ### 1.1 SaaS subscription (agency pays 1891 for the platform)
 
@@ -65,7 +87,7 @@ Worker creates Checkout Session ────────────────
 
 Tiers + prices live in §2.
 
-### 1.2 Connect onboarding (interpreter 1099 payout target)
+### 1.2 Connect onboarding (interpreter 1099 payout target) — ⚠️ DEFERRED (Mode B opt-in)
 
 Each interpreter onboards a Stripe Connect Express account, owned under our platform. We never touch a bank routing number. Stripe issues 1099-NEC at year end automatically.
 
@@ -101,7 +123,7 @@ Worker → Stripe accounts.create + accountLinks.create ──────┤
 
 Worker source: `workers/api/src/stripe.ts` → `createConnectAccount`, `createAccountLink`, `fetchAccount`.
 
-### 1.3 Payer invoice (agency bills payer via Stripe Invoicing)
+### 1.3 Payer invoice (agency bills payer via Stripe Invoicing) — ⚠️ DEFERRED (Mode B opt-in)
 
 The agency closes a job, builds invoice lines from the assignment ledger, and sends one Stripe Invoice to the payer (court system, hospital, school district). Payer pays; webhook flips the invoice to `paid`. This is the Pattern E inbound from `shared/specs/PAYMENTS.md` §2.4.
 
@@ -135,7 +157,7 @@ Worker → findOrCreateCustomer                                                 
 
 Worker source: `workers/api/src/stripe.ts` → `findOrCreateCustomer`, `createAndSendInvoice`.
 
-### 1.4 Payout transfer (1891 → interpreter Connect account)
+### 1.4 Payout transfer (1891 → interpreter Connect account) — ⚠️ DEFERRED (Mode B opt-in)
 
 After the payer pays the agency, the agency runs the payout to the interpreter. The platform fee (10% default, per `shared/specs/PAYMENTS.md` §2.4) stays on the 1891 balance.
 
@@ -166,6 +188,49 @@ Worker → /v1/transfers ──────────────────�
 ```
 
 Worker source: `workers/api/src/stripe.ts` → `createTransfer`.
+
+---
+
+### 1.5 Agency Stripe Connect OAuth read-only reporting (Pattern G — Mode A canonical)
+
+> **Added 2026-05-19 from the Mode-A pivot. See `shared/specs/PAYMENTS.md` §2.6 Pattern G for the full canonical pattern.**
+
+The agency clicks "Connect your Stripe" in the in-app Payments tab. The platform redirects them to Stripe's OAuth consent screen with `scope=read_only`. The agency logs into their Stripe (or creates a Standard Connect account if they don't have one yet). Stripe redirects back with a `code`; the platform exchanges it for the agency's `stripe_user_id` (`acct_…`) and stamps it on the agency row. Subsequent platform calls use the platform's restricted key with the `Stripe-Account: acct_<agency>` header to pull read-only data: balance, AR, recent invoices, recent payouts.
+
+The agency keeps merchant-of-record status. The platform never holds the agency's customer money, never issues payouts to the agency's interpreters. We are a SaaS + reporting layer.
+
+```
+agency owner               1891 platform                     Stripe
+─────────────              ─────────────                     ──────
+clicks "Connect" ──────►   /v1/connect/oauth/start   ──────► OAuth consent screen
+                           (build URL with state=          (agency logs in / creates)
+                            HMAC(tenant_id, exp))
+                                                       ◄────  redirect with ?code=…&state=…
+returns to               /v1/connect/oauth/callback
+/connect/callback  ───►   - verify HMAC of state
+                           - POST /oauth/token with code
+                           - Stripe returns
+                             { stripe_user_id: 'acct_…',
+                               scope: 'read_only' }
+                           - stamp on Agencies row
+
+Later, for in-app reports:
+                           /v1/connect/report?tenant_id=…
+                            → GET /v1/balance
+                              Stripe-Account: acct_…
+                            → GET /v1/invoices?limit=100
+                              Stripe-Account: acct_…
+                            → render summary in /app/reports
+```
+
+**Scopes:** always `read_only`. Never `read_write` without a separate per-feature consent. The OAuth state is HMAC-signed (key reused from `JWT_SECRET`) with a 5-minute expiry — see PAYMENTS.md §2.6 hard rules.
+
+**Deauthorization:** `account.application.deauthorized` event flips the Agencies row's `stripe_connect_status` to `deauthorized`. The in-app report views surface a "reconnect" prompt.
+
+Worker source: `workers/api/src/connect.ts` → `buildOAuthStartUrl`, `exchangeOAuthCode`, `fetchAgencyReport`.
+Apps Script source: `apps-script/Code_Connect.gs` → `apiAgencyConnectStart`, `apiAgencyConnectCallback`, `apiAgencyStripeReport`.
+
+**Gated on:** Anthony enabling Connect-as-a-platform at `dashboard.stripe.com/settings/connect` (one-time terms agreement) and setting `STRIPE_CONNECT_CLIENT_ID` (`ca_…`) + `STRIPE_CONNECT_CLIENT_SECRET` as worker secrets. Until that lands, the OAuth start route returns `{status:'unconfigured'}` and the UI surfaces a "Connect not yet enabled" banner.
 
 ---
 

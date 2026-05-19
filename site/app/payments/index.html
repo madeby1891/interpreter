@@ -49,9 +49,34 @@
         <ul id="setup-missing" style="font-size:14px;color:var(--1891int-fog)"></ul>
       </div>
 
-      <!-- Stripe Connect status table -->
-      <section class="card" style="margin-bottom:var(--1891int-s-6)">
-        <h2 class="mt-0">Stripe Connect — interpreters</h2>
+      <!-- Pattern G — agency-side Stripe Connect OAuth (Mode A canonical) -->
+      <section class="card" style="margin-bottom:var(--1891int-s-6);border-left:4px solid var(--1891int-bloom)">
+        <h2 class="mt-0">Connect your agency's Stripe</h2>
+        <p style="font-size:14.5px;margin-bottom:var(--1891int-s-3)">
+          1891 doesn't hold your customer money or pay your interpreters — your own Stripe account does that. Connect it here (read-only) so we can show your revenue, AR, and recent payouts inside this dashboard. We never see your customer card numbers; we just read your summary data via Stripe's OAuth.
+        </p>
+        <div id="agency-connect-state" class="empty-state"><span class="spinner"></span> Checking connection&hellip;</div>
+        <div id="agency-connect-actions" style="display:none">
+          <button class="btn btn-primary" id="btn-agency-connect" type="button">Connect with Stripe</button>
+          <a class="btn btn-ghost btn-sm" href="https://stripe.com/connect" target="_blank" rel="noopener" style="margin-left:8px">What does this do?</a>
+        </div>
+        <div id="agency-connect-linked" class="card" style="display:none;background:#F2EEE3;margin-top:var(--1891int-s-3)">
+          <p style="font-size:14.5px;margin:0"><strong>Connected:</strong> <code id="agency-connect-acct"></code> · scope <code id="agency-connect-scope"></code> · linked <span id="agency-connect-linked-at"></span></p>
+          <div style="margin-top:var(--1891int-s-3)">
+            <a class="btn btn-secondary btn-sm" href="/interpreter/app/reports/" id="btn-view-reports">View live reports</a>
+            <button class="btn btn-ghost btn-sm" id="btn-agency-disconnect" type="button" style="margin-left:8px">Disconnect</button>
+          </div>
+        </div>
+        <div id="agency-connect-unconfigured" class="card" style="display:none;background:#FDF6E3;margin-top:var(--1891int-s-3)">
+          <p style="font-size:14.5px;margin:0">⏳ <strong>Stripe Connect platform isn't enabled yet.</strong> Anthony needs to enable it once at <a href="https://dashboard.stripe.com/settings/connect" target="_blank" rel="noopener">dashboard.stripe.com/settings/connect</a> and paste the resulting <code>ca_…</code> client ID into the worker secrets. Until then, you can use the platform's scheduling and routing features — billing connection will light up after that.</p>
+        </div>
+      </section>
+
+      <!-- ⚠️ Mode B (deferred) — interpreter-side Connect Express. Hidden by default;
+           reveal only when an agency opts into Mode B (platform-PayFac, requires
+           money-transmitter review). See docs/PAYMENTS_IMPL.md §1.2-§1.4. -->
+      <section class="card" id="mode-b-section" style="display:none;margin-bottom:var(--1891int-s-6)">
+        <h2 class="mt-0">Stripe Connect — interpreters <span class="muted" style="font-size:13.5px;font-weight:normal">(Mode B — opt-in)</span></h2>
         <p class="ink-soft" style="font-size:14px;margin-bottom:var(--1891int-s-4)">Interpreters complete Stripe's hosted onboarding to receive ACH payouts. Status here mirrors what Stripe reports back; refresh after an interpreter completes onboarding to update.</p>
         <div id="connect-loading" class="empty-state"><span class="spinner"></span> Loading interpreters&hellip;</div>
         <div id="connect-empty" class="empty-state" style="display:none">
@@ -171,6 +196,11 @@
     $('refresh').addEventListener('click', loadAll);
     $('signout').addEventListener('click', function () { IntApi.clearSession(); location.href = '/interpreter/'; });
     $('f-1099-submit').addEventListener('click', submit1099);
+    // Pattern G — Connect OAuth click handlers
+    var btnConn = $('btn-agency-connect');
+    if (btnConn) btnConn.addEventListener('click', startAgencyConnect);
+    var btnDisc = $('btn-agency-disconnect');
+    if (btnDisc) btnDisc.addEventListener('click', disconnectAgency);
     document.querySelectorAll('[data-close]').forEach(function (b) {
       b.addEventListener('click', function () {
         document.querySelectorAll('.modal-backdrop.open').forEach(function (m) { m.classList.remove('open'); });
@@ -184,6 +214,7 @@
   function loadAll() {
     renderConnectLoading();
     renderFormsLoading();
+    loadAgencyConnectStatus();
     IntApiPayments.paymentSetupStatus().then(function (r) {
       state.setup = r && r.setup ? r.setup : null;
       renderSetupBanner();
@@ -323,6 +354,72 @@
       document.getElementById('m-1099').classList.remove('open');
       toast('1099 form queued. We will update status on the next refresh.', 'success');
       setTimeout(loadAll, 1200);
+    });
+  }
+
+  // -------------------------------------------------------------------------
+  // Pattern G — Agency Stripe Connect OAuth (Mode A canonical)
+  // -------------------------------------------------------------------------
+  function loadAgencyConnectStatus() {
+    var stateEl   = $('agency-connect-state');
+    var actionsEl = $('agency-connect-actions');
+    var linkedEl  = $('agency-connect-linked');
+    var unconfEl  = $('agency-connect-unconfigured');
+    [stateEl, actionsEl, linkedEl, unconfEl].forEach(function (el) { if (el) el.style.display = 'none'; });
+    if (stateEl) stateEl.style.display = '';
+    // Use the same `whoami` payload + Sheet-read pattern as other panels.
+    // For the connect-state probe we hit a no-op call to agency_connect_report
+    // which returns either {ok:true, …data} (linked) or {status:'not_linked'} /
+    // {status:'unconfigured'} otherwise.
+    IntApi.jsonp({ action: 'agency_connect_report', limit: 1 }).then(function (r) {
+      if (stateEl) stateEl.style.display = 'none';
+      if (r && r.ok && r.acct) {
+        if (linkedEl) linkedEl.style.display = '';
+        var acctSpan = $('agency-connect-acct'); if (acctSpan) acctSpan.textContent = r.acct;
+        var scopeSpan = $('agency-connect-scope'); if (scopeSpan) scopeSpan.textContent = r.scope || 'read_only';
+        // We don't have linked_at on the response — leave blank or pull on next refresh.
+        return;
+      }
+      if (r && r.status === 'unconfigured') {
+        if (unconfEl) unconfEl.style.display = '';
+        return;
+      }
+      // not_linked or anything else → show the Connect button.
+      if (actionsEl) actionsEl.style.display = '';
+    }).catch(function () {
+      if (stateEl) stateEl.style.display = 'none';
+      if (actionsEl) actionsEl.style.display = '';
+    });
+  }
+
+  function startAgencyConnect() {
+    var btn = $('btn-agency-connect');
+    if (btn) { btn.disabled = true; btn.textContent = 'Opening Stripe…'; }
+    IntApi.jsonp({ action: 'agency_connect_start' }).then(function (r) {
+      if (!r || !r.ok || !r.authorize_url) {
+        toast(r && r.error ? r.error : 'Could not start Stripe Connect.', 'error');
+        if (btn) { btn.disabled = false; btn.textContent = 'Connect with Stripe'; }
+        return;
+      }
+      // Stash the session in localStorage; the OAuth callback page will need
+      // it to re-authenticate the POST back to Apps Script.
+      try { localStorage.setItem('1891int.connect.return', '/interpreter/app/payments/'); } catch (_) {}
+      location.href = r.authorize_url;
+    }).catch(function (e) {
+      toast('Network error starting Stripe Connect.', 'error');
+      if (btn) { btn.disabled = false; btn.textContent = 'Connect with Stripe'; }
+    });
+  }
+
+  function disconnectAgency() {
+    if (!confirm('Disconnect your Stripe from 1891? You can reconnect any time. This does not affect your customer billing or interpreter payouts — it only stops the read-only data link.')) return;
+    IntApi.jsonp({ action: 'agency_connect_disconnect' }).then(function (r) {
+      if (r && r.ok) {
+        toast('Disconnected.', 'success');
+        loadAgencyConnectStatus();
+      } else {
+        toast(r && r.error ? r.error : 'Could not disconnect.', 'error');
+      }
     });
   }
 })();

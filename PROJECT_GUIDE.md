@@ -19,7 +19,7 @@
 | | |
 |---|---|
 | **Folder**   | `~/Desktop/1891/projects/interpreter/` |
-| **Status**   | Marketing site + scheduler MVP live. **Payments live as of 2026-05-18:** SaaS Checkout, Connect onboarding scaffolded, payer-invoice send scaffolded, webhook end-to-end. |
+| **Status**   | Marketing site + scheduler MVP live. **SaaS payments live 2026-05-18** (Pattern F Checkout + webhook + branded welcome). **Mode A pivot 2026-05-19:** platform runs as SaaS + read-only reporting (Pattern G) — agency keeps merchant-of-record for their own customer billing + interpreter payouts. Pattern G code shipped; awaits Anthony enabling Connect-as-platform in Stripe dashboard. See [`docs/PAYMENTS_IMPL.md`](docs/PAYMENTS_IMPL.md) §1 mode-map. |
 | **Purpose**  | Multi-tenant interpreting agency platform: scheduling, interpreter app, billing, document translation, captioning. Free for Deaf-owned agencies. |
 | **Live URLs** | Site: `https://madeby1891.com/interpreter/` · Pricing: `/interpreter/pricing` · Subscribe: `/interpreter/pay/subscribe` · Worker: `https://1891-interpreter-api.anthonymowl.workers.dev` |
 | **Domain**   | `1891interpreter.app` (planned; not yet registered — currently served under `madeby1891.com/interpreter/`) |

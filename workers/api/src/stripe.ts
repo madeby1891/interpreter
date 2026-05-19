@@ -113,6 +113,10 @@ export interface StripeCallOptions {
   method?: "GET" | "POST" | "DELETE";
   body?: Record<string, unknown>;
   idempotencyKey?: string;
+  // Connect platform-on-behalf-of: when set, adds `Stripe-Account: <acct_…>`
+  // header so the call reads/writes against the connected account's data,
+  // not the platform's. Pattern G uses this for read-only reporting.
+  stripeAccount?: string;
 }
 
 export async function stripeApi<T = unknown>(
@@ -126,6 +130,7 @@ export async function stripeApi<T = unknown>(
     Authorization: `Bearer ${env.STRIPE_API_KEY}`,
     "Stripe-Version": "2024-06-20",
   };
+  if (opts.stripeAccount) headers["Stripe-Account"] = opts.stripeAccount;
   let body: string | undefined;
   let url = `${STRIPE_API_BASE}${path}`;
   if (opts.body && method === "GET") {
@@ -174,7 +179,26 @@ export async function stripeApi<T = unknown>(
 }
 
 // ---------------------------------------------------------------------------
-// Connect Express
+// Connect Express  —  ⚠️ DEFERRED 2026-05-19 (Pattern A / Mode B opt-in only)
+//
+// These functions create Express accounts UNDER THE PLATFORM, run platform-side
+// invoicing, and transfer money on behalf of agencies. That's the platform-PayFac
+// model (Mode B) — it makes 1891 a money transmitter in ~49 states and requires
+// state-by-state MTL registration.
+//
+// The Mode A canonical (post-2026-05-19) is: agencies link their OWN Stripe via
+// OAuth (read-only), keep merchant-of-record, run their own customer billing +
+// payouts. See `./connect.ts` for the Mode A flow.
+//
+// Code below is preserved for:
+//   1. A future per-agency Mode B opt-in (with money-transmitter review attached)
+//   2. The FDT broker-invoicing Pattern E (which uses similar Stripe primitives
+//      but operates on FDT's own account, not on behalf of agencies)
+//
+// Calling these today against the live platform account WILL 400 at Stripe —
+// the account is `type: standard`, not a Connect platform. Don't wire UI to
+// these unless Connect-as-platform has been enabled in the dashboard AND the
+// agency has opted into Mode B.
 // ---------------------------------------------------------------------------
 
 export interface ConnectAccount {

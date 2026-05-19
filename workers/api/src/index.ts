@@ -40,6 +40,12 @@ import {
   type Billing,
 } from "./billing";
 import {
+  buildOAuthStartUrl,
+  exchangeOAuthCode,
+  fetchAgencyReport,
+  CONNECT_REDIRECT_URI,
+} from "./connect";
+import {
   createNec1099,
   getForm as get1099Form,
   isConfigured as track1099Configured,
@@ -62,6 +68,11 @@ export interface Env {
   // route to return { ok:false, status:'unconfigured' } rather than 500.
   STRIPE_API_KEY?: string;
   STRIPE_WEBHOOK_SECRET?: string;
+  // Pattern G — Stripe Connect OAuth read-only reporting. Until Anthony
+  // enables Connect-as-platform at dashboard.stripe.com/settings/connect AND
+  // copies the ca_… client_id into `wrangler secret put STRIPE_CONNECT_CLIENT_ID`,
+  // /v1/connect/* routes return { ok:false, status:'unconfigured' }.
+  STRIPE_CONNECT_CLIENT_ID?: string;
   TRACK1099_API_KEY?: string;
   TRACK1099_BASE?: string;
   PLAID_CLIENT_ID?: string;
@@ -176,6 +187,18 @@ async function handle(req: Request, env: Env, ctx: ExecutionContext): Promise<Re
   // optional agency_name) — no IDs, no amounts, no metadata pass-through.
   if (url.pathname === "/v1/public/billing/checkout" && req.method === "POST") {
     return withCors(await handlePublicBillingCheckout(req, env), req, cfg);
+  }
+
+  // Pattern G — Stripe Connect OAuth read-only reporting.
+  // Internal routes: Apps Script → Worker, gated by X-1891-Internal.
+  if (url.pathname === "/v1/connect/oauth/start" && req.method === "POST") {
+    return withCors(await handleConnectOAuthStart(req, env), req, cfg);
+  }
+  if (url.pathname === "/v1/connect/oauth/callback" && req.method === "POST") {
+    return withCors(await handleConnectOAuthCallback(req, env), req, cfg);
+  }
+  if (url.pathname === "/v1/connect/report" && req.method === "POST") {
+    return withCors(await handleConnectReport(req, env), req, cfg);
   }
 
   // Internal track1099 routes (Apps Script → Worker).
@@ -473,6 +496,70 @@ async function handlePublicBillingCheckout(req: Request, env: Env): Promise<Resp
   if (!parsed.ok) return json({ ok: false, error: parsed.error }, { status: 400 });
   return runBillingCheckout(env, parsed);
 }
+
+// ---------------------------------------------------------------------------
+// Connect OAuth (Pattern G — Mode A canonical) — internal routes
+//
+// Apps Script calls these on behalf of an admin user who clicked
+// "Connect your Stripe" in the in-app Payments tab. Until
+// STRIPE_CONNECT_CLIENT_ID is set as a worker secret, these return
+// `{ ok:false, status:'unconfigured' }` — see docs/PAYMENTS_IMPL.md §1.5.
+// ---------------------------------------------------------------------------
+
+async function handleConnectOAuthStart(req: Request, env: Env): Promise<Response> {
+  const auth = verifyInternalHeader(req, env.JWT_SECRET);
+  if (!auth.authorized) return json({ ok: false, error: auth.error ?? "unauthorized" }, { status: 401 });
+  let body: { tenant_id?: string; email?: string };
+  try {
+    body = (await req.json()) as typeof body;
+  } catch {
+    return json({ ok: false, error: "bad json" }, { status: 400 });
+  }
+  const result = await buildOAuthStartUrl(env, {
+    tenant_id: String(body.tenant_id ?? ""),
+    email: String(body.email ?? ""),
+  });
+  return json(result, { status: 200 });
+}
+
+async function handleConnectOAuthCallback(req: Request, env: Env): Promise<Response> {
+  const auth = verifyInternalHeader(req, env.JWT_SECRET);
+  if (!auth.authorized) return json({ ok: false, error: auth.error ?? "unauthorized" }, { status: 401 });
+  let body: { code?: string; state?: string };
+  try {
+    body = (await req.json()) as typeof body;
+  } catch {
+    return json({ ok: false, error: "bad json" }, { status: 400 });
+  }
+  if (!body.code || !body.state) {
+    return json({ ok: false, error: "code + state required" }, { status: 400 });
+  }
+  const result = await exchangeOAuthCode(env, { code: body.code, state: body.state });
+  return json(result, { status: 200 });
+}
+
+async function handleConnectReport(req: Request, env: Env): Promise<Response> {
+  const auth = verifyInternalHeader(req, env.JWT_SECRET);
+  if (!auth.authorized) return json({ ok: false, error: auth.error ?? "unauthorized" }, { status: 401 });
+  let body: { stripe_user_id?: string; limit?: number };
+  try {
+    body = (await req.json()) as typeof body;
+  } catch {
+    return json({ ok: false, error: "bad json" }, { status: 400 });
+  }
+  if (!body.stripe_user_id || !/^acct_/.test(body.stripe_user_id)) {
+    return json({ ok: false, error: "stripe_user_id (acct_…) required" }, { status: 400 });
+  }
+  const result = await fetchAgencyReport(env, {
+    stripe_user_id: body.stripe_user_id,
+    limit: body.limit,
+  });
+  return json(result, { status: 200 });
+}
+
+// Silence unused-import linter — CONNECT_REDIRECT_URI is exported for docs
+// and for any future site-side preflight check.
+void CONNECT_REDIRECT_URI;
 
 // ---------------------------------------------------------------------------
 // track1099 internal routes
