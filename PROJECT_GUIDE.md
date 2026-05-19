@@ -19,10 +19,11 @@
 | | |
 |---|---|
 | **Folder**   | `~/Desktop/1891/projects/interpreter/` |
-| **Status**   | PRD complete (six sections A–F). Code not yet started. |
+| **Status**   | Marketing site + scheduler MVP live. **Payments live as of 2026-05-18:** SaaS Checkout, Connect onboarding scaffolded, payer-invoice send scaffolded, webhook end-to-end. |
 | **Purpose**  | Multi-tenant interpreting agency platform: scheduling, interpreter app, billing, document translation, captioning. Free for Deaf-owned agencies. |
-| **Domain**   | `1891interpreter.app` (planned; not yet registered) |
-| **Repo**     | `git@github.com:madeby1891/interpreter.git` (planned) |
+| **Live URLs** | Site: `https://madeby1891.com/interpreter/` · Pricing: `/interpreter/pricing` · Subscribe: `/interpreter/pay/subscribe` · Worker: `https://1891-interpreter-api.anthonymowl.workers.dev` |
+| **Domain**   | `1891interpreter.app` (planned; not yet registered — currently served under `madeby1891.com/interpreter/`) |
+| **Repo**     | `https://github.com/madeby1891/interpreter` (public) |
 | **Host**     | GoDaddy cPanel for marketing + static shells; Cloudflare Workers for app |
 | **SSH key**  | `~/.ssh/ftd_godaddy_deploy` (shared 1891 deploy key) |
 | **Backend**  | Google Apps Script + per-agency Google Sheet + Cloudflare Workers + Durable Objects + R2 + KV |
@@ -34,6 +35,13 @@
 - Six-section PRD scaffolded in [`docs/`](docs/). Covers architecture, stakeholders, lifecycle, AI features, billing, and go-to-market.
 - Project root files in place: README, PROJECT_GUIDE, HANDOFF, CLAUDE, DISASTER_RECOVERY, CHANGELOG.
 - Open-decisions list collected at end of every section (A9, B-permissions-edge-cases, C10, D7, E10, F10).
+- **Marketing site + scheduler MVP live.** 41 static HTML pages + Apps Script backend + Cloudflare Worker.
+- **Payments live (2026-05-18).** All four flows are wired end-to-end:
+  - **SaaS subscription:** `/pricing` → `/pay/subscribe` → Stripe Checkout (Solo $108/yr or $11/mo, Practice $2,988/yr or $299/mo, Studio $8,988/yr or $899/mo) → webhook flips Agencies row to `subscription_status='active'`.
+  - **Connect onboarding** for individual interpreters (1099 payouts).
+  - **Payer invoicing** via Stripe Invoicing (agency bills payer for closed jobs).
+  - **Payout transfers** to interpreter Connect accounts.
+- Webhook endpoint `we_1TYdCARyhX2OZu5spASL0jxI` is live and subscribed to the 19 events from `shared/specs/PAYMENTS.md` §7.1. Full details: [`docs/PAYMENTS_IMPL.md`](docs/PAYMENTS_IMPL.md). Live-mode runbook: [`deployment/PAYMENTS_LIVE_DEPLOY.md`](deployment/PAYMENTS_LIVE_DEPLOY.md).
 
 ## What's next
 

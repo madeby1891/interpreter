@@ -38,6 +38,20 @@ for arg in "$@"; do
   esac
 done
 
+# --- Optional: deploy the API worker first ----------------------------------
+# Set DEPLOY_WORKER=1 in env to run `npx wrangler deploy` from workers/api/
+# BEFORE the site rsync. Default is off so this script stays the same one-touch
+# tool for site-only iterations.
+if [[ "${DEPLOY_WORKER:-0}" == "1" ]]; then
+  WORKER_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/workers/api"
+  if [[ ! -d "$WORKER_DIR" ]]; then
+    echo "ERROR: DEPLOY_WORKER=1 but workers/api not found at $WORKER_DIR" >&2
+    exit 1
+  fi
+  echo "==> Deploying API worker (DEPLOY_WORKER=1)…"
+  (cd "$WORKER_DIR" && npx wrangler deploy)
+fi
+
 # --- Pre-flight -------------------------------------------------------------
 if [[ ! -d "$SITE_DIR" ]]; then
   echo "ERROR: site dir not found at $SITE_DIR" >&2

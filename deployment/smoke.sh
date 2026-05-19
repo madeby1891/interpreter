@@ -78,6 +78,50 @@ for h in "Strict-Transport-Security" "X-Frame-Options" "X-Content-Type-Options" 
   fi
 done
 
+# Payments-related checks (post-2026-05-18 go-live). These check both the
+# Worker (live URL hardcoded — same worker for every environment) and the
+# new public Subscribe + Success surfaces under site/pay/.
+echo "==> Payments checks"
+
+WORKER_BASE="https://1891-interpreter-api.anthonymowl.workers.dev"
+
+# 1. Worker /health is up and reports ok:true.
+HEALTH_BODY=$(curl -sS "$WORKER_BASE/health" || true)
+if echo "$HEALTH_BODY" | grep -q '"ok":true'; then
+  echo "  ✓  Worker /health → ok:true"
+else
+  echo "  ✗  Worker /health did not report ok:true. Body was: $HEALTH_BODY" >&2
+  FAIL=$((FAIL+1))
+fi
+
+# 2. Webhook with a bogus signature must be rejected with 400 (not 200, not 500).
+#    This is the signature-verification path — a 400 is the correct success.
+WEBHOOK_STATUS=$(curl -sS -o /dev/null -w "%{http_code}" \
+  -X POST "$WORKER_BASE/v1/stripe/webhook" \
+  -H 'stripe-signature: bogus' \
+  -H 'Content-Type: application/json' \
+  -d '{}')
+if [[ "$WEBHOOK_STATUS" == "400" ]]; then
+  echo "  ✓  Webhook bogus-sig → 400 (signature correctly rejected)"
+else
+  echo "  ✗  Webhook bogus-sig expected 400, got $WEBHOOK_STATUS" >&2
+  FAIL=$((FAIL+1))
+fi
+
+# 3. Pricing page renders a Subscribe CTA.
+if curl -fsS "$BASE/pricing" 2>/dev/null | grep -q "Subscribe"; then
+  echo "  ✓  Pricing page contains a Subscribe CTA"
+else
+  echo "  ✗  Pricing page is missing a Subscribe CTA" >&2
+  FAIL=$((FAIL+1))
+fi
+
+# 4. /pay/subscribe is reachable (200).
+check "/pay/subscribe" "200" "/pay/subscribe loads"
+
+# 5. /pay/success is reachable (200).
+check "/pay/success"  "200" "/pay/success loads"
+
 if [[ $FAIL -ne 0 ]]; then
   echo "==> $FAIL check(s) failed." >&2
   exit 1

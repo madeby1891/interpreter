@@ -130,6 +130,9 @@ function doGet(e) {
       case 'list_stripe_accounts': return _safeCall('apiListStripeAccounts', e);
       case 'list_1099_forms':    return _safeCall('apiList1099Forms', e);
       case 'payment_setup_status': return _safeCall('apiPaymentSetupStatus', e);
+      case 'subscription_status':   return _safeCall('apiSubscriptionStatus', e);
+      // Public — marketing-page hop to Worker for Stripe Checkout (no session).
+      case 'subscription_intent_url': return _safeCall('apiSubscriptionIntentUrl', e);
       // Rate engine + docs + qualifications
       case 'compute_rate_quote': return _safeCall('apiComputeRateQuote', e);
       case 'compute_cancel_quote': return _safeCall('apiComputeCancellationQuote', e);
@@ -236,6 +239,11 @@ function doPost(e) {
       case 'setup_stripe_credentials':  return _safeCall('apiSetupStripeCredentials', e);
       case 'setup_track1099_credentials': return _safeCall('apiSetupTrack1099Credentials', e);
       case 'setup_plaid_credentials':   return _safeCall('apiSetupPlaidCredentials', e);
+      // Stripe webhook bridge — Worker forwards verified events here.
+      case 'payments_webhook_event':    return _safeCall('apiPaymentsWebhookEvent', e);
+      // Public marketing-page hop (no session). Also exposed via doGet for
+      // JSONP-friendly callers; registered here so a regular POST also works.
+      case 'subscription_intent_url':   return _safeCall('apiSubscriptionIntentUrl', e);
       // Rate engine + docs + requirements
       case 'upsert_rate_modifier':      return _safeCall('apiUpsertRateModifier', e);
       case 'delete_rate_modifier':      return _safeCall('apiDeleteRateModifier', e);

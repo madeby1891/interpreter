@@ -6,6 +6,45 @@ future-you) can pick up cold in under five minutes.
 
 ---
 
+## Payments — live as of 2026-05-18
+
+Full implementation spec in [`docs/PAYMENTS_IMPL.md`](docs/PAYMENTS_IMPL.md). Live-mode go-live runbook in [`deployment/PAYMENTS_LIVE_DEPLOY.md`](deployment/PAYMENTS_LIVE_DEPLOY.md).
+
+**Four flows shipped:**
+
+1. **SaaS subscription** — agency lands on `/pricing`, picks tier + cadence, hits `/pay/subscribe`, completes Stripe Checkout. Webhook flips the Agencies row to `subscription_status='active'`. Public Worker route: `POST /v1/public/billing/checkout` (rate-limited 10/5min/IP). In-app upgrade route: `POST /v1/billing/checkout` (auth via `X-1891-Internal`).
+2. **Connect onboarding** — `POST /v1/stripe/account/create` + `POST /v1/stripe/account/onboard` issue a Stripe Express account + KYC link per interpreter. `account.updated` webhook flips `Users.stripe_payouts_enabled`.
+3. **Payer invoicing** — `POST /v1/stripe/invoice/send` creates a Stripe Invoice (one line per closed-job line item) on the payer's Stripe Customer and sends. `invoice.paid` webhook flips Invoices row to paid.
+4. **Payout transfers** — `POST /v1/stripe/transfer/send` runs a Connect Transfer to the interpreter's account. `transfer.created` webhook flips Payouts row to transferred.
+
+**Live Stripe identifiers (acct_1TYabRRyhX2OZu5s — Made By 1891):**
+
+| Tier | Annual | Monthly |
+|---|---|---|
+| Solo | `price_1TYdAiRyhX2OZu5s587CRrWw` ($108/yr) | `price_1TYdAjRyhX2OZu5sO0eTxOJx` ($11/mo) |
+| Practice | `price_1TYdAlRyhX2OZu5sZUZQabVt` ($2,988/yr) | `price_1TYdAlRyhX2OZu5s7Ht18JkL` ($299/mo) |
+| Studio | `price_1TYdApRyhX2OZu5sK8rpU7KJ` ($8,988/yr) | `price_1TYdAqRyhX2OZu5sVDaRZlFS` ($899/mo) |
+
+Monthly prices are a ~20% premium over annual (see `site/pricing.html`).
+
+- **Webhook endpoint:** `we_1TYdCARyhX2OZu5spASL0jxI` — live, subscribed to 19 events, URL is the API Worker.
+- **Worker URL:** `https://1891-interpreter-api.anthonymowl.workers.dev`.
+- **KV namespace to create at go-live:** `1891-interpreter-idempotency` (and `--preview` variant). Anthony runs `npx wrangler kv namespace create 1891-interpreter-idempotency` once and pastes the IDs into `workers/api/wrangler.toml`. The two `<placeholder>` strings under `[[kv_namespaces]]` are where they go.
+
+**Top 5 webhook event types most likely to surface anomalies — watch these first when something feels off:**
+
+1. **`charge.dispute.created`** — chargeback. Anthony pages himself. Evidence assembly is currently manual (Open Work item).
+2. **`radar.early_fraud_warning.created`** — card network warned us of fraud before a dispute lands. Auto-refund preemptively if amount < $200 and customer is unreachable (per `shared/specs/PAYMENTS.md` §7.1).
+3. **`invoice.payment_failed`** — either a SaaS subscription dunning event or a payer-invoice failure. The Subscriptions row should flip to `past_due`; if it doesn't within a minute, the webhook bridge dropped.
+4. **`customer.subscription.deleted`** — agency canceled. Confirm `Agencies.subscription_status` flipped to `canceled` and `subscription_renews_at` was honored (no immediate access removal — wait for `current_period_end`).
+5. **`transfer.reversed`** — Connect transfer was clawed back (insufficient funds at Stripe, KYC issue, etc.). Reconcile against the Payouts tab and surface to the affected interpreter.
+
+The full event list + per-event behavior is in `docs/PAYMENTS_IMPL.md` §5.
+
+**Cross-project pointer check:** the umbrella `1891-immersive/1891 Web/products/interpreter/index.html` pointer page links to its own in-page `#pricing` anchor only — no outbound link to `madeby1891.com/interpreter/pay/*` to update. Re-check this if the pointer page ever links to the live pricing CTA directly.
+
+---
+
 ## Current state
 
 **As of 2026-05-17 (afternoon):** Marketing site + working scheduler MVP **live and deployed** at `https://madeby1891.com/interpreter/`. Apps Script backend deployed (v4) with magic-link auth, jobs CRUD, and smart-fill. Host tenant Sheet provisioned with all 21 canonical PRD A3 tabs. Repo published at https://github.com/madeby1891/interpreter (public, per PRD F10 #10).
