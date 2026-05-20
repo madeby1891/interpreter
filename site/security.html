@@ -107,7 +107,7 @@
       <h2>Append-only, hash-chained, exportable.</h2>
       <div class="grid grid-3 mt-5">
         <div class="card"><h3 class="mt-0">Every PHI read</h3><p class="ink-soft">Every time someone — interpreter, scheduler, requestor — opens a record that contains PHI, an Audit_Log row is written: who, what, when, why.</p></div>
-        <div class="card"><h3 class="mt-0">7-year retention</h3><p class="ink-soft">Audit log retained 7 years. Apps Script editor protections enforce append-only; deletes are physically blocked.</p></div>
+        <div class="card"><h3 class="mt-0">7-year retention</h3><p class="ink-soft">Audit log retained 7 years. Append-only at the storage layer; deletes are physically blocked.</p></div>
         <div class="card"><h3 class="mt-0">Hash-chain integrity</h3><p class="ink-soft">Each row carries a SHA-256 of itself + the prior row. Any tampering breaks the chain and shows up on the next integrity check.</p></div>
         <div class="card"><h3 class="mt-0">SIEM export</h3><p class="ink-soft">Network tier exports the audit log to your SIEM (Splunk, Datadog, Elastic, custom). Format is documented and stable.</p></div>
         <div class="card"><h3 class="mt-0">Subject access</h3><p class="ink-soft">Consumers can request their own access log under HIPAA's right of access. The response is a redacted PDF, ready in 30 days or less.</p></div>
