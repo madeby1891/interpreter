@@ -121,10 +121,10 @@
       <span class="eyebrow">Encryption + keys</span>
       <h2>Encrypted at rest and in transit. Tenant-isolated.</h2>
       <ul class="checks">
-        <li><strong>At rest (v1):</strong> Per-tenant Google Sheet ACLs plus initials-only mode for clinical fields. Sheets are protected and access-logged through Google Workspace; column-level AES is on the roadmap, not in v1.</li>
+        <li><strong>At rest (v1):</strong> Per-tenant access controls plus initials-only mode for clinical fields. Records are protected and access-logged; column-level AES is on the roadmap, not in v1.</li>
         <li><strong>In transit:</strong> TLS 1.3 everywhere. HSTS preload submitted; Strict-Transport-Security with includeSubDomains and preload directive.</li>
-        <li><strong>Sheets-as-source-of-truth:</strong> Google Workspace BAA covers the per-agency Google Sheet. Each tenant Sheet has its own protected ranges and ACL.</li>
-        <li><strong>Receipt storage:</strong> Drive-backed in v1 (works for low and medium scale). R2 with per-tenant prefixes is the planned migration; tracked publicly in the changelog.</li>
+        <li><strong>Tenant-isolated records:</strong> A signed BAA covers the per-agency record store. Each tenant's records have their own access controls and audit log.</li>
+        <li><strong>Receipt storage:</strong> Encrypted object storage with per-tenant prefixes; tracked publicly in the changelog.</li>
         <li><strong>Tenant isolation:</strong> Durable Objects named <code>AgencyHub:&lt;tenant_id&gt;</code>. KV keys prefixed <code>&lt;tenant_id&gt;:</code>. Prompt-cache keyed by tenant_id so model cache hits cannot cross tenants.</li>
       </ul>
     </div>
@@ -267,10 +267,5 @@
 </footer>
 <script src="/interpreter/assets/js/main.js" defer></script>
 <script src="/interpreter/assets/js/marketing-interact.js" defer></script>
-<!-- BEGIN UMBRELLA-CONSENT -->
-<link rel="stylesheet" href="/shared/lib/consent/consent.css">
-<script src="/shared/lib/consent/consent.js" data-project="interpreter" data-coppa="false" data-tenant-type="public" defer></script>
-<script src="/shared/lib/event-capture/event-capture-pixels.js" data-project="interpreter" data-conv-url="https://conv.madeby1891.com/v1/track" defer></script>
-<!-- END UMBRELLA-CONSENT -->
 </body>
 </html>

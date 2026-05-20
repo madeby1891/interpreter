@@ -484,8 +484,53 @@ def home_body() -> str:
       <h2>Two ways to start.</h2>
       <p class="lede" style="margin:0 auto var(--1891int-s-6)">Either path gets you to a real person within one business day.</p>
       <div class="cluster" style="justify-content:center">
-        <a class="btn btn-primary btn-lg" href="{BASE_PATH}/get-a-demo">Get a demo</a>
+        <a class="btn btn-primary btn-lg" href="{BASE_PATH}/get-a-demo">Walk through it with us</a>
         <a class="btn btn-secondary btn-lg" href="{BASE_PATH}/free-for-deaf-owned">Start free if Deaf-owned</a>
+      </div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="wrap">
+      <div class="center-text" style="margin-bottom:var(--1891int-s-7)">
+        <span class="eyebrow">From the workbench</span>
+        <h2>The kit the products are built from.</h2>
+        <p class="lede" style="margin:0 auto">A handful of capabilities the studio sharpens every year. Each product picks the ones its room needs.</p>
+      </div>
+      <div class="grid grid-3">
+        <div class="pillar"><h3>Multi-device web</h3><p>Tablet on the podium. TV at the front of the room. Phone in every hand. Same URL, three floor plans. Nothing to install.</p></div>
+        <div class="pillar"><h3>One Stripe spine</h3><p>Every product takes money the same way. Receipts arrive from the same address. The studio doesn't sit in the middle of your funds.</p></div>
+        <div class="pillar"><h3>Your data, yours.</h3><p>Records, archives, rosters belong to you. Export anything, anytime, in plain formats. If you ever leave, you leave with everything.</p></div>
+        <div class="pillar"><h3>Live at the edge</h3><p>Counters update the moment the vote does. Brackets update the moment the game ends. No refresh.</p></div>
+        <div class="pillar"><h3>Captions default-on</h3><p>Audio is additive, never sole. Every state change carries color, icon, and text. Speakers muted, the product still works.</p></div>
+        <div class="pillar"><h3>Built in Frederick</h3><p>The same person who solders the board writes the firmware and pushes the deploy. The studio that built it is the studio that runs it.</p></div>
+      </div>
+      <p class="muted" style="text-align:center; margin-top:var(--1891int-s-6); font-size:14px">See the workbench at <a href="https://madeby1891.com/products/" style="color:inherit; text-decoration:underline">madeby1891.com/products</a>.</p>
+    </div>
+  </section>
+
+  <section class="section section-warm">
+    <div class="wrap">
+      <div class="center-text" style="margin-bottom:var(--1891int-s-6)">
+        <span class="eyebrow">From the studio that builds</span>
+        <h2>Three other 1891 products.</h2>
+      </div>
+      <div class="grid grid-3">
+        <a class="pillar" href="https://madeby1891.com/parliamentarian/" style="text-decoration:none; color:inherit; display:block">
+          <h3>Parliamentarian</h3>
+          <p>Robert's Rules, on the TV at the front of the room and the phone in every hand.</p>
+          <p style="font-size:14px; color:#5B6770">Walk through it →</p>
+        </a>
+        <a class="pillar" href="https://madeby1891.com/meetings/" style="text-decoration:none; color:inherit; display:block">
+          <h3>Meetings</h3>
+          <p>Plain meetings. Real signal from the room.</p>
+          <p style="font-size:14px; color:#5B6770">Walk through it →</p>
+        </a>
+        <a class="pillar" href="https://madeby1891.com/arena/" style="text-decoration:none; color:inherit; display:block">
+          <h3>Arena</h3>
+          <p>Two sports. One arena. Brackets that update live.</p>
+          <p style="font-size:14px; color:#5B6770">Walk through it →</p>
+        </a>
       </div>
     </div>
   </section>
@@ -1729,10 +1774,10 @@ def security_body() -> str:
       <span class="eyebrow">Encryption + keys</span>
       <h2>Encrypted at rest and in transit. Tenant-isolated.</h2>
       <ul class="checks">
-        <li><strong>At rest (v1):</strong> Per-tenant Google Sheet ACLs plus initials-only mode for clinical fields. Sheets are protected and access-logged through Google Workspace; column-level AES is on the roadmap, not in v1.</li>
+        <li><strong>At rest (v1):</strong> Per-tenant access controls plus initials-only mode for clinical fields. Records are protected and access-logged; column-level AES is on the roadmap, not in v1.</li>
         <li><strong>In transit:</strong> TLS 1.3 everywhere. HSTS preload submitted; Strict-Transport-Security with includeSubDomains and preload directive.</li>
-        <li><strong>Sheets-as-source-of-truth:</strong> Google Workspace BAA covers the per-agency Google Sheet. Each tenant Sheet has its own protected ranges and ACL.</li>
-        <li><strong>Receipt storage:</strong> Drive-backed in v1 (works for low and medium scale). R2 with per-tenant prefixes is the planned migration; tracked publicly in the changelog.</li>
+        <li><strong>Tenant-isolated records:</strong> A signed BAA covers the per-agency record store. Each tenant's records have their own access controls and audit log.</li>
+        <li><strong>Receipt storage:</strong> Encrypted object storage with per-tenant prefixes; tracked publicly in the changelog.</li>
         <li><strong>Tenant isolation:</strong> Durable Objects named <code>AgencyHub:&lt;tenant_id&gt;</code>. KV keys prefixed <code>&lt;tenant_id&gt;:</code>. Prompt-cache keyed by tenant_id so model cache hits cannot cross tenants.</li>
       </ul>
     </div>
