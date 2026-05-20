@@ -10,6 +10,34 @@
 <link rel="icon" type="image/svg+xml" href="/interpreter/assets/img/favicon.svg">
 <link rel="stylesheet" href="/interpreter/assets/css/site.css">
 <link rel="stylesheet" href="/interpreter/assets/css/marketing-interact.css">
+<style>
+  /* One workbench + sibling strip — added 2026-05-19 marcom refresh */
+  .one-workbench { padding: clamp(48px, 7vw, 96px) 0; background: linear-gradient(180deg, #FAF6F2 0%, #F3E9DF 100%); background-size: 200% 200%; animation: ow-breathe 5s ease-in-out infinite; }
+  .one-workbench .wrap { max-width: 1100px; margin: 0 auto; padding: 0 24px; }
+  .one-workbench h2 { font-size: clamp(28px, 3.4vw, 40px); margin: 0 0 12px; }
+  .one-workbench .lede { font-size: 17px; max-width: 64ch; margin: 0 0 40px; color: #5a554a; }
+  .ow-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 18px; }
+  .ow-tile { padding: 22px; border-radius: 14px; background: linear-gradient(160deg, #ffffff 0%, #FAEDE0 100%); background-size: 220% 220%; animation: ow-breathe 5s ease-in-out infinite; border: 1px solid rgba(200, 85, 61, 0.12); transition: transform 200ms ease-out, box-shadow 200ms ease-out; }
+  .ow-tile:hover { transform: translateY(-3px); box-shadow: 0 12px 28px rgba(82, 47, 23, 0.12); }
+  .ow-tile h3 { margin: 0 0 8px; font-size: 17px; color: #C8553D; }
+  .ow-tile p { margin: 0; font-size: 14.5px; line-height: 1.5; color: #4a4439; }
+  .ow-footnote { margin-top: 28px; font-size: 14px; color: #5a554a; }
+  @keyframes ow-breathe { 0%, 100% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } }
+  .siblings-strip { padding: clamp(40px, 5vw, 72px) 0 clamp(56px, 7vw, 96px); background: #FAF6F2; }
+  .siblings-strip .wrap { max-width: 1100px; margin: 0 auto; padding: 0 24px; }
+  .siblings-strip .eyebrow { font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: #5a554a; margin-bottom: 8px; }
+  .siblings-strip h2 { font-size: clamp(22px, 2.6vw, 30px); margin: 0 0 24px; }
+  .siblings-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; }
+  .sibling-card { display: block; padding: 20px; border-radius: 12px; background: #ffffff; border: 1px solid rgba(82, 47, 23, 0.1); text-decoration: none; color: inherit; transition: transform 200ms ease-out, box-shadow 200ms ease-out; }
+  .sibling-card:hover { transform: translateY(-3px); box-shadow: 0 12px 24px rgba(82, 47, 23, 0.1); }
+  .sibling-card h3 { margin: 0 0 6px; font-size: 16px; color: #C8553D; }
+  .sibling-card p { margin: 0; font-size: 14px; line-height: 1.5; color: #4a4439; }
+  @media (prefers-reduced-motion: reduce) {
+    .one-workbench, .ow-tile { animation: none !important; }
+    .ow-tile, .sibling-card { transition: none !important; }
+    .ow-tile:hover, .sibling-card:hover { transform: none !important; }
+  }
+</style>
 <meta property="og:title" content="1891 Interpreter — built by the community it serves">
 <meta property="og:description" content="Scheduling, interpreter app, billing, translation, and live captions in one tool. Six-dashboard board with URL-persisted filters. SMS YES/NO claim. Close-out modal with expenses. Five consolidation modes per client. Hash-chained audit log. Free forever for verified Deaf-owned agencies.">
 <meta property="og:type" content="website">
@@ -78,7 +106,7 @@
             <div>Free, forever, for verified Deaf-owned agencies.</div>
           </div>
           <div class="cluster" style="margin-top:var(--1891int-s-6)">
-            <a class="btn btn-primary btn-lg" href="/interpreter/get-a-demo">Get a demo</a>
+            <a class="btn btn-primary btn-lg" href="/interpreter/get-a-demo">Walk through it with us</a>
             <a class="btn btn-secondary btn-lg" href="/interpreter/free-for-deaf-owned">Free if Deaf-owned</a>
           </div>
           <p class="muted" style="margin-top:var(--1891int-s-5); font-size:14px">
@@ -310,8 +338,47 @@
       <h2>Two ways to start.</h2>
       <p class="lede" style="margin:0 auto var(--1891int-s-6)">Either path gets you to a real person within one business day.</p>
       <div class="cluster" style="justify-content:center">
-        <a class="btn btn-primary btn-lg" href="/interpreter/get-a-demo">Get a demo</a>
+        <a class="btn btn-primary btn-lg" href="/interpreter/get-a-demo">Walk through it with us</a>
         <a class="btn btn-secondary btn-lg" href="/interpreter/free-for-deaf-owned">Start free if Deaf-owned</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── ONE WORKBENCH ───────────────────────────────────────────────── -->
+  <section class="one-workbench" aria-labelledby="ow-h">
+    <div class="wrap">
+      <h2 id="ow-h">One workbench. Six things every product gets for free.</h2>
+      <p class="lede">Every 1891 product runs on the same chassis — so the thing you signed up for keeps getting better whether you noticed or not.</p>
+      <div class="ow-grid">
+        <div class="ow-tile"><h3>Multi-device web</h3><p>Tablet on the podium. TV at the front of the room. Phone in every hand. Same URL, three floor plans. Nothing to install.</p></div>
+        <div class="ow-tile"><h3>One Stripe spine</h3><p>Every product takes money the same way. Receipts arrive from the same address. The studio doesn't sit in the middle of your funds.</p></div>
+        <div class="ow-tile"><h3>Workbook as source of truth</h3><p>Your data lives in a Google Sheet your operators already know how to open. The site is downstream. The trust is upstream.</p></div>
+        <div class="ow-tile"><h3>Live at the edge</h3><p>Counters update the moment the vote does. Brackets update the moment the game ends. No refresh.</p></div>
+        <div class="ow-tile"><h3>Captions default-on</h3><p>Audio is additive, never sole. Every state change carries color, icon, and text. Speakers muted — the product still works.</p></div>
+        <div class="ow-tile"><h3>Built in Frederick</h3><p>The same person who solders the board writes the firmware and pushes the deploy. The studio that built it is the studio that runs it.</p></div>
+      </div>
+      <p class="ow-footnote">See the chassis at <a href="https://madeby1891.com/products/">madeby1891.com/products</a>.</p>
+    </div>
+  </section>
+
+  <!-- ─── SIBLINGS ────────────────────────────────────────────────────── -->
+  <section class="siblings-strip" aria-labelledby="sib-h">
+    <div class="wrap">
+      <p class="eyebrow">From the studio that builds</p>
+      <h2 id="sib-h">Three rooms that share the same chassis.</h2>
+      <div class="siblings-grid">
+        <a class="sibling-card" href="https://madeby1891.com/parliamentarian/">
+          <h3>Parliamentarian</h3>
+          <p>Robert's Rules, on the TV at the front of the room and the phone in every hand.</p>
+        </a>
+        <a class="sibling-card" href="https://madeby1891.com/meetings/">
+          <h3>Meetings</h3>
+          <p>Plain meetings. Real signal from the room.</p>
+        </a>
+        <a class="sibling-card" href="https://madeby1891.com/arena/">
+          <h3>Arena</h3>
+          <p>Brackets that update live. Stats that don't get lost in a coach's Google Drive.</p>
+        </a>
       </div>
     </div>
   </section>
