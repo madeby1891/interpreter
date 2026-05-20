@@ -316,81 +316,46 @@
     </div>
   </section>
 
-  <!-- ═══ From the workbench (unifying strip) ═══════════════════════════ -->
-  <style>
-    .int-wb { padding: 64px 0 56px; background:#F7F3EB; }
-    .int-wb__head { max-width: 60ch; margin: 0 auto 32px; text-align: center; }
-    .int-wb__head h2 { font-size: 30px; margin: 0 0 8px; }
-    .int-wb__head p { color:#5B6770; font-size:16px; line-height:1.55; }
-    .int-wb__grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
-    @media (max-width: 900px) { .int-wb__grid { grid-template-columns: 1fr 1fr; } }
-    @media (max-width: 600px) { .int-wb__grid { grid-template-columns: 1fr; } }
-    .int-wb__tile { background:#fff; border:1px solid #E8DFCB; border-radius:6px; padding:20px 20px 18px;
-      box-shadow: 0 1px 0 rgba(14,39,66,0.04);
-      transition: transform 200ms ease-out, box-shadow 200ms ease-out;
-      animation: intWbBreathe 5.4s ease-in-out infinite alternate; }
-    .int-wb__tile:nth-child(2) { animation-delay: 0.6s; }
-    .int-wb__tile:nth-child(3) { animation-delay: 1.2s; }
-    .int-wb__tile:nth-child(4) { animation-delay: 1.8s; }
-    .int-wb__tile:nth-child(5) { animation-delay: 2.4s; }
-    .int-wb__tile:nth-child(6) { animation-delay: 3.0s; }
-    .int-wb__tile:hover { transform: translateY(-3px); box-shadow: 0 12px 24px rgba(14,39,66,0.10); }
-    .int-wb__tile h3 { font-family:'Source Serif 4', serif; font-weight:600; font-size:18px; margin:0 0 6px; color:#0E2742; }
-    .int-wb__tile p  { font-family:'Inter', sans-serif; font-size:14.5px; line-height:1.55; color:#5B6770; margin:0; }
-    .int-wb__foot { text-align:center; margin-top:28px; color:#5B6770; font-size:14px; }
-    @keyframes intWbBreathe { 0%{background:#fff;} 100%{background:#FBF8F2;} }
-    .int-siblings { padding: 48px 0; background:#fff; }
-    .int-siblings__head { text-align:center; max-width:60ch; margin:0 auto 28px; }
-    .int-siblings__grid { display:grid; grid-template-columns:repeat(3,1fr); gap:18px; }
-    @media (max-width:760px) { .int-siblings__grid { grid-template-columns:1fr; } }
-    .int-siblings__tile { display:block; padding:22px; border:1px solid #E8DFCB; border-radius:6px;
-      text-decoration:none; background:#FBF8F2;
-      transition: transform 200ms ease-out, box-shadow 200ms ease-out; }
-    .int-siblings__tile:hover { transform: translateY(-3px); box-shadow: 0 12px 24px rgba(14,39,66,0.10); }
-    .int-siblings__tile h4 { font-family:'Source Serif 4',serif; font-weight:600; font-size:18px; margin:0 0 4px; color:#0E2742; }
-    .int-siblings__tile p { font-size:14px; color:#5B6770; margin:0; line-height:1.5; }
-    @media (prefers-reduced-motion: reduce) {
-      .int-wb__tile, .int-siblings__tile { animation: none; transition: none; }
-    }
-  </style>
-
-  <section class="int-wb" aria-labelledby="int-wb-h">
+  <section class="section" style="background:#F7F3EB" aria-labelledby="int-wb-h">
     <div class="wrap">
-      <header class="int-wb__head">
+      <div class="center-text" style="margin-bottom:var(--1891int-s-7)">
         <span class="eyebrow">From the workbench</span>
         <h2 id="int-wb-h">The kit the products are built from.</h2>
-        <p>A handful of capabilities the studio sharpens every year. Each product picks the ones its room needs.</p>
-      </header>
-      <div class="int-wb__grid">
-        <div class="int-wb__tile"><h3>Multi-device web</h3><p>Tablet on the podium. TV at the front of the room. Phone in every hand. Same URL, three floor plans. Nothing to install.</p></div>
-        <div class="int-wb__tile"><h3>One Stripe spine</h3><p>Every product takes money the same way. Receipts arrive from the same address. The studio doesn't sit in the middle of your funds.</p></div>
-        <div class="int-wb__tile"><h3>Your data, yours.</h3><p>Records, archives, rosters belong to you. Export anything, anytime, in plain formats. If you ever leave, you leave with everything.</p></div>
-        <div class="int-wb__tile"><h3>Live at the edge</h3><p>Counters update the moment the vote does. Brackets update the moment the game ends. No refresh.</p></div>
-        <div class="int-wb__tile"><h3>Captions default-on</h3><p>Audio is additive, never sole. Every state change carries color, icon, and text. Speakers muted, the product still works.</p></div>
-        <div class="int-wb__tile"><h3>Built in Frederick</h3><p>The same person who solders the board writes the firmware and pushes the deploy. The studio that built it is the studio that runs it.</p></div>
+        <p class="lede" style="margin:0 auto">A handful of capabilities the studio sharpens every year. Each product picks the ones its room needs.</p>
       </div>
-      <p class="int-wb__foot">See the workbench at <a href="https://madeby1891.com/products/" style="color:#0E2742; text-decoration:underline">madeby1891.com/products</a>.</p>
+      <div class="grid grid-3" data-int-wb>
+        <div class="pillar"><h3>Multi-device web</h3><p>Tablet on the podium. TV at the front of the room. Phone in every hand. Same URL, three floor plans. Nothing to install.</p></div>
+        <div class="pillar"><h3>One Stripe spine</h3><p>Every product takes money the same way. Receipts arrive from the same address. The studio doesn't sit in the middle of your funds.</p></div>
+        <div class="pillar"><h3>Your data, yours.</h3><p>Records, archives, rosters belong to you. Export anything, anytime, in plain formats. If you ever leave, you leave with everything.</p></div>
+        <div class="pillar"><h3>Live at the edge</h3><p>Counters update the moment the vote does. Brackets update the moment the game ends. No refresh.</p></div>
+        <div class="pillar"><h3>Captions default-on</h3><p>Audio is additive, never sole. Every state change carries color, icon, and text. Speakers muted, the product still works.</p></div>
+        <div class="pillar"><h3>Built in Frederick</h3><p>The same person who solders the board writes the firmware and pushes the deploy. The studio that built it is the studio that runs it.</p></div>
+      </div>
+      <p class="muted" style="text-align:center; margin-top:var(--1891int-s-6); font-size:14px">See the workbench at <a href="https://madeby1891.com/products/" style="color:inherit; text-decoration:underline">madeby1891.com/products</a>.</p>
     </div>
   </section>
 
-  <section class="int-siblings" aria-labelledby="int-sib-h">
+  <section class="section" aria-labelledby="int-sib-h">
     <div class="wrap">
-      <header class="int-siblings__head">
+      <div class="center-text" style="margin-bottom:var(--1891int-s-6)">
         <span class="eyebrow">From the studio that builds</span>
         <h2 id="int-sib-h">Three other 1891 products.</h2>
-      </header>
-      <div class="int-siblings__grid">
-        <a class="int-siblings__tile" href="https://madeby1891.com/parliamentarian/">
-          <h4>Parliamentarian</h4>
+      </div>
+      <div class="grid grid-3">
+        <a class="pillar" href="https://madeby1891.com/parliamentarian/" style="text-decoration:none; color:inherit; display:block; transition:transform 200ms ease-out, box-shadow 200ms ease-out">
+          <h3>Parliamentarian</h3>
           <p>Robert's Rules, on the TV at the front of the room and the phone in every hand.</p>
+          <p style="font-size:14px; color:#5B6770">Walk through it →</p>
         </a>
-        <a class="int-siblings__tile" href="https://madeby1891.com/meetings/">
-          <h4>Meetings</h4>
+        <a class="pillar" href="https://madeby1891.com/meetings/" style="text-decoration:none; color:inherit; display:block; transition:transform 200ms ease-out, box-shadow 200ms ease-out">
+          <h3>Meetings</h3>
           <p>Plain meetings. Real signal from the room.</p>
+          <p style="font-size:14px; color:#5B6770">Walk through it →</p>
         </a>
-        <a class="int-siblings__tile" href="https://madeby1891.com/arena/">
-          <h4>Arena</h4>
+        <a class="pillar" href="https://madeby1891.com/arena/" style="text-decoration:none; color:inherit; display:block; transition:transform 200ms ease-out, box-shadow 200ms ease-out">
+          <h3>Arena</h3>
           <p>Two sports. One arena. Brackets that update live.</p>
+          <p style="font-size:14px; color:#5B6770">Walk through it →</p>
         </a>
       </div>
     </div>
