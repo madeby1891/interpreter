@@ -68,6 +68,14 @@ export interface Env {
   // route to return { ok:false, status:'unconfigured' } rather than 500.
   STRIPE_API_KEY?: string;
   STRIPE_WEBHOOK_SECRET?: string;
+  // Pattern A feature flag (default OFF — Pattern G is canonical for Mode A).
+  // See docs/PAYMENTS_IMPL.md §1 mode-map. The Pattern A code paths (platform
+  // creates Connect accounts, platform issues invoices, platform runs
+  // transfers) are preserved in source but gated behind this flag so a
+  // mis-routed Apps Script call can't accidentally invoke money-movement
+  // primitives we've chosen not to operate. To re-enable, set ENABLE_PATTERN_A
+  // = "true" via `wrangler secret put` (or in [vars] for a dev override).
+  ENABLE_PATTERN_A?: string;
   // Pattern G — Stripe Connect OAuth read-only reporting. Until Anthony
   // enables Connect-as-platform at dashboard.stripe.com/settings/connect AND
   // copies the ca_… client_id into `wrangler secret put STRIPE_CONNECT_CLIENT_ID`,
@@ -290,6 +298,27 @@ async function handleStripeWebhook(req: Request, env: Env): Promise<Response> {
 // Stripe internal routes (Apps Script → Worker)
 // ---------------------------------------------------------------------------
 
+// Pattern A is deferred. Pattern G (Connect OAuth read-only reporting) is
+// canonical for Mode A; the agency runs its own Stripe and we read it.
+// See docs/PAYMENTS_IMPL.md §1 mode-map. Routes guarded by this helper return
+// HTTP 503 unless ENABLE_PATTERN_A is explicitly set to "true". Code is
+// preserved (not deleted) in case the strategy ever changes back.
+function patternADeferredResponse(): Response {
+  return json(
+    {
+      ok: false,
+      error: "pattern_a_deferred",
+      message:
+        "Pattern G is canonical for Mode A — see docs/PAYMENTS_IMPL.md §1 mode-map",
+    },
+    { status: 503 }
+  );
+}
+
+function patternAEnabled(env: Env): boolean {
+  return String(env.ENABLE_PATTERN_A ?? "").toLowerCase() === "true";
+}
+
 async function handleStripeInternal(req: Request, env: Env, pathname: string): Promise<Response> {
   const auth = verifyInternalHeader(req, env.JWT_SECRET);
   if (!auth.authorized) return json({ ok: false, error: auth.error ?? "unauthorized" }, { status: 401 });
@@ -304,6 +333,7 @@ async function handleStripeInternal(req: Request, env: Env, pathname: string): P
 
   switch (pathname) {
     case "/v1/stripe/account/create": {
+      if (!patternAEnabled(env)) return patternADeferredResponse();
       const interpreterId = String(body.interpreter_id ?? "");
       if (!interpreterId) return json({ ok: false, error: "interpreter_id required" }, { status: 400 });
       const account = await createConnectAccount(env, {
@@ -314,6 +344,7 @@ async function handleStripeInternal(req: Request, env: Env, pathname: string): P
       return json({ ok: !(account as { ok?: false }).ok ? true : false, test_mode: stripeTestMode(env), account });
     }
     case "/v1/stripe/account/onboard": {
+      if (!patternAEnabled(env)) return patternADeferredResponse();
       const accountId = String(body.account_id ?? "");
       const returnUrl = String(body.return_url ?? "");
       const refreshUrl = String(body.refresh_url ?? "");
@@ -328,12 +359,14 @@ async function handleStripeInternal(req: Request, env: Env, pathname: string): P
       return json({ ok: !(link as { ok?: false }).ok ? true : false, link });
     }
     case "/v1/stripe/account/refresh": {
+      if (!patternAEnabled(env)) return patternADeferredResponse();
       const accountId = String(body.account_id ?? "");
       if (!accountId) return json({ ok: false, error: "account_id required" }, { status: 400 });
       const account = await fetchAccount(env, accountId);
       return json({ ok: !(account as { ok?: false }).ok ? true : false, account });
     }
     case "/v1/stripe/transfer/send": {
+      if (!patternAEnabled(env)) return patternADeferredResponse();
       const amount = Number(body.amount_cents ?? 0);
       const destination = String(body.destination_account ?? "");
       const payoutId = String(body.payout_id ?? "");
@@ -348,6 +381,7 @@ async function handleStripeInternal(req: Request, env: Env, pathname: string): P
       return json({ ok: !(transfer as { ok?: false }).ok ? true : false, transfer });
     }
     case "/v1/stripe/invoice/send": {
+      if (!patternAEnabled(env)) return patternADeferredResponse();
       const ourInvoiceId = String(body.invoice_id ?? "");
       const payerId = String(body.payer_id ?? "");
       const lineItemsRaw = body.line_items;
