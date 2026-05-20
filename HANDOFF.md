@@ -167,3 +167,24 @@ These are collected at the end of each PRD section. Decide before coding.
 4. Make a change, commit, run the build (when one exists), smoke-deploy `--dry-run` first.
 5. Update this file when you finish: bump "Current state", refresh "Next 3 actions", note anything new in "Known blockers."
 6. Add a `CHANGELOG.md` entry if you shipped something user-visible.
+
+
+---
+
+## 2026-05-19 — Marcom refresh (the four-flagship pass)
+
+Anthony asked for a fresh look at all product marcom around the four high-level surfaces — Parliamentarian, Meetings, Arena: Pickleball, Arena: Bowling — with the unifying chassis articulated. Shipped live the same day.
+
+What landed in this project:
+
+- Hero / lead copy aligned with `messaging/UNIFYING_NARRATIVE_2026-05-19.md` § 7 canonical one-liners.
+- New "One workbench. Six things every product gets for free." strip (see § 4 of the narrative doc). Same six tiles, same words, breathing hover.
+- New "Three siblings" cross-link strip pointing at the other three flagships (or the four flagships from secondary products).
+- Voice pass against `MASTER_MESSAGING.md` § 5 kill list (where any hits were found).
+- `prefers-reduced-motion` honored on every new animation.
+
+Read order for any agent continuing this work:
+
+1. `~/Desktop/1891/messaging/UNIFYING_NARRATIVE_2026-05-19.md` — north star
+2. `~/Desktop/1891/messaging/MASTER_MESSAGING.md` — voice
+3. This file
