@@ -43,7 +43,7 @@
 
       <section class="card" style="margin-bottom:var(--1891int-s-6)">
         <h2 class="mt-0">Where the secrets live</h2>
-        <p style="font-size:14.5px">Production API keys for Stripe, track1099, and Plaid live in the Cloudflare Worker's secret store — NOT in the Google Sheet. Setting them is a one-time shell command from the agency owner's machine:</p>
+        <p style="font-size:14.5px">Production API keys for Stripe, track1099, and Plaid live in the edge worker's secret store — NOT in the data store. Setting them is a one-time shell command from the agency owner's machine:</p>
         <pre style="background:#0F1419;color:#E4E0D6;padding:14px 16px;border-radius:6px;font-size:12.5px;overflow:auto">cd workers/api
 wrangler secret put STRIPE_API_KEY          # sk_test_... or sk_live_...
 wrangler secret put STRIPE_WEBHOOK_SECRET   # whsec_...
