@@ -173,12 +173,12 @@ These are collected at the end of each PRD section. Decide before coding.
 
 ## 2026-05-19 — Marcom refresh (the four-flagship pass)
 
-Anthony asked for a fresh look at all product marcom around the four high-level surfaces — Parliamentarian, Meetings, Arena: Pickleball, Arena: Bowling — with the unifying chassis articulated. Shipped live the same day.
+Anthony asked for a fresh look at all product marcom around the four high-level surfaces — Parliamentarian, Meetings, Arena: Pickleball, Arena: Bowling — with the unifying foundation articulated. Shipped live the same day.
 
 What landed in this project:
 
 - Hero / lead copy aligned with `messaging/UNIFYING_NARRATIVE_2026-05-19.md` § 7 canonical one-liners.
-- New "One workbench. Six things every product gets for free." strip (see § 4 of the narrative doc). Same six tiles, same words, breathing hover.
+- New "One workspace. Six things every product gets for free." strip (see § 4 of the narrative doc). Same six tiles, same words, breathing hover.
 - New "Three siblings" cross-link strip pointing at the other three flagships (or the four flagships from secondary products).
 - Voice pass against `MASTER_MESSAGING.md` § 5 kill list (where any hits were found).
 - `prefers-reduced-motion` honored on every new animation.
