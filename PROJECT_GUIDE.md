@@ -21,12 +21,12 @@
 | **Folder**   | `~/Desktop/1891/projects/interpreter/` |
 | **Status**   | Marketing site + scheduler MVP live. **SaaS payments live 2026-05-18** (Pattern F Checkout + webhook + branded welcome). **Mode A pivot 2026-05-19:** platform runs as SaaS + read-only reporting (Pattern G) — agency keeps merchant-of-record for their own customer billing + interpreter payouts. Pattern G code shipped; awaits Anthony enabling Connect-as-platform in Stripe dashboard. See [`docs/PAYMENTS_IMPL.md`](docs/PAYMENTS_IMPL.md) §1 mode-map. |
 | **Purpose**  | Multi-tenant interpreting agency platform: scheduling, interpreter app, billing, document translation, captioning. Free for Deaf-owned agencies. |
-| **Live URLs** | Site: `https://madeby1891.com/interpreter/` · Pricing: `/interpreter/pricing` · Subscribe: `/interpreter/pay/subscribe` · Worker: `https://1891-interpreter-api.anthonymowl.workers.dev` |
+| **Live URLs** | Site: `https://madeby1891.com/interpreter/` · Pricing: `/interpreter/pricing` · Subscribe: `/interpreter/pay/subscribe` · edge worker: `https://1891-interpreter-api.anthonymowl.workers.dev` |
 | **Domain**   | `1891interpreter.app` (planned; not yet registered — currently served under `madeby1891.com/interpreter/`) |
 | **Repo**     | `https://github.com/madeby1891/interpreter` (public) |
-| **Host**     | GoDaddy cPanel for marketing + static shells; Cloudflare Workers for app |
+| **Host**     | static hosting provider for marketing + static shells; edge workers for app |
 | **SSH key**  | `~/.ssh/ftd_godaddy_deploy` (shared 1891 deploy key) |
-| **Backend**  | Google Apps Script + per-agency Google Sheet + Cloudflare Workers + Durable Objects + R2 + KV |
+| **Backend**  | lightweight backend script + per-agency data store + edge workers + state primitives + R2 + KV |
 
 ---
 
