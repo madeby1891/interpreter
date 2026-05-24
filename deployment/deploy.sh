@@ -38,6 +38,12 @@ for arg in "$@"; do
   esac
 done
 
+# ── Godview auto-registration lint ──────────────────────────────────────────
+# Catches drift between this project and shared/specs/godview-metrics.json
+# (missing row, stale tile, placeholder endpoint). Bypass: FORCE=1.
+# Spec: shared/specs/GODVIEW_AUTO_REGISTRATION.md
+bash "$HOME/Desktop/1891/shared/ops/godview-lint-gate.sh" "$HOME/Desktop/1891/projects/interpreter" || exit 1
+
 # --- Optional: deploy the API worker first ----------------------------------
 # Set DEPLOY_WORKER=1 in env to run `npx wrangler deploy` from workers/api/
 # BEFORE the site rsync. Default is off so this script stays the same one-touch
