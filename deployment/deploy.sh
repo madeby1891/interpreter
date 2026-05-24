@@ -44,6 +44,21 @@ done
 # Spec: shared/specs/GODVIEW_AUTO_REGISTRATION.md
 bash "$HOME/Desktop/1891/shared/ops/godview-lint-gate.sh" "$HOME/Desktop/1891/projects/interpreter" || exit 1
 
+# ── Test gate (vitest) ──────────────────────────────────────────────────────
+# Fail the deploy if tests fail. Bypass: FORCE=1 (matches the godview gate).
+TEST_DIR="$HOME/Desktop/1891/projects/interpreter"
+if [ -d "$TEST_DIR" ] && find "$TEST_DIR" -name "*.test.ts" -not -path "*/node_modules/*" | grep -q .; then
+  echo "==> Running vitest…"
+  if (cd "$TEST_DIR" && npx --yes vitest run --reporter=dot 2>&1 | tail -20); then
+    echo "    vitest pass"
+  elif [ "${FORCE:-0}" = "1" ]; then
+    echo "    vitest fail (FORCE=1 bypass)"
+  else
+    echo "ERROR: vitest fail. Fix the broken tests or set FORCE=1 to bypass." >&2
+    exit 1
+  fi
+fi
+
 # --- Optional: deploy the API worker first ----------------------------------
 # Set DEPLOY_WORKER=1 in env to run `npx wrangler deploy` from workers/api/
 # BEFORE the site rsync. Default is off so this script stays the same one-touch
