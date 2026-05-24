@@ -26,7 +26,9 @@ workers/**/wrangler.toml.local
 workers/**/.env*
 
 # Apps Script local mirror — clasp local files.
-apps-script/.clasp.json
+# .clasp.json IS tracked as of 2026-05-24: deploymentId + account flow
+# through git so shared/ops/clasp-deploy.sh works on a fresh clone.
+# scriptId is not a secret (it's in the editor URL anyway).
 apps-script/.clasprc.json
 
 # Node deps (build scripts only; we don't ship a Node toolchain to prod).
