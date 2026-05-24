@@ -31,7 +31,7 @@ Project-specific overrides go here. If a rule is already in the root CLAUDE.md, 
 
 ## Operator preferences (project-specific)
 
-- **Drive Apps Script via Chrome MCP** per root CLAUDE.md. Same constraints apply: CSP blocks cross-origin fetch, screenshots time out, Monaco bulk writes use `executeEdits`, deploy is a 4-click manual flow Anthony does at deploy time.
+- **Drive Apps Script via clasp + osascript** per root CLAUDE.md. `shared/ops/clasp-deploy.sh apps-script "<desc>"` does `clasp push` + `clasp deploy -i <deploymentId>` end-to-end (deploymentId is in `apps-script/.clasp.json`; account=`anthonymowl`). Chrome MCP is the recovery fallback only — same constraints there apply: CSP blocks cross-origin fetch, screenshots time out, Monaco bulk writes use `executeEdits`.
 - **Deploy timing.** Never deploy on a weekday morning between 7–10 ET — that's the schedulers' Tetris hour. Maintenance windows: Saturday 11pm–Sunday 3am ET by default; agency owners get a heads-up email 48h before any non-trivial deploy.
 - **Who to notify when this ships.** Anthony + Fallon (always). Each agency's owner gets an email after a non-trivial deploy with the changelog. Schedulers get an in-app toast on next login.
 
