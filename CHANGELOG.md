@@ -4,6 +4,33 @@ Dated history of changes. Newest entries at the top. Note user-visible changes o
 
 ---
 
+## 2026-05-25 — platform-spec backfill (SMS contract v1, dashboard contract v1, HARD RULE sweep)
+
+A catch-up pass against three umbrella specs that landed last week.
+
+### SMS — aligned to `shared/specs/SMS.md` v1
+
+- **HARD RULE sweep.** Eight customer-facing pages named "Twilio" in body copy. All rewritten through the build's content registry (`_build/build.py`) to generic phrasing per SMS.md §7 — "edge-verified inbound text," "HIPAA-eligible carrier," "transactional SMS through a HIPAA-eligible provider." Sanctioned mentions stay only in `legal/subprocessors.html`. `sms-consent-lint` is now 0 FAIL, 0 WARN.
+- **Worker outbound aligned to Pattern B + the shared 1891 SMS Gateway.** [`workers/api/src/sms.ts`](workers/api/src/sms.ts) now prefers `TWILIO_MESSAGING_SERVICE_SID` (default `MGc34cd9467b4a9e6b0cce3d043d093eb4`) and the `TWILIO_API_KEY_SID/SECRET` pair, with the legacy `TWILIO_FROM_NUMBER` + `TWILIO_AUTH_TOKEN` retained as fallback for a clean rotation. Env interface in [`workers/api/src/index.ts`](workers/api/src/index.ts) extended with the new fields. Once secrets land, the project inherits the shared brand reg, A2P 10DLC campaign, and auto STOP/HELP routing at the Twilio MS layer.
+- **Status table row added.** `interpreter` now appears in [`shared/specs/SMS.md`](../../shared/specs/SMS.md) §10 — Pattern B, shared MS, consent UI live, STOP/HELP live, lint wired.
+- **Lint wired into deploy.** `deployment/deploy.sh` now runs `sms-consent-lint.py` in the same slot as `godview-lint-gate.sh`; deploy aborts on FAIL (bypass: `FORCE=1`).
+
+### Admin dashboard — aligned to `shared/specs/DASHBOARD_CONTRACT.md` v1
+
+- **Lint wired into deploy.** `deployment/deploy.sh` now runs `dashboard-contract-lint.py --surface=admin`. The lint discovers `site/app/admin/` after a one-line addition to the shared lint's candidate-path list.
+- **§3 auth recognized.** Extended `AUTH_SESSION_PATTERN` in [`shared/ops/dashboard-contract-lint.py`](../../shared/ops/dashboard-contract-lint.py) to recognize `IntApi.whoami()` / `{action:'whoami'}` — same shape as `action:'auth-me'`, just the interpreter's naming.
+- **A11y WARNs fixed.** `site/app/admin/audit.html` filter inputs (`f-from`, `f-to`, `f-user`, `f-action`) now carry `aria-label`s. Dashboard lint reports 0 FAILs, 2 WARNs (both v2 promotion items — list-view bulk-select hint + activity-timeline markup).
+
+### Payments — Pattern F status unchanged, references confirmed
+
+- `docs/PAYMENTS_IMPL.md` §1 still tracks Pattern F (LIVE) + Pattern G (CODE READY, DEFERRED). The new Pattern F §2.5.1 tiered-subscription conventions (FDT Alerts shape) are not relevant here yet — Solo / Practice / Studio are tier-by-product, not tier-by-cap.
+
+### Operational hygiene
+
+- Tests still green (90/90). Typecheck clean. `--dry-run` deploy walks the full pipeline including both new lints.
+
+---
+
 ## 2026-05-18 — v18.4: Marketing-site interactivity + 7 platform fixes (PHI encryption, calendar, live board, tenants, AI hardening, copy refresh, clean URLs)
 
 Big sweep. Five parallel agents + main-thread work on two security/AI items.

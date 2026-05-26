@@ -325,7 +325,7 @@ def home_body() -> str:
         <div class="showcase-tile" data-reveal data-delay="300">
           <span class="eyebrow">YES claims. NO declines.</span>
           <h3>Interpreters can accept an offer by text. Try it.</h3>
-          <p>Twilio webhook with signature verification. Idempotent on the message SID. STOP unsubscribes (TCPA-clean). PII never appears in the reply.</p>
+          <p>Inbound texts signature-verified at the edge. Idempotent on the message ID. STOP unsubscribes (TCPA-clean). PII never appears in the reply.</p>
           <div class="widget" data-widget="sms"></div>
         </div>
       </div>
@@ -839,7 +839,7 @@ def for_interpreters_body() -> str:
           <h2>The phone app, in plain terms.</h2>
           <ul class="checks">
             <li><strong>Two-tap claim.</strong> Offer shows the rate, initials of the consumer, generic venue, team — full record unlocks the moment you accept.</li>
-            <li><strong>SMS YES/NO works too.</strong> Reply <code>YES</code> to claim, <code>NO</code> to decline. Twilio inbound with signature verify; same audit trail as a tap.</li>
+            <li><strong>SMS YES/NO works too.</strong> Reply <code>YES</code> to claim, <code>NO</code> to decline. Edge-verified inbound text; same audit trail as a tap.</li>
             <li><strong>See your pay before you accept.</strong> Hourly, per-event, mileage, premium pay — itemized. Pay-side floor is 60% of the client charge; you see both numbers when your agency turns that on.</li>
             <li><strong>Quiet by default.</strong> Per-event cadence per channel: immediate, daily 6am ET digest, weekly Monday 7am ET digest, or off. Email / SMS each independent. (Mobile push isn't shipped yet — email and SMS are.)</li>
             <li><strong>1099 year-to-date strip.</strong> Open the app, see your earnings in seconds. Multi-agency interpreters see each agency's slice.</li>
@@ -1184,7 +1184,7 @@ def pricing_body() -> str:
       <h2>No fine print on the things that matter.</h2>
       <div class="grid grid-3 mt-5">
         <div class="card"><h3 class="mt-0">No per-job fee</h3><p class="ink-soft">Not a percentage, not a flat. You book a job, you don't pay us for that job.</p></div>
-        <div class="card"><h3 class="mt-0">No per-call fee</h3><p class="ink-soft">VRI and OPI call infrastructure is passed through at vendor cost (Twilio, etc.) and itemized.</p></div>
+        <div class="card"><h3 class="mt-0">No per-call fee</h3><p class="ink-soft">VRI and OPI call infrastructure is passed through at carrier cost and itemized.</p></div>
         <div class="card"><h3 class="mt-0">No payment skim</h3><p class="ink-soft">When you take payment via Stripe, the fee is Stripe's published rate — passed through, not marked up.</p></div>
         <div class="card"><h3 class="mt-0">No data ransom</h3><p class="ink-soft">Export everything — roster, clients, invoices, audit log — in CSV or JSON, one click, same prominence as cancel-account.</p></div>
         <div class="card"><h3 class="mt-0">No accessibility paywall</h3><p class="ink-soft">Every accessibility feature is in every tier, including Solo and Deaf-Owned.</p></div>
@@ -1566,10 +1566,10 @@ def features_index_body() -> str:
         ("billing.html",        "Billing",             "Five consolidation modes per client. Monotonic invoice numbers. Payout PDF with Labor + Expenses tables. QuickBooks, Xero, NetSuite, Bill.com."),
         ("translation.html",    "Document translation","Human-in-the-loop. DeepL Pro where it supports the pair; Claude elsewhere. No pre-fill on medical or legal."),
         ("ai-intake.html",      "AI intake",           "Natural-language intake parses email/voicemail to a draft job — every parse reviewable, never auto-confirmed for clinical work. PHI redacted before any model call."),
-        ("vri-opi.html",        "VRI &amp; OPI",       "Built-in WebRTC video client; OPI bridge via Twilio. Per-minute infrastructure passed through at vendor cost."),
+        ("vri-opi.html",        "VRI &amp; OPI",       "Built-in WebRTC video client; OPI bridged through a HIPAA-eligible carrier. Per-minute infrastructure passed through at vendor cost."),
         ("cart.html",           "CART",                "NCRA-CRC realtime captioning, in the same scheduling queue. Vendor-abstracted live-STT (Deepgram Nova-3 default)."),
         ("reporting.html",      "Reporting",           "Read-only natural-language reporting. Pre-built KPIs (fill rate, time-to-fill, A/R aging). Export to CSV, PDF, or the audit trail."),
-        ("integrations.html",   "Integrations",        "QuickBooks, Xero, NetSuite, Bill.com, ADP, Gusto, Paychex, Rippling, track1099, Plaid, Stripe Connect, Postmark, Twilio."),
+        ("integrations.html",   "Integrations",        "QuickBooks, Xero, NetSuite, Bill.com, ADP, Gusto, Paychex, Rippling, track1099, Plaid, Stripe Connect, transactional email, transactional SMS."),
     ]
     # Strip trailing .html for clean URLs in nav cards.
     def _clean(slug: str) -> str:
@@ -2122,7 +2122,7 @@ def build_pages() -> list[Page]:
         ("interpreter-app.html", "Interpreter app", "Feature · Interpreter app",
          "Phone-friendly portal. Two-tap claim, or reply SMS YES/NO. See your pay first. Close out with actual times, expenses, and receipts.",
          [("Two-tap claim", "<p>Tap the offer. See the rate, the consumer's initials, the venue, the team. Tap 'Claim.' Done. Same flow for ASL, spoken-language, CART, and document-translation jobs.</p>"),
-          ("SMS YES/NO", "<p>Reply <code>YES</code> to claim, <code>NO</code> to decline. Twilio inbound with signature verify; same audit trail as a tap. Useful when your hands are full or you're between assignments.</p>"),
+          ("SMS YES/NO", "<p>Reply <code>YES</code> to claim, <code>NO</code> to decline. Edge-verified inbound text; same audit trail as a tap. Useful when your hands are full or you're between assignments.</p>"),
           ("See-your-pay-first", "<p>Hourly, per-event, mileage, premium pay — itemized before you accept. Pay-side floor is 60% of the client charge when your agency enables transparency; you see both numbers.</p>"),
           ("Close-out modal", "<p>After the job: actual start and end times, expense lines (mileage / parking / tolls / supplies / meal / other), optional receipt upload (≤ 8 MB image or PDF), notes. Live divergence preview warns at ≥ 25% from scheduled. Approved expenses roll into the next Payout PDF automatically.</p>"),
           ("Quiet by default", "<p>Per-event cadence per channel: immediate, daily 6am ET digest, weekly Monday 7am ET digest, or off. Email and SMS each independent. Mobile push isn't shipped yet — email and SMS are.</p>"),
@@ -2151,9 +2151,9 @@ def build_pages() -> list[Page]:
           ("Honest about state", "<p>The intake state machine and review surfaces are in production. Some downstream AI-assist calls (translation review, term polish) are wired but the model calls themselves may be stubbed in v1 — they return a fixed structure so the workflow tests end-to-end. We'll mark those clearly in the changelog as they land.</p>")]),
 
         ("vri-opi.html", "VRI &amp; OPI", "Feature · VRI &amp; OPI",
-         "Video Remote Interpreting and Over-the-Phone Interpreting. Built-in WebRTC video client; OPI bridge via Twilio.",
+         "Video Remote Interpreting and Over-the-Phone Interpreting. Built-in WebRTC video client; OPI bridged through a HIPAA-eligible carrier.",
          [("VRI", "<p>WebRTC video client with captions, interpreter switching, and a 'tap to bring on a CDI' team flow. Records on consent only. Records to the audit log always. Fallover-retainer pay for interpreters when calls fail through no fault of theirs (per PRD C10 #9).</p>"),
-          ("OPI", "<p>Per PRD A9 #12, OPI is deferred in v1 to a documented bridge: Twilio-based, behind the same scheduling queue. Per-minute call infrastructure is passed through at vendor cost, itemized on the invoice.</p>"),
+          ("OPI", "<p>Per PRD A9 #12, OPI is deferred in v1 to a documented bridge through a HIPAA-eligible voice carrier, behind the same scheduling queue. Per-minute call infrastructure is passed through at vendor cost, itemized on the invoice.</p>"),
           ("Not VRS", "<p>We do VRI, not VRS. VRS (Video Relay Service) is a federally-funded Deaf-to-hearing phone relay regulated by the FCC. We are not a VRS provider — that's a different regulated business.</p>")]),
 
         ("cart.html", "CART", "Feature · CART",
@@ -2173,7 +2173,7 @@ def build_pages() -> list[Page]:
          [("Accounting", "<p>QuickBooks Online, Xero, NetSuite, Bill.com. Direct OAuth where possible; CSV/JSON for the rest.</p>"),
           ("Payroll &amp; tax", "<p>ADP, Gusto, Paychex, Rippling for W-2 hours. track1099 for 1099-NEC and 1042-S. Plaid for ACH verification.</p>"),
           ("Payouts", "<p>Stripe Connect Express (default). Manual ACH fallback for long-tenured interpreters who decline Connect onboarding.</p>"),
-          ("Comms", "<p>Postmark for transactional email (BAA). Twilio Verify and Programmable SMS (HIPAA-eligible products only).</p>"),
+          ("Comms", "<p>Transactional email through a HIPAA-eligible provider (BAA). Phone verification and transactional SMS through a HIPAA-eligible provider (HIPAA-eligible products only).</p>"),
           ("Identity", "<p>SSO via SAML on Studio and Network. WebAuthn passkeys available on every tier; required on Pro and above per PRD A9 #10.</p>")]),
     ]
     for slug, label, eyebrow, lede, sections in feature_specs:
@@ -2341,7 +2341,7 @@ def build_pages() -> list[Page]:
       <p>Technical, administrative, and physical safeguards as required by HIPAA Security Rule, including encryption at rest and in transit, role-based access, append-only audit logging with hash-chain integrity, retention defaults documented at <a href=\"""" + BASE_PATH + """/security\">/security</a>, and an annual risk assessment.</p>
 
       <h2>Subprocessors and PHI.</h2>
-      <p>We use subprocessors who have their own BAAs (Google Workspace, Cloudflare Enterprise, Anthropic, Twilio, Postmark). Full list and BAA status at <a href=\"""" + BASE_PATH + """/legal/subprocessors\">/legal/subprocessors</a>.</p>
+      <p>We use a short list of subprocessors who each carry their own BAA. The full list and per-vendor BAA status lives at <a href=\"""" + BASE_PATH + """/legal/subprocessors\">/legal/subprocessors</a>.</p>
 
       <h2>Breach notification.</h2>
       <p>We notify you of any breach affecting your PHI within 30 days, with as much detail as we have. For low-risk events, we notify in our quarterly summary; for high-risk events, we notify within 24 hours and walk you through the response together.</p>

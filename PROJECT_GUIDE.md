@@ -64,8 +64,19 @@ Same shape as every other 1891 project:
 
 - `bash deployment/deploy.sh` rsyncs `site/` to the host over `~/.ssh/ftd_godaddy_deploy`.
 - `wrangler deploy --env production` for each Worker.
-- Apps Script deployments: the four-click flow (Deploy → Manage deployments → ✏️ → New version → Deploy) per root CLAUDE.md — Anthony does the clicks; agents prep the paste.
+- Apps Script deployments: scripted via `shared/ops/clasp-deploy.sh` per root CLAUDE.md.
 - `.htaccess` blocks `/deployment/`. Real `/404.html`. Sitemap built. HSTS preload. X-Content-Type-Options nosniff.
+
+### Deploy-time lint gates
+
+Each runs before rsync; any FAIL aborts the deploy (bypass: `FORCE=1`).
+
+| Lint | Spec | Slot |
+|---|---|---|
+| `shared/ops/godview-lint-gate.sh` | [GODVIEW_AUTO_REGISTRATION.md](../../shared/specs/GODVIEW_AUTO_REGISTRATION.md) | first |
+| `shared/ops/sms-consent-lint.py` | [SMS.md](../../shared/specs/SMS.md) v1 | second |
+| `shared/ops/dashboard-contract-lint.py --surface=admin` | [DASHBOARD_CONTRACT.md](../../shared/specs/DASHBOARD_CONTRACT.md) v1 | third |
+| `npx vitest run` | n/a — worker test suite | fourth |
 
 ## Workspace defaults
 

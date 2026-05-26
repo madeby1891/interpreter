@@ -6,6 +6,22 @@ future-you) can pick up cold in under five minutes.
 
 ---
 
+## Platform specs — caught up to 2026-05-25
+
+| Umbrella spec | Version | Pass status | Lint wired into `deploy.sh` |
+|---|---|---|---|
+| [`shared/specs/SMS.md`](../../shared/specs/SMS.md) | v1 | `sms-consent-lint`: 0 FAIL, 0 WARN | ✅ |
+| [`shared/specs/DASHBOARD_CONTRACT.md`](../../shared/specs/DASHBOARD_CONTRACT.md) | v1 | `dashboard-contract-lint --surface=admin`: 0 FAIL, 2 WARN (v2 items) | ✅ |
+| [`shared/specs/PAYMENTS.md`](../../shared/specs/PAYMENTS.md) | Patterns F+G (Mode A canonical) | Live + dormant per `docs/PAYMENTS_IMPL.md` | n/a (no payments-side lint yet) |
+| [`shared/specs/GODVIEW_AUTO_REGISTRATION.md`](../../shared/specs/GODVIEW_AUTO_REGISTRATION.md) | v1 | `godview-registration-lint`: ok | ✅ |
+
+**Outstanding from the 2026-05-25 sweep:**
+
+1. `TWILIO_MESSAGING_SERVICE_SID` + `TWILIO_API_KEY_SID/SECRET` need to be wrangler-set on `1891-interpreter-api` (legacy `TWILIO_FROM_NUMBER` + `TWILIO_AUTH_TOKEN` still work in fallback mode). Once set, the project inherits the shared 1891 SMS Gateway brand reg, A2P 10DLC campaign, and auto-STOP/HELP routing.
+2. Two dashboard-contract WARNs to clear as the admin grows: a search + sort + bulk-select triple under `site/app/admin/`, and an activity-timeline tab on the per-tenant record view. Both are v2 promotion items (WARN → FAIL after two more projects catch up), so no pre-deploy block today.
+
+---
+
 ## Payments — architectural pivot 2026-05-19 → Mode A canonical
 
 > **Read [`docs/PAYMENTS_IMPL.md`](docs/PAYMENTS_IMPL.md) §1 mode-map first.** Pattern F (SaaS subscription) is live and validated end-to-end. Pattern G (Connect OAuth read-only reporting) code shipped 2026-05-19, gated on Anthony enabling Connect-as-platform in the Stripe dashboard. Pattern A code paths (platform issues invoices, platform runs transfers) are intentionally preserved but deferred — they assume a money-transmitter posture we are NOT taking by default.

@@ -1,5 +1,9 @@
 // SMS dispatcher — Twilio outbound + inbound webhook.
 //
+// Pattern B per shared/specs/SMS.md — direct adapter inside this Worker
+// (interpreter is a single self-contained Worker, no multi-channel fan-out
+// hub yet, so Pattern A is overkill).
+//
 // Outbound (Apps Script → Worker) is internal-only (X-1891-Internal header
 // equals JWT_SECRET).
 //
@@ -11,12 +15,19 @@
 // memory for the lifetime of the isolate; Apps Script also dedupes on the
 // Communications row), and rate-limits any single phone to 10 inbound/min.
 //
-// Config required to actually send (set via wrangler secret put):
-//   TWILIO_ACCOUNT_SID
-//   TWILIO_AUTH_TOKEN
-//   TWILIO_FROM_NUMBER  — your purchased Twilio number in E.164 format
+// Config required to actually send (set via `wrangler secret put`):
+//   TWILIO_ACCOUNT_SID            account SID (shared 1891 account)
+//   TWILIO_API_KEY_SID            preferred — individually revocable
+//   TWILIO_API_KEY_SECRET         paired secret for the API key
+//   TWILIO_AUTH_TOKEN             legacy fallback if API key absent
+//   TWILIO_MESSAGING_SERVICE_SID  default: MGc34cd9467b4a9e6b0cce3d043d093eb4
+//                                 ('1891 SMS Gateway' — shared per SMS.md §2)
 //
-// Without those secrets, /v1/sms/send returns { ok:false, configured:false }
+// `TWILIO_FROM_NUMBER` is accepted as a legacy fallback if no MS is set, but
+// MessagingServiceSid is preferred — it carries A2P 10DLC registration and
+// STOP/HELP routing at the Twilio layer (SMS.md §4.2).
+//
+// Without the required secrets, /v1/sms/send returns { ok:false, configured:false }
 // so the Apps Script side can degrade gracefully (the platform plan gate).
 
 import type { Env } from './index';
@@ -53,26 +64,35 @@ export async function handleSmsSend(request: Request, env: Env): Promise<Respons
     return jsonResponse(request, { ok: false, error: 'to must be E.164 (+countrycodeNUMBER)' }, 400);
   }
 
-  // Config check
+  // Config check. Prefer API key + Messaging Service (SMS.md §2).
+  // Fall back to legacy Auth Token + From number so this Worker keeps
+  // working through the rotation window.
   const sid = env.TWILIO_ACCOUNT_SID;
-  const token = env.TWILIO_AUTH_TOKEN;
-  const from = env.TWILIO_FROM_NUMBER;
-  if (!sid || !token || !from) {
+  const apiKeySid = env.TWILIO_API_KEY_SID;
+  const apiKeySecret = env.TWILIO_API_KEY_SECRET;
+  const authToken = env.TWILIO_AUTH_TOKEN;
+  const messagingServiceSid = env.TWILIO_MESSAGING_SERVICE_SID;
+  const fromNumber = env.TWILIO_FROM_NUMBER;
+  const credsOk = sid && ((apiKeySid && apiKeySecret) || authToken);
+  const sourceOk = messagingServiceSid || fromNumber;
+  if (!credsOk || !sourceOk) {
     return jsonResponse(request, {
       ok: false,
       configured: false,
-      error: 'Twilio not configured. Set TWILIO_ACCOUNT_SID + TWILIO_AUTH_TOKEN + TWILIO_FROM_NUMBER via wrangler secret put.'
+      error: 'SMS not configured. Set TWILIO_ACCOUNT_SID + (TWILIO_API_KEY_SID/SECRET preferred, or TWILIO_AUTH_TOKEN) + TWILIO_MESSAGING_SERVICE_SID (or legacy TWILIO_FROM_NUMBER) via wrangler secret put.'
     }, 503);
   }
 
-  // Twilio REST API call
+  // Twilio REST API call. MessagingServiceSid lets Twilio pick the right
+  // sender pool + carries A2P 10DLC + auto-STOP/HELP routing.
   const url = `https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json`;
-  const formBody = new URLSearchParams({
-    To: body.to,
-    From: from,
-    Body: body.body
-  });
-  const basic = btoa(`${sid}:${token}`);
+  const params: Record<string, string> = { To: body.to, Body: body.body };
+  if (messagingServiceSid) params.MessagingServiceSid = messagingServiceSid;
+  else params.From = fromNumber!;
+  const formBody = new URLSearchParams(params);
+  const userId = apiKeySid || sid;
+  const userPwd = apiKeySecret || authToken!;
+  const basic = btoa(`${userId}:${userPwd}`);
 
   try {
     const res = await fetch(url, {

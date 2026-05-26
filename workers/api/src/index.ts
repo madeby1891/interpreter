@@ -85,11 +85,21 @@ export interface Env {
   TRACK1099_BASE?: string;
   PLAID_CLIENT_ID?: string;
   PLAID_SECRET?: string;
-  // Twilio (SMS) — set with `wrangler secret put`.
+  // SMS via the shared 1891 account (SMS.md §2). Set with `wrangler secret put`.
   // Missing keys → /v1/sms/send returns { ok:false, configured:false }.
   TWILIO_ACCOUNT_SID?: string;
+  // Preferred: API key + secret pair (individually revocable per SMS.md §2).
+  TWILIO_API_KEY_SID?: string;
+  TWILIO_API_KEY_SECRET?: string;
+  // Legacy fallback if API key isn't issued yet.
   TWILIO_AUTH_TOKEN?: string;
+  // Preferred sender: shared MessagingService (1891 SMS Gateway).
+  // Default: MGc34cd9467b4a9e6b0cce3d043d093eb4 — set via `wrangler secret put`.
+  TWILIO_MESSAGING_SERVICE_SID?: string;
+  // Legacy fallback if no MessagingService is wired yet.
   TWILIO_FROM_NUMBER?: string;
+  // Inbound-webhook HMAC-SHA1 verification secret (Twilio signs every inbound).
+  TWILIO_WEBHOOK_AUTH_TOKEN?: string;
   // PHI column-level encryption — set with `wrangler secret put PHI_MASTER_KEY`.
   // Must be ≥32 random bytes, base64url-encoded. Never set in wrangler.toml.
   PHI_MASTER_KEY?: string;

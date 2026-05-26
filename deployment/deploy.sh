@@ -44,6 +44,32 @@ done
 # Spec: shared/specs/GODVIEW_AUTO_REGISTRATION.md
 bash "$HOME/Desktop/1891/shared/ops/godview-lint-gate.sh" "$HOME/Desktop/1891/projects/interpreter" || exit 1
 
+# ── SMS-consent lint ────────────────────────────────────────────────────────
+# Per shared/specs/SMS.md §6 — every project that sends SMS keeps consent,
+# STOP/HELP, vendor-name HARD RULE, and rate-limit posture green pre-deploy.
+echo "==> SMS consent lint…"
+if python3 "$HOME/Desktop/1891/shared/ops/sms-consent-lint.py" --project=. --quiet 2>&1; then
+  echo "    sms-consent-lint pass"
+elif [ "${FORCE:-0}" = "1" ]; then
+  echo "    sms-consent-lint fail (FORCE=1 bypass)"
+else
+  echo "ERROR: sms-consent-lint failed. Fix the findings or set FORCE=1 to bypass." >&2
+  exit 1
+fi
+
+# ── Dashboard-contract lint ─────────────────────────────────────────────────
+# Per shared/specs/DASHBOARD_CONTRACT.md v1 — the admin surface follows the
+# twelve primitives, no HARD RULE leaks, role hydrated server-side.
+echo "==> Dashboard contract lint (admin)…"
+if python3 "$HOME/Desktop/1891/shared/ops/dashboard-contract-lint.py" --project=. --surface=admin 2>&1 | tail -8; then
+  echo "    dashboard-contract-lint pass"
+elif [ "${FORCE:-0}" = "1" ]; then
+  echo "    dashboard-contract-lint fail (FORCE=1 bypass)"
+else
+  echo "ERROR: dashboard-contract-lint failed. Fix or set FORCE=1 to bypass." >&2
+  exit 1
+fi
+
 # ── Test gate (vitest) ──────────────────────────────────────────────────────
 # Fail the deploy if tests fail. Bypass: FORCE=1 (matches the godview gate).
 TEST_DIR="$HOME/Desktop/1891/projects/interpreter"

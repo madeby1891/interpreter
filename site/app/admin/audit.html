@@ -100,16 +100,16 @@
 
         <form id="filters" class="filter-bar" onsubmit="return false;">
           <label>From
-            <input type="date" id="f-from">
+            <input type="date" id="f-from" aria-label="Filter from date">
           </label>
           <label>To
-            <input type="date" id="f-to">
+            <input type="date" id="f-to" aria-label="Filter to date">
           </label>
           <label>User
-            <select id="f-user"><option value="">All users</option></select>
+            <select id="f-user" aria-label="Filter by user"><option value="">All users</option></select>
           </label>
           <label>Action
-            <input type="text" id="f-action" list="action-suggestions" placeholder="e.g. client.*" autocomplete="off">
+            <input type="text" id="f-action" list="action-suggestions" placeholder="e.g. client.*" autocomplete="off" aria-label="Filter by action">
             <datalist id="action-suggestions">
               <option value="auth.*">
               <option value="auth_login">

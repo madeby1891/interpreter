@@ -82,7 +82,7 @@
           <h2>The phone app, in plain terms.</h2>
           <ul class="checks">
             <li><strong>Two-tap claim.</strong> Offer shows the rate, initials of the consumer, generic venue, team — full record unlocks the moment you accept.</li>
-            <li><strong>SMS YES/NO works too.</strong> Reply <code>YES</code> to claim, <code>NO</code> to decline. Twilio inbound with signature verify; same audit trail as a tap.</li>
+            <li><strong>SMS YES/NO works too.</strong> Reply <code>YES</code> to claim, <code>NO</code> to decline. Edge-verified inbound text; same audit trail as a tap.</li>
             <li><strong>See your pay before you accept.</strong> Hourly, per-event, mileage, premium pay — itemized. Pay-side floor is 60% of the client charge; you see both numbers when your agency turns that on.</li>
             <li><strong>Quiet by default.</strong> Per-event cadence per channel: immediate, daily 6am ET digest, weekly Monday 7am ET digest, or off. Email / SMS each independent. (Mobile push isn't shipped yet — email and SMS are.)</li>
             <li><strong>1099 year-to-date strip.</strong> Open the app, see your earnings in seconds. Multi-agency interpreters see each agency's slice.</li>
@@ -216,10 +216,10 @@
 </footer>
 <script src="/interpreter/assets/js/main.js" defer></script>
 <script src="/interpreter/assets/js/marketing-interact.js" defer></script>
+
 <!-- BEGIN UMBRELLA-CONSENT -->
 <link rel="stylesheet" href="/shared/lib/consent/consent.css">
 <script src="/shared/lib/consent/consent.js" data-project="interpreter" data-coppa="false" data-tenant-type="public" defer></script>
 <script src="/shared/lib/event-capture/event-capture-pixels.js" data-project="interpreter" data-conv-url="https://conv.madeby1891.com/v1/track" defer></script>
-<!-- END UMBRELLA-CONSENT -->
-</body>
+<!-- END UMBRELLA-CONSENT --></body>
 </html>
