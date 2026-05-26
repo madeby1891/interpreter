@@ -17,8 +17,10 @@ future-you) can pick up cold in under five minutes.
 
 **Outstanding from the 2026-05-25 sweep:**
 
-1. `TWILIO_MESSAGING_SERVICE_SID` + `TWILIO_API_KEY_SID/SECRET` need to be wrangler-set on `1891-interpreter-api` (legacy `TWILIO_FROM_NUMBER` + `TWILIO_AUTH_TOKEN` still work in fallback mode). Once set, the project inherits the shared 1891 SMS Gateway brand reg, A2P 10DLC campaign, and auto-STOP/HELP routing.
-2. Two dashboard-contract WARNs to clear as the admin grows: a search + sort + bulk-select triple under `site/app/admin/`, and an activity-timeline tab on the per-tenant record view. Both are v2 promotion items (WARN → FAIL after two more projects catch up), so no pre-deploy block today.
+1. ~~`TWILIO_MESSAGING_SERVICE_SID` + `TWILIO_API_KEY_SID/SECRET` wrangler-set on `1891-interpreter-api`~~ — **done 2026-05-25, Worker v `c671e3ef` deployed.** All four SMS-send secrets are live on the shared 1891 SMS Gateway. Outbound SMS now hits the MS sid, A2P 10DLC + STOP/HELP routing piggyback on the shared brand reg in `CREDENTIAL_PROVISIONING.md` §1.10.
+2. **`TWILIO_AUTH_TOKEN` still needed** for the inbound webhook (`POST /v1/sms/inbound`) signature check. Twilio signs every inbound with HMAC-SHA1 against the master Auth Token; the API key is not an alternative. Anthony: Console → Account → API keys & tokens → "Live credentials" → copy Auth Token → `wrangler secret put TWILIO_AUTH_TOKEN` from `workers/api/`. Same blocker as travel-alerts. Until set: outbound works, STOP/HELP inbound rejects every request, the agency's `Users.phone_e164` opt-out flip in `Code_Sms.gs` doesn't fire (only the Twilio MS-layer STOP list does).
+3. Then paste the inbound webhook URL in the Twilio Console: Messaging → Services → "1891 SMS Gateway" → Integration → Incoming Messages → "Send a webhook" → URL `https://1891-interpreter-api.anthonymowl.workers.dev/v1/sms/inbound`, method `POST`.
+4. Two dashboard-contract WARNs to clear as the admin grows: a search + sort + bulk-select triple under `site/app/admin/`, and an activity-timeline tab on the per-tenant record view. Both are v2 promotion items (WARN → FAIL after two more projects catch up), so no pre-deploy block today.
 
 ---
 
