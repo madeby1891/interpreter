@@ -72,6 +72,23 @@ else
   exit 1
 fi
 
+# ── Parallel-agent branch lint ──────────────────────────────────────────────
+# Hard-blocks ONLY when an unmerged branch on origin touches files inside
+# this project. Override: FORCE=1 OR ACK_BRANCHES="branch:reason".
+# Spec: shared/specs/PARALLEL_AGENT_DISCIPLINE.md.
+echo "==> Parallel-agent branch lint…"
+INTERPRETER_ACK_ARG=""
+[ -n "${ACK_BRANCHES:-}" ] && INTERPRETER_ACK_ARG="--ack-branches=$ACK_BRANCHES"
+if python3 "$HOME/Desktop/1891/shared/ops/branch-watch.py" --no-fetch \
+     --deploy-path=. --warn-only $INTERPRETER_ACK_ARG 2>&1; then
+  echo "    branch-watch pass"
+elif [ "${FORCE:-0}" = "1" ]; then
+  echo "    branch-watch fail (FORCE=1 bypass)"
+else
+  echo "ERROR: branch-watch failed. Land the overlapping branch with shared/ops/finish-branch.sh OR rerun with ACK_BRANCHES='<branch>:<why>'. See shared/specs/PARALLEL_AGENT_DISCIPLINE.md." >&2
+  exit 1
+fi
+
 # ── Dashboard-contract lint ─────────────────────────────────────────────────
 # Per shared/specs/DASHBOARD_CONTRACT.md v1 — the admin surface follows the
 # twelve primitives, no HARD RULE leaks, role hydrated server-side.
