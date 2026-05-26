@@ -44,6 +44,21 @@ done
 # Spec: shared/specs/GODVIEW_AUTO_REGISTRATION.md
 bash "$HOME/Desktop/1891/shared/ops/godview-lint-gate.sh" "$HOME/Desktop/1891/projects/interpreter" || exit 1
 
+# ── Voice / language lint ───────────────────────────────────────────────────
+# Per shared/specs/HARD_RULE.md + CLAUDE.md §"Voice + language rules" — every
+# customer-facing HTML/JS/TS/CSS file goes through the 8-rule check (HARD RULE
+# vendor names, banned voice words, deprecated tier vocab, device-name surfaces,
+# brand spelling, cost-rationalization).
+echo "==> Voice / language lint…"
+if python3 "$HOME/Desktop/1891/shared/ops/voice-lint.py" --project=. 2>&1 | tail -8; then
+  echo "    voice-lint pass"
+elif [ "${FORCE:-0}" = "1" ]; then
+  echo "    voice-lint fail (FORCE=1 bypass)"
+else
+  echo "ERROR: voice-lint failed. Fix the FAIL lines above or set FORCE=1 to bypass." >&2
+  exit 1
+fi
+
 # ── SMS-consent lint ────────────────────────────────────────────────────────
 # Per shared/specs/SMS.md §6 — every project that sends SMS keeps consent,
 # STOP/HELP, vendor-name HARD RULE, and rate-limit posture green pre-deploy.
