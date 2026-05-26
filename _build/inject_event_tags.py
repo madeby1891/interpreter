@@ -40,7 +40,7 @@ def tags(project: str, *, with_widget: bool = True) -> str:
     lines = [
         '<script src="https://cdn.madeby1891.com/shared/lib/event-capture/event-capture.js"',
         f'        data-event-capture-key="{project}"',
-        '        data-event-capture-url="https://1891-events.workers.dev/e"',
+        '        data-event-capture-url="https://event-capture.anthonymowl.workers.dev/e"',
         f'        data-event-capture-token="{token}"',
         '        data-event-capture-errors="true"',
         '        defer></script>',
@@ -50,7 +50,7 @@ def tags(project: str, *, with_widget: bool = True) -> str:
             '<link rel="stylesheet" href="https://cdn.madeby1891.com/shared/components/feedback-widget/feedback-widget.css">',
             '<script src="https://cdn.madeby1891.com/shared/components/feedback-widget/feedback-widget.js"',
             f'        data-project="{project}"',
-            '        data-endpoint="https://1891-events.workers.dev/feedback"',
+            '        data-endpoint="https://event-capture.anthonymowl.workers.dev/feedback"',
             f'        data-token="{token}"',
             '        defer></script>',
         ])
