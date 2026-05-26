@@ -406,6 +406,141 @@ export async function handleSmsInbound(request: Request, env: Env): Promise<Resp
   return twiml(reply);
 }
 
+// ---------------------------------------------------------------------------
+// Inbound from the shared SMS hub (workers/sms → Worker)
+// ---------------------------------------------------------------------------
+//
+// Contract per workers/sms/src/callback.ts: the hub POSTs JSON of shape
+//   { action: 'sms.inbound' | 'sms.optout' | 'sms.optin_confirmed' |
+//             'sms.info_request',
+//     from, [to,] [body,] [vendor_id,] received_at }
+// signed with HMAC-SHA256 hex of the raw body, using HMAC_SECRET_INTERPRETER.
+// Signature delivered both as ?sig= query param AND x-sms-worker-signature
+// header (the hub double-sends because Apps Script can't read headers; we
+// accept either path).
+//
+// The hub owns user-visible reply text (STOP/HELP/START); this handler
+// just persists side-effects (Audit_Log, Communications row, claim flow).
+// 200 = processed; 4xx = bad-sig; 5xx = retry-me.
+
+type HubEvent = {
+  action: 'sms.inbound' | 'sms.optout' | 'sms.optin_confirmed' | 'sms.info_request';
+  from: string;
+  to?: string;
+  body?: string;
+  vendor_id?: string;
+  received_at: string;
+};
+
+async function verifyHubSignature(
+  rawBody: string,
+  signatureHex: string,
+  secret: string,
+): Promise<boolean> {
+  if (!signatureHex || !secret) return false;
+  const key = await crypto.subtle.importKey(
+    'raw',
+    new TextEncoder().encode(secret),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign'],
+  );
+  const macBuf = await crypto.subtle.sign(
+    'HMAC',
+    key,
+    new TextEncoder().encode(rawBody),
+  );
+  const macBytes = new Uint8Array(macBuf);
+  let expected = '';
+  for (let i = 0; i < macBytes.length; i++) {
+    expected += macBytes[i]!.toString(16).padStart(2, '0');
+  }
+  if (expected.length !== signatureHex.length) return false;
+  let diff = 0;
+  const lower = signatureHex.toLowerCase();
+  for (let i = 0; i < expected.length; i++) {
+    diff |= expected.charCodeAt(i) ^ lower.charCodeAt(i);
+  }
+  return diff === 0;
+}
+
+export async function handleSmsInboundFromHub(
+  request: Request,
+  env: Env,
+): Promise<Response> {
+  const secret = env.HMAC_SECRET_INTERPRETER;
+  if (!secret) {
+    console.warn('inbound-from-hub: HMAC_SECRET_INTERPRETER not set; refusing');
+    return new Response('Forbidden', { status: 403 });
+  }
+
+  const rawBody = await request.text();
+  const sig =
+    request.headers.get('x-sms-worker-signature') ||
+    new URL(request.url).searchParams.get('sig') ||
+    '';
+  const ok = await verifyHubSignature(rawBody, sig, secret);
+  if (!ok) {
+    console.warn('inbound-from-hub: signature mismatch');
+    return new Response('Forbidden', { status: 403 });
+  }
+
+  let event: HubEvent;
+  try {
+    event = JSON.parse(rawBody) as HubEvent;
+  } catch {
+    return new Response('Bad Request', { status: 400 });
+  }
+
+  const from = (event.from || '').trim();
+  if (!from) return new Response('ok', { status: 200 });
+
+  // sms.optin_confirmed / sms.info_request: hub handled the reply; no
+  // side effects we currently track on the interpreter side. Log only.
+  if (event.action === 'sms.optin_confirmed' || event.action === 'sms.info_request') {
+    return new Response('ok', { status: 200 });
+  }
+
+  // sms.optout: hub already flipped its own consent ledger; we need to
+  // clear the local Users.phone_e164 + force sms_mode='off' via Apps
+  // Script so the agency's roster reflects it (and so we don't try to
+  // re-send through the hub on subsequent offers).
+  if (event.action === 'sms.optout') {
+    try {
+      await callAppsScript(env.APPS_SCRIPT_URL, env.JWT_SECRET, 'sms_inbound', {
+        from_phone: from,
+        body_raw: '',
+        body_normalised: 'STOP',
+        action: 'optout',
+        twilio_msg_sid: event.vendor_id || `hub:${event.received_at}`,
+      }, { purpose: 'twilio_inbound', ttlSeconds: 60 });
+    } catch (err) {
+      console.error('inbound-from-hub: optout dispatch failed', err);
+      return new Response('retry', { status: 502 });
+    }
+    return new Response('ok', { status: 200 });
+  }
+
+  // sms.inbound: free-text or YES/NO. Parse it the same way the direct
+  // handler does, then dispatch to Apps Script. The hub already replied;
+  // we ignore the returned reply_text.
+  const body = event.body || '';
+  const { action, normalised } = parseInboundBody(body);
+  try {
+    await callAppsScript(env.APPS_SCRIPT_URL, env.JWT_SECRET, 'sms_inbound', {
+      from_phone: from,
+      body_raw: body,
+      body_normalised: normalised,
+      action,
+      twilio_msg_sid: event.vendor_id || `hub:${event.received_at}`,
+    }, { purpose: 'twilio_inbound', ttlSeconds: 60 });
+  } catch (err) {
+    console.error('inbound-from-hub: dispatch failed', err);
+    return new Response('retry', { status: 502 });
+  }
+  return new Response('ok', { status: 200 });
+}
+
 // Test-only helpers — exported so tests can drive the cache deterministically.
 export function __resetInboundCacheForTests(): void {
   INBOUND_CACHE.clear();

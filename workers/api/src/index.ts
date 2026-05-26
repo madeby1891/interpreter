@@ -17,7 +17,7 @@ import { JobBoardRoom } from "./durable/JobBoardRoom";
 import { routeTranslate } from "./translate";
 import { routePhi } from "./phi";
 import { verifyInternalHeader } from "./internal";
-import { handleSmsSend, handleSmsInbound } from "./sms";
+import { handleSmsSend, handleSmsInbound, handleSmsInboundFromHub } from "./sms";
 import {
   createConnectAccount,
   createAccountLink,
@@ -100,6 +100,10 @@ export interface Env {
   TWILIO_FROM_NUMBER?: string;
   // Inbound-webhook HMAC-SHA1 verification secret (Twilio signs every inbound).
   TWILIO_WEBHOOK_AUTH_TOKEN?: string;
+  // HMAC-SHA256 hex secret shared with workers/sms (the SMS hub).
+  // The hub POSTs dispatched events here at /v1/sms/inbound-from-hub.
+  // Same value as `HMAC_SECRET_INTERPRETER` on the shared hub.
+  HMAC_SECRET_INTERPRETER?: string;
   // PHI column-level encryption — set with `wrangler secret put PHI_MASTER_KEY`.
   // Must be ≥32 random bytes, base64url-encoded. Never set in wrangler.toml.
   PHI_MASTER_KEY?: string;
@@ -230,6 +234,9 @@ async function handle(req: Request, env: Env, ctx: ExecutionContext): Promise<Re
   }
   if (url.pathname === "/v1/sms/inbound" && req.method === "POST") {
     return handleSmsInbound(req, env);
+  }
+  if (url.pathname === "/v1/sms/inbound-from-hub" && req.method === "POST") {
+    return handleSmsInboundFromHub(req, env);
   }
 
   return withCors(json({ ok: false, error: "not found" }, { status: 404 }), req, cfg);

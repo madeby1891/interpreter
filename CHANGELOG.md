@@ -29,6 +29,20 @@ A catch-up pass against three umbrella specs that landed last week.
 
 - Tests still green (90/90). Typecheck clean. `--dry-run` deploy walks the full pipeline including both new lints.
 
+### Late-day amendment — inbound routing via shared hub
+
+After provisioning the 5 send-side Twilio secrets, found that the live 1891 SMS Gateway MS already pointed inbound at `sms.anthonymowl.workers.dev/v1/inbound` (the shared `workers/sms` hub) — SMS.md v1 had called that Worker "rejected prototype" but reality differed.
+
+Decision: embrace the hub. Changes:
+
+- New consumer `handleSmsInboundFromHub` in [`workers/api/src/sms.ts`](workers/api/src/sms.ts) at route `/v1/sms/inbound-from-hub`. Verifies HMAC-SHA256 over the JSON body using `HMAC_SECRET_INTERPRETER`. Dispatches `sms.optout` → Apps Script (clear `Users.phone_e164`, force `sms_mode='off'`); `sms.inbound` → YES/NO parse + Apps Script claim flow. The hub owns the user-visible reply, so this handler returns plain `200 ok` / `403 Forbidden` (no TwiML).
+- Direct `/v1/sms/inbound` (Twilio-direct) endpoint preserved for rollback.
+- Interpreter tenant row added to `workers/sms/src/tenants.ts`; `HMAC_SECRET_INTERPRETER` provisioned on both Workers.
+- SMS.md amended to v1.1 acknowledging the shared hub IS the live shape (§1 reversed, §10 row updated).
+- Live smoke 2026-05-25: forged sig → 403, real sig → 200.
+
+Interpreter Worker version: `717072f5`. Shared hub version: `aad55668`.
+
 ---
 
 ## 2026-05-18 — v18.4: Marketing-site interactivity + 7 platform fixes (PHI encryption, calendar, live board, tenants, AI hardening, copy refresh, clean URLs)
