@@ -101,6 +101,7 @@ var SESSION_TTL_MS    = 14 * 24 * 60 * 60 * 1000; // session JWT valid 14 days
 
 function doGet(e) {
   if (e && e.parameter && e.parameter.godview) return handleGodviewStats(e);
+  if (e && e.parameter && e.parameter.d1op) return handleD1Op_(e); // D1 dual-write sync (Code_D1Sync.gs)
   try {
     var params = (e && e.parameter) || {};
     _setCallback(_safeCb(params.callback));
@@ -197,6 +198,7 @@ function doGet(e) {
 function doPost(e) {
   try {
     var params = (e && e.parameter) || {};
+    if (params.d1op) return handleD1Op_(e); // D1 dual-write sync (Code_D1Sync.gs)
     _setCallback(_safeCb(params.callback));
     if (params.form_id) return handleInboundForm(e);
 
