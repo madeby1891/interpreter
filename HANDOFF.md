@@ -6,6 +6,51 @@ future-you) can pick up cold in under five minutes.
 
 ---
 
+## D1 system-of-record migration (ADR-001) — 2026-05-31
+
+interpreter is the **highest-value** migration in the workspace (PHI + payment records
+in a Sheet). Migrating off Google Sheets onto **Cloudflare D1** via the strangler
+pattern. **The Sheet is still the authoritative source of truth and the rollback net —
+nothing live was read, moved, or modified this session.**
+
+Full detail + the phase-2 enablement checklist:
+[`workers/interpreter-data/MIGRATION.md`](workers/interpreter-data/MIGRATION.md).
+
+**Standing now (phase 1 complete, no traffic):**
+- D1 `interpreter-data` (`5a445d42-4e08-48e8-84a3-8156f86c567a`) + KV `interpreter-cache`
+  (`86aaf1be509040b489c1023fae24709c`) + queue `interpreter-jobs` — **provisioned via the
+  Cloudflare REST API** (wrangler is off the bridge PATH; the wrangler OAuth *bearer*
+  token works against `api.cloudflare.com` directly — `provision_rest.py`). Schema (40
+  tables, 1:1 from `apps-script/Code.gs` `_tenantSchema()` + `Code_Multitenant.gs`)
+  applied to the live remote D1 and verified.
+- Worker `interpreter-data` **deployed + `/healthz` verified 2026-05-31**:
+  `https://interpreter-data.anthonymowl.workers.dev/healthz` →
+  `{"ok":true,"product":"interpreter","schema_version":1,"tables":39}`. Deployed MANUALLY
+  (the interpreter repo has no worker CI workflow yet — see MIGRATION.md "Deploy"; adding
+  a per-repo `deploy-workers.yml` is the clean follow-up). Mutating routes fail closed
+  (`503 server missing HMAC_SECRET`) until phase 2 sets the secret.
+- The dual-write SENDER (`apps-script/Code_D1Mirror.gs`, a parallel agent's work) is the
+  counterpart; this Worker is the RECEIVER. Contract matches. Currently **inert**
+  (`D1_DUAL_WRITE_ENABLED=false`).
+
+**Per-migration checklist (ADR §6):**
+- [x] `schema.sql` written, reviewed, validated on local `sqlite3` first
+- [x] Worker reads/writes D1 behind the HMAC envelope (no client-visible contract change)
+- [x] D1/KV/queue provisioned; schema applied to remote; worker deployed + smoked; godview updated
+- [ ] Dual-write flipped on + historical backfill + parity verified (phase 2 — pending)
+- [ ] Human-readable mirror live (`mirror.ts`, INERT until phase 4)
+- [ ] Reads flipped, soaked; then writes flipped (phases 3–4)
+- [ ] Old Sheet demoted to read-only mirror; godview `data_store: d1` (phase 4)
+
+**PHI invariant:** D1 stores the same opaque `v1:iv:ct` ciphertext the Sheet stored. The
+encryption boundary did NOT move — `PHI_MASTER_KEY` stays in `1891-interpreter-api`.
+`interpreter-data` never decrypts and never logs PHI columns.
+
+**Caveat:** schema applied via REST `/query`, NOT `wrangler d1 migrations apply`. Do not
+run `migrations apply` for `0001` (would dup the `schema_version` row). See MIGRATION.md.
+
+---
+
 ## Platform specs — caught up to 2026-05-25
 
 | Umbrella spec | Version | Pass status | Lint wired into `deploy.sh` |

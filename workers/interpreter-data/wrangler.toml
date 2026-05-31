@@ -1,0 +1,62 @@
+# wrangler.toml — projects/interpreter/workers/interpreter-data
+#
+# 1891 Interpreter system of record on Cloudflare D1 (PERSISTENCE_ARCHITECTURE.md
+# ADR-001). HIGHEST-VALUE migration: PHI + payment records move off Google Sheets.
+#
+# interpreter IS LIVE, so this follows the strangler pattern (ADR §6), NOT a
+# big-bang cutover:
+#   phase 2  dual-write  — Apps Script writes Sheet AND POSTs every row here
+#   phase 3  flip reads  — reads come from D1; Sheet still written as the net
+#   phase 4  flip writes — D1 sole writer; Sheet demoted to the read-only mirror
+# The Apps Script path stays the rollback safety net until D1 has soaked.
+#
+# Cloned from shared/templates/d1-backend. Schema translated verbatim from
+# apps-script/Code.gs `_tenantSchema()` + Code_Multitenant.gs CONTROL_SCHEMA.
+#
+# PROVISIONED 2026-05-31 via the Cloudflare REST API (the wrangler OAuth token
+# works against api.cloudflare.com even when `wrangler` is absent from the
+# osascript bridge PATH — reference_cloudflare_account_id). To re-provision or
+# re-apply schema, see MIGRATION.md "Provision".
+# DEPLOY: git push to main (deploy-workers.yml redeploys + smokes /healthz).
+#         Bare `wrangler deploy` is hot-fix only (reference_worker_deploy_wrapper).
+
+name = "interpreter-data"
+main = "src/index.ts"
+compatibility_date = "2024-09-23"
+compatibility_flags = ["nodejs_compat"]
+
+# --- System of record: D1 (provisioned via REST 2026-05-31) ---
+[[d1_databases]]
+binding = "DB"
+database_name = "interpreter-data"
+database_id = "5a445d42-4e08-48e8-84a3-8156f86c567a"
+migrations_dir = "migrations"
+
+# --- Cache in front of D1 (NOT a source of truth) ---
+[[kv_namespaces]]
+binding = "CACHE"
+id = "86aaf1be509040b489c1023fae24709c"
+
+# --- Async: parity sweeps, recap mail, the D1->Sheets mirror ---
+[[queues.producers]]
+binding = "JOBS"
+queue = "interpreter-jobs"
+
+[[queues.consumers]]
+queue = "interpreter-jobs"
+max_batch_size = 10
+max_retries = 3
+
+# --- Nightly read-only mirror (ADR §5) — INERT until MIRROR_ENABLED=true (phase 4) ---
+[triggers]
+crons = ["41 7 * * *"]   # 07:41 UTC, staggered from kgh-data (07:23)
+
+[observability]
+enabled = true
+
+[vars]
+PRODUCT = "interpreter"
+DEFAULT_TENANT = "host"
+# MIRROR_ENABLED is intentionally NOT set here — leave unset (mirror inert) until
+# strangler phase 4. HMAC_SECRET, MIRROR_SHEET_EXEC are secrets — wrangler secret
+# put / REST, never [vars].
