@@ -142,11 +142,34 @@ export function tableNames(): string[] {
 
 const q = (ident: string): string => `"${ident.replace(/"/g, '""')}"`;
 
-/** Redact PHI ciphertext columns before logging anything. */
+// Secret-shaped value detection — defense in depth so the read/echo surface can
+// NEVER serve a credential, even one that legacy data stuffed into a plain column
+// (e.g. Settings row key='anthropic.api_key', value='sk-ant-…'). Matches common
+// provider prefixes + obvious "looks like a long opaque token" shapes.
+const SECRET_VALUE_RE = /(sk-ant-|sk_live_|sk_test_|rk_live_|xox[bap]-|ghp_|AKIA[0-9A-Z]{12}|AIza[0-9A-Za-z_-]{20}|-----BEGIN)/;
+const SECRET_KEY_RE = /(api[_.]?key|secret|password|passwd|private[_.]?key|bearer|access[_.]?token|refresh[_.]?token)/i;
+
+/** True if this row looks like it carries a credential (by key name or value shape). */
+function rowLooksSecret(row: Record<string, unknown>): boolean {
+  const k = String(row['key'] ?? '');
+  if (SECRET_KEY_RE.test(k)) return true;
+  for (const v of Object.values(row)) {
+    if (typeof v === 'string' && SECRET_VALUE_RE.test(v)) return true;
+  }
+  return false;
+}
+
+/** Redact PHI ciphertext columns + any secret-shaped value before returning/logging. */
 export function safeRowForLog(table: string, row: Record<string, unknown>): Record<string, unknown> {
   const out: Record<string, unknown> = {};
+  // For key/value config tables, redact the `value` of any secret-shaped row.
+  const redactValue = ('key' in row && 'value' in row) && rowLooksSecret(row);
   for (const k of Object.keys(row)) {
-    out[k] = PHI_BLOB_COLUMNS.has(`${table}.${k}`) ? '[redacted-phi]' : row[k];
+    if (PHI_BLOB_COLUMNS.has(`${table}.${k}`)) { out[k] = '[redacted-phi]'; continue; }
+    if (redactValue && k === 'value') { out[k] = '[redacted-secret]'; continue; }
+    // Belt-and-suspenders: redact any individual cell whose value looks like a secret.
+    if (typeof row[k] === 'string' && SECRET_VALUE_RE.test(row[k] as string)) { out[k] = '[redacted-secret]'; continue; }
+    out[k] = row[k];
   }
   return out;
 }

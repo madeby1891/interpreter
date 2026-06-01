@@ -214,11 +214,13 @@ function doPost(e) {
       case 'cancel_job':         return _dispatchWithLiveBoard_('cancel_job', 'apiCancelJob', e);
       case 'smart_fill':         return apiSmartFill(e);
       case 'bootstrap':          return apiBootstrap(e);
-      case 'create_interpreter': return apiCreateInterpreter(e);
-      case 'update_interpreter': return apiUpdateInterpreter(e);
-      case 'create_requestor':   return apiCreateRequestor(e);
-      case 'update_agency':      return apiUpdateAgency(e);
-      case 'update_setting':     return apiUpdateSetting(e);
+      // Routed through _safeCall so the D1 freshness nudge fires (phase-3 prereq);
+      // behavior is identical — _safeCall just invokes the same apiX(e).
+      case 'create_interpreter': return _safeCall('apiCreateInterpreter', e);
+      case 'update_interpreter': return _safeCall('apiUpdateInterpreter', e);
+      case 'create_requestor':   return _safeCall('apiCreateRequestor', e);
+      case 'update_agency':      return _safeCall('apiUpdateAgency', e);
+      case 'update_setting':     return _safeCall('apiUpdateSetting', e);
       case 'offer_job':          return _dispatchWithLiveBoard_('offer_job', 'apiOfferJob', e);
       case 'confirm_job':        return _dispatchWithLiveBoard_('confirm_job', 'apiConfirmJob', e);
       case 'start_job':          return _dispatchWithLiveBoard_('start_job', 'apiStartJob', e);
@@ -331,7 +333,15 @@ function _safeCall(fnName, e) {
   if (typeof fn !== 'function') {
     return _json({ ok:false, error:'Not implemented yet: ' + fnName }, 501);
   }
-  return fn(e);
+  var out = fn(e);
+  // Freshness nudge: keep D1 read-fresh after a write (phase-3 prereq). Fully
+  // guarded + flag-gated in _d1NudgeAfterWrite_; a no-op for read actions and
+  // when dual-write is off. Never blocks/throws into the response.
+  try {
+    var action = (e && e.parameter && e.parameter.action) || '';
+    if (action && typeof _d1NudgeAfterWrite_ === 'function') _d1NudgeAfterWrite_(action, e, out);
+  } catch (_) {}
+  return out;
 }
 
 function _serviceInfo() {

@@ -133,6 +133,34 @@ async function route(request: Request, env: Env): Promise<Response> {
     return json({ ok: true, table, tenant_id: env2.data.tenant_id ?? null, count });
   }
 
+  // Read rows back (HMAC-gated). The phase-3 read surface + the freshness probe.
+  // Tenant-scoped; optional single-column equality filter; PHI columns ALWAYS
+  // redacted to '[redacted-phi]' (never returns ciphertext or plaintext); capped.
+  if (path === '/v1/read' && request.method === 'POST') {
+    const env2 = await openEnvelope<{ table?: string; tenant_id?: string; where_col?: string; where_val?: string; limit?: number }>(request, env);
+    if (!env2.ok) return env2.resp;
+    const table = String(env2.data.table || '');
+    const def = TABLES[table];
+    if (!def) return json({ ok: false, error: `unknown table: ${table}` }, 400);
+    const cols = def.columns;
+    const q = (s: string) => `"${s.replace(/"/g, '""')}"`;
+    const where: string[] = [];
+    const binds: unknown[] = [];
+    if (def.columns.includes('tenant_id') && env2.data.tenant_id) {
+      where.push(`${q('tenant_id')} = ?`); binds.push(String(env2.data.tenant_id));
+    }
+    if (env2.data.where_col) {
+      if (!cols.includes(env2.data.where_col)) return json({ ok: false, error: `unknown column: ${env2.data.where_col}` }, 400);
+      where.push(`${q(env2.data.where_col)} = ?`); binds.push(String(env2.data.where_val ?? ''));
+    }
+    const lim = Math.min(Math.max(Number(env2.data.limit ?? 50), 1), 500);
+    const sql = `SELECT ${cols.map(q).join(', ')} FROM ${q(table)}`
+      + (where.length ? ` WHERE ${where.join(' AND ')}` : '') + ` LIMIT ${lim}`;
+    const { results } = await env.DB.prepare(sql).bind(...binds).all<Record<string, unknown>>();
+    const rows = (results ?? []).map((r) => safeRowForLog(table, r));
+    return json({ ok: true, table, count: rows.length, rows });
+  }
+
   // Debug echo of how a row WOULD be stored, with PHI redacted. HMAC-gated.
   if (path === '/v1/echo' && request.method === 'POST') {
     const env2 = await openEnvelope<WriteMsg>(request, env);

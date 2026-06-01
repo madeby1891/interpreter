@@ -227,6 +227,125 @@ function _d1SyncControl_(report) {
   } catch (e) { report.push({ table: '_control', error: String(e).slice(0, 160) }); }
 }
 
+// ===========================================================================
+// FRESHNESS NUDGE — keep D1 read-fresh on write (phase-3 prerequisite).
+//
+// The 30-min trigger alone means a read flipped to D1 could be up to 30 min
+// stale right after a write. So after a SUCCESSFUL write action we immediately
+// re-sync just the table(s) that action touched, for just the request's tenant.
+// This is the "dual-write keeps D1 fresh" the ADR's read-flip assumes.
+//
+// Non-negotiables: (1) gated by D1_DUAL_WRITE_ENABLED; (2) NEVER throws into the
+// user's request — every path is wrapped + swallowed; (3) only the affected
+// tables, one tenant, one batched flush, so it adds ~one round-trip not 24.
+// ===========================================================================
+
+// action (doPost case) -> Sheet tab(s) it writes. Only actions that mutate a
+// synced table need an entry; anything missing just waits for the 30-min tick.
+var D1_NUDGE_TABLES = {
+  create_job: ['Jobs', 'Job_Events'], claim_job: ['Jobs', 'Job_Assignments', 'Job_Events'],
+  cancel_job: ['Jobs', 'Job_Events'], offer_job: ['Job_Assignments', 'Job_Events'],
+  confirm_job: ['Jobs', 'Job_Events'], start_job: ['Jobs', 'Job_Events'],
+  complete_job: ['Jobs', 'Job_Events'], accept_offer: ['Job_Assignments', 'Jobs', 'Job_Events'],
+  decline_offer: ['Job_Assignments', 'Job_Events'],
+  closeout_job: ['Jobs', 'Job_Expenses', 'Job_Events'], dispute_closeout: ['Jobs', 'Job_Events'],
+  update_expense_status: ['Job_Expenses'], upload_receipt: ['Job_Expenses'],
+  create_interpreter: ['Interpreters', 'Users'], update_interpreter: ['Interpreters'],
+  update_interpreter_rates: ['Interpreters'],
+  create_requestor: ['Requestors'], update_agency: ['Agencies'],
+  update_setting: ['Settings'],
+  create_client: ['Clients'], update_client: ['Clients'],
+  upsert_client_contact: ['Client_Contacts'], upsert_specialist: ['Specialists'],
+  update_client_billing_rules: ['Client_Billing_Rules'],
+  create_consumer: ['Consumers'], update_consumer: ['Consumers'],
+  upsert_rate_modifier: ['Rate_Modifiers'], delete_rate_modifier: ['Rate_Modifiers'],
+  upsert_rate_card: ['Rate_Cards'], upsert_interpreter_doc: ['Interpreter_Documents'],
+  upsert_requirement: ['Tenant_Requirements'], delete_requirement: ['Tenant_Requirements'],
+  add_assignment_note: ['Assignment_Notes'], update_notification_pref: ['Notification_Prefs'],
+  create_invoice: ['Invoices', 'Invoice_Lines'], update_invoice: ['Invoices', 'Invoice_Lines'],
+  mark_invoice_paid: ['Invoices'], void_invoice: ['Invoices'],
+  create_payout: ['Payouts'], mark_payout_paid: ['Payouts'],
+  invite_user: ['Users'], upload_client_document: ['Client_Documents'],
+  archive_client_document: ['Client_Documents']
+};
+
+// Resolve the tenant this request belongs to (from its session), default host.
+function _d1NudgeTenantOf_(e) {
+  try {
+    if (typeof _liveBoardTenantOf_ === 'function') {
+      var t = _liveBoardTenantOf_(e); if (t) return t;
+    }
+  } catch (_) {}
+  try {
+    var s = _requireSession(e);
+    if (s && s.ok && s.payload && s.payload.tid) return s.payload.tid;
+  } catch (_) {}
+  return 'host';
+}
+
+// Re-sync the given tables for one tenant in a single batched flush. Returns a
+// small report; never throws. Skips excluded tables.
+function _d1NudgeSync_(tenantId, spreadsheetId, tables) {
+  var writes = [], touched = [];
+  for (var i = 0; i < tables.length; i++) {
+    var tbl = tables[i];
+    if (D1_SYNC_EXCLUDE[tbl]) continue;
+    try {
+      var ss = SpreadsheetApp.openById(spreadsheetId);
+      var sh = ss.getSheetByName(tbl); if (!sh) continue;
+      var data = sh.getDataRange().getValues(); if (data.length < 2) continue;
+      var hdr = data[0]; var pkCols = _d1Pk_(tbl);
+      var pkSet = {}; for (var p = 0; p < (pkCols || []).length; p++) pkSet[pkCols[p]] = 1;
+      for (var r = 1; r < data.length; r++) {
+        var row = {}, empty = true;
+        for (var c = 0; c < hdr.length; c++) {
+          var key = String(hdr[c] || '').trim(); if (!key) continue;
+          var raw = data[r][c];
+          var v = pkSet[key] ? (raw === null || raw === undefined ? '' : String(raw)) : _d1Norm_(raw);
+          row[key] = v; if (v !== '' && v !== null) empty = false;
+        }
+        if (empty) continue;
+        if (pkCols) {
+          var miss = false;
+          for (var k = 0; k < pkCols.length; k++) {
+            if (pkCols[k] === 'tenant_id') continue;
+            var pv = row[pkCols[k]]; if (pv === '' || pv === null || pv === undefined) { miss = true; break; }
+          }
+          if (miss) continue;
+        }
+        writes.push({ tenant_id: row.tenant_id || tenantId || 'host', table: tbl, op: 'upsert', row: row });
+      }
+      touched.push(tbl);
+    } catch (_) { /* per-table swallow */ }
+  }
+  if (!writes.length) return { nudged: touched, rows: 0 };
+  var res = _d1FlushBatch_(writes);
+  return { nudged: touched, rows: res.sent, applied: res.applied, errors: res.errors };
+}
+
+// The hook called from the dispatch wrappers AFTER a write. Fully guarded:
+// flag-off → no-op; any error → swallowed; only fires for a 200/ok response.
+function _d1NudgeAfterWrite_(action, e, out) {
+  try {
+    if (typeof D1_DUAL_WRITE_ENABLED === 'undefined' || !D1_DUAL_WRITE_ENABLED) return out;
+    var tables = D1_NUDGE_TABLES[action]; if (!tables) return out;
+    // Only nudge if the write succeeded — parse the (possibly JSONP-wrapped) body.
+    var raw = out && out.getContent ? out.getContent() : '';
+    if (raw) {
+      var js = raw; var m = /^[A-Za-z_$][\w$]*\((.*)\);?\s*$/.exec(raw); if (m) js = m[1];
+      try { var b = JSON.parse(js); if (b && b.ok === false) return out; } catch (_) {}
+    }
+    var tid = _d1NudgeTenantOf_(e);
+    var ssId = SHEET_ID;
+    if (tid && tid !== 'host') {
+      var tn = _d1Tenants_().filter(function (t) { return t.tenant_id === tid; })[0];
+      if (tn) ssId = tn.spreadsheet_id;
+    }
+    _d1NudgeSync_(tid, ssId, tables);
+  } catch (_) { /* never block the user's write */ }
+  return out;
+}
+
 // --- backfill / convergent re-sync -----------------------------------------
 function _d1Backfill_(onlyTab) {
   var report = [];
@@ -373,6 +492,13 @@ function handleD1Op_(e) {
   if (op === 'backfill') return _json({ ok: true, report: _d1Backfill_(p.tab || null) });
   if (op === 'parity') return _json({ ok: true, parity: _d1ParityAll_() });
   if (op === 'keyset') return _json({ ok: true, keyset: _d1KeysetAll_() });
+  if (op === 'nudgetest') {
+    // Proves the exact post-write nudge path (host tenant) for one table, with
+    // wall-clock timing — what _d1NudgeAfterWrite_ runs after a real write.
+    var t0 = Date.now();
+    var nr = _d1NudgeSync_('host', SHEET_ID, [p.tab || 'Settings']);
+    return _json({ ok: true, nudge: nr, ms: Date.now() - t0 });
+  }
   if (op === 'tick') {
     if (!enabled) return _json({ ok: true, skipped: 'D1_DUAL_WRITE_ENABLED false' });
     return _json({ ok: true, report: _d1Backfill_(null) });

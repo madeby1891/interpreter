@@ -161,6 +161,10 @@ function _dispatchWithLiveBoard_(action, fnName, e) {
       : ContentService.createTextOutput(JSON.stringify({ ok:false, error:'Not implemented' }));
   }
   var out = fn(e);
+  // Freshness nudge: keep D1 read-fresh after a job write (phase-3 prereq).
+  // Guarded + flag-gated; no-op when dual-write is off; never throws. Runs here
+  // (before the live-board switch) so it covers every job action uniformly.
+  try { if (typeof _d1NudgeAfterWrite_ === 'function') _d1NudgeAfterWrite_(action, e, out); } catch (_) {}
   var tenantId = _liveBoardTenantOf_(e);
   if (!tenantId) return out;
 
