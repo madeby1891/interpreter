@@ -40,3 +40,13 @@ or logs** them. Encryption stays in the existing `1891-interpreter-api` Worker
 Phase 1 (stand up, no traffic) complete + provisioned 2026-05-31. Phase 2 (dual-write) is
 wired (`apps-script/Code_D1Mirror.gs`) but INERT. Do NOT flip reads/writes until the D1
 side has soaked — the Sheet is the rollback safety net.
+
+## Deploy
+
+`git push` to `main` IS the deploy: [`.github/workflows/deploy-workers.yml`](../../.github/workflows/deploy-workers.yml)
+redeploys every changed `workers/<name>/` and smokes `/healthz`. **Deploy only** —
+CI never runs `wrangler d1 migrations apply` (the schema was applied out-of-band via
+REST; re-applying `0001` would duplicate the `schema_version` row — see
+[`MIGRATION.md`](./MIGRATION.md)). Hot-fix from a laptop: `npx wrangler deploy` from
+this dir. Clean redeploy with no commit: Actions → deploy-workers → Run workflow →
+`worker: interpreter-data`.
