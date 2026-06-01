@@ -44,10 +44,30 @@ Full detail (incl. the three bugs found + fixed) + phase-3/4 steps:
 - [x] `schema.sql` written, reviewed, validated on local `sqlite3` first
 - [x] Worker reads/writes D1 behind the HMAC envelope (no client-visible contract change)
 - [x] D1/KV/queue provisioned; schema applied to remote; worker deployed + smoked; godview updated
-- [x] Dual-write live (`Code_D1Sync.gs` + 30-min trigger) + clean backfill (366) + parity 23/23 + idempotent
+- [x] Dual-write live (`Code_D1Sync.gs` + 30-min trigger) + clean backfill + Audit_Log repaired + **keyset parity 24 tables / 394==394** + idempotent
+- [x] **Fresh-on-write** nudge (phase-3 prereq): post-write re-sync of touched tables (flag-gated, non-blocking) — proven 10/10 Settings rows refreshed in 1.3s after a simulated stale D1
+- [x] Read surface `/v1/read` (HMAC-gated, PHI- + secret-redacted) for the read flip
 - [ ] Human-readable mirror live (`mirror.ts`, INERT until phase 4)
-- [ ] Reads flipped, soaked; then writes flipped (phases 3–4) — **NOT done; needs a soak first**
-- [ ] Old Sheet demoted to read-only mirror; godview `data_store: d1` (phase 4)
+- [ ] Reads flipped — **NOT done.** Remaining gates: (a) a real soak; (b) rotate/relocate the
+      Settings `anthropic.api_key` secret (below); (c) flip `site/assets/js/api.js` to a D1
+      read path — BLOCKED on a clean `site/` tree (a parallel agent has uncommitted site/
+      changes; `deploy.sh` builds the working tree, so don't static-deploy over it)
+- [ ] Writes flipped; old Sheet demoted to read-only mirror; godview `data_store: d1` (phase 4)
+
+**🔴 SECURITY (open, needs operator) — leaked Anthropic key:** the Settings tab has a row
+`anthropic.api_key` holding a **plaintext live `sk-ant-…` key** (pre-existing; the sync
+copied it into D1). The migration's `/v1/read` + `safeRowForLog` now **redact** secret-shaped
+values so the read API can't serve it — but the stored plaintext still exists in the Sheet
+AND D1 and must be **rotated + moved to a Worker secret** (spawned task filed). It's the only
+secret-shaped Settings row. Settings reads CANNOT flip to D1 until this is resolved (the app
+reads the key from Settings server-side; repoint to the secret first).
+
+**Fresh-on-write mechanism (how the read flip stays correct):** `_d1NudgeAfterWrite_`
+(`Code_D1Sync.gs`) runs after every successful write via `_safeCall` + `_dispatchWithLiveBoard_`
+(the 5 direct-call write actions were routed through `_safeCall` for uniform coverage). It
+re-syncs only the action's affected tables (`D1_NUDGE_TABLES` map) for the request's tenant,
+one batched flush, fully swallowed/flag-gated. So D1 is current within ~1-2s of any write, not
+up to 30 min. The 30-min trigger remains as the self-healing backstop.
 
 **PHI status (honest):** the encryption boundary did NOT move — D1 stores the same opaque
 `v1:iv:ct` ciphertext the Sheet stored; `interpreter-data` never decrypts/logs PHI;
