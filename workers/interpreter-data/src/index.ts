@@ -141,6 +141,51 @@ async function route(request: Request, env: Env): Promise<Response> {
     return json({ ok: true, table, row: safeRowForLog(table, env2.data.row || {}) });
   }
 
+  // Admin: truncate a synced table (HMAC-gated). Used to reset for a clean
+  // re-backfill during the strangler phase 2. ONLY clears D1 tables — the Sheet
+  // (the system of record) is never touched. Safe because D1 has no traffic yet.
+  if (path === '/v1/admin/truncate' && request.method === 'POST') {
+    const env2 = await openEnvelope<{ table?: string; all?: boolean }>(request, env);
+    if (!env2.ok) return env2.resp;
+    const wanted = env2.data.all ? Object.keys(TABLES) : [String(env2.data.table || '')];
+    const cleared: Record<string, number> = {};
+    for (const t of wanted) {
+      if (!TABLES[t]) return json({ ok: false, error: `unknown table: ${t}` }, 400);
+      const before = await countRows(env, t);
+      await env.DB.prepare(`DELETE FROM "${t.replace(/"/g, '""')}"`).run();
+      cleared[t] = before;
+    }
+    return json({ ok: true, cleared });
+  }
+
+  // PHI invariant audit (HMAC-gated). Returns COUNTS ONLY — never any cell value.
+  // Verifies every stored PHI column is the opaque `v1:…` ciphertext format and
+  // never plaintext. `bad_*` must be 0. This is how we prove the encryption
+  // boundary didn't move without ever reading a PHI value out of D1.
+  if (path === '/v1/phi-audit' && request.method === 'POST') {
+    const env2 = await openEnvelope<Record<string, never>>(request, env);
+    if (!env2.ok) return env2.resp;
+    const phiCols: Array<[string, string]> = [
+      ['Consumers', 'legal_first_encrypted'], ['Consumers', 'legal_last_encrypted'],
+      ['Consumers', 'dob_encrypted'], ['Consumers', 'mrn_encrypted'], ['Consumers', 'notes_sealed'],
+      ['Interpreters', 'payment_details_encrypted'],
+    ];
+    const report: Record<string, { populated: number; bad_not_ciphertext: number }> = {};
+    let totalBad = 0;
+    for (const [tbl, col] of phiCols) {
+      const q = (s: string) => `"${s.replace(/"/g, '""')}"`;
+      const populated = await env.DB.prepare(
+        `SELECT COUNT(*) AS n FROM ${q(tbl)} WHERE ${q(col)} IS NOT NULL AND ${q(col)} != ''`,
+      ).first<{ n: number }>();
+      const bad = await env.DB.prepare(
+        `SELECT COUNT(*) AS n FROM ${q(tbl)} WHERE ${q(col)} IS NOT NULL AND ${q(col)} != '' AND ${q(col)} NOT LIKE 'v1:%'`,
+      ).first<{ n: number }>();
+      report[`${tbl}.${col}`] = { populated: populated?.n ?? 0, bad_not_ciphertext: bad?.n ?? 0 };
+      totalBad += bad?.n ?? 0;
+    }
+    return json({ ok: true, phi_intact: totalBad === 0, total_bad: totalBad, report });
+  }
+
   return json({ ok: false, error: 'not found' }, 404);
 }
 

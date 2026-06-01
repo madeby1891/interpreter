@@ -114,40 +114,90 @@ python3 provision_rest.py exec <db_id> "SELECT ..."   # ad-hoc query / parity
 ## Strangler phases — where we are and what's next
 
 ```
-phase 1  STAND UP    [DONE]   D1 provisioned, schema applied, worker code in, no traffic
-phase 2  DUAL-WRITE  [WIRED, INERT]  Apps Script sender committed; flip + backfill pending
-phase 3  FLIP READS  [NOT STARTED]   reads from D1; Sheet still written
+phase 1  STAND UP    [DONE]   D1 provisioned, schema applied, worker deployed + /healthz verified, no traffic
+phase 2  DUAL-WRITE  [LIVE]   Sheet→D1 sender deployed, clean backfill (366 rows / 23 tables / 0 err), parity 23/23, idempotent, 30-min trigger
+phase 3  FLIP READS  [NOT STARTED]   reads from D1; Sheet still written (after soak)
 phase 4  FLIP WRITES [NOT STARTED]   D1 sole writer; Sheet demoted to read-only mirror
 ```
 
-### The dual-write bridge already exists (parallel agent)
+### CORRECTION to the phase-1 note (set the record straight)
 
-A parallel agent added `apps-script/Code_D1Mirror.gs` (the SENDER) and a hook in
-`Code.gs`; this Worker is the RECEIVER. The contract matches: `POST /v1/dual-write` with
-`{ payload: JSON.stringify({tenant_id, table, op, row}), sig: base64(HMAC-SHA256(secret, payload)) }`.
-Today it is **inert** (`D1_DUAL_WRITE_ENABLED = false`, `D1_WORKER_BASE = ''`) and only
-hooks `_logAudit`. Adding more tab hooks is the SENDER's job. **Do not rewrite
-`Code_D1Mirror.gs` from the Worker side** — parallel-agent discipline.
+Phase 1 claimed "a parallel agent already built the dual-write sender
+(`Code_D1Mirror.gs`, commit `27e89d52`)." **That was false** — verified in phase 2 via
+`git cat-file`: no such file, the commit was not a real object. The sender did not exist;
+it was built from scratch in phase 2 as **`apps-script/Code_D1Sync.gs`**.
 
-### To enable phase 2 (dual-write) — next-agent / operator checklist
+### How dual-write works (phase 2, built + debugged 2026-05-31 → 2026-06-01)
 
-1. **Shared secret.** Apps Script `D1_HMAC_SECRET` (script property) MUST equal the
-   Worker's `HMAC_SECRET`. Both sides sign/verify the SAME literal UTF-8 string — no
-   hex-decode (`feedback_appsscript_hmac_hex` does NOT apply; the secret is a string on
-   both sides). `wrangler secret put HMAC_SECRET` on `interpreter-data` (or REST
-   `PUT /accounts/<acct>/workers/scripts/interpreter-data/secrets`), then set the same
-   value as the Apps Script script property.
-2. In `Code_D1Mirror.gs`: set `D1_WORKER_BASE = 'https://interpreter-data.anthonymowl.workers.dev'`
-   + `D1_DUAL_WRITE_ENABLED = true`; `clasp push` + deploy.
-3. **Backfill** per tab via `/v1/dual-write/batch` (chunks ≤ 500).
-4. **Verify parity** per tab: Sheet row count vs `POST /v1/parity {table, tenant_id?}`.
-5. **Soak** a day or two; watch `Sys_Log` + the Sheet's error tab.
+`apps-script/Code_D1Sync.gs` is the SENDER; this Worker is the RECEIVER. Rather than bolt
+an HTTP call onto each of the ~150 Sheet-write sites (no central write helper → latency +
+a failure mode on the live path), the Sheet stays the authoritative writer and a 30-min
+`d1SyncTick` trigger **re-syncs every tab into D1, upserting by PK** (idempotent +
+self-healing). Reads stay on the Sheet; D1 converges to match it.
 
-ONLY after a clean soak: phase 3 (flip reads) then phase 4 (flip writes + set
-`MIRROR_ENABLED=true`). Rollback at any phase = point reads back at the Sheet.
+- **Router hook:** `Code.gs` `doGet`/`doPost` short-circuit on `?d1op=…` → `handleD1Op_`
+  (gated by `setup=SHEET_ID`). Ops: `ping | backfill | parity | tick | install_trigger |
+  uninstall_trigger | reset | peek`.
+- **Secret:** `apps-script/d1-secret.gs` (gitignored; value also at
+  `~/.config/1891/interpreter-d1-env`) holds `_d1Secret_()` == the Worker's `HMAC_SECRET`.
+
+### Three real bugs found + fixed during phase 2 (the hard part)
+
+1. **HMAC over non-UTF-8 bytes.** `Utilities.computeHmacSha256Signature(string, string)`
+   does NOT emit UTF-8 for non-ASCII payloads, so any batch containing an accent / curly
+   quote / em-dash diverged from the Worker's `TextEncoder` (UTF-8) and 401'd the WHOLE
+   batch ("bad signature"). 8 tables with non-ASCII free-text failed 100%. **Fix:** sign
+   `Utilities.newBlob(payload).getBytes()` (UTF-8) with the Byte[] overload, keyed by the
+   secret's UTF-8 bytes. (`feedback_appsscript_hmac_hex` is adjacent but distinct — that's
+   about hex secrets; this is about payload encoding.)
+2. **Runaway duplication via null PKs.** Rows with an empty primary-key cell reached D1 as
+   NULL; SQLite allows many NULLs in a TEXT PRIMARY KEY, so the upsert couldn't dedupe and
+   EVERY 30-min tick re-inserted them. `Audit_Log` ballooned 28 → 812 before it was caught.
+   **Fix:** the sender SKIPS any row with an empty non-tenant PK column (`skippedNoPk`),
+   making re-sync truly idempotent. Proven: 3 consecutive full backfills held D1 at exactly
+   366 rows, 0 growth.
+3. **Corrupt live `Audit_Log` header.** The live Sheet's Audit_Log tab header is a legacy
+   `['timestamp','action','form_id','detail', …]` that does NOT match the schema
+   (`audit_id, tenant_id, ts, …`) — `_logAudit` appends 12-value rows under it, so the PK is
+   unreadable. Auto-remapping a 7-year legal audit record by column position would risk
+   misattribution, so **Audit_Log is EXCLUDED from the sync** (`D1_SYNC_EXCLUDE`) and the
+   header repair is tracked as a separate Sheet-cleanup item (HANDOFF). Re-enable after the
+   header is fixed.
+
+### Phase 2 results (verified live, post-fix)
+
+- HMAC end-to-end: signed `/v1/parity` → 200; wrong-sig → 401; unsigned → 503.
+- Sender deployed via `shared/ops/clasp-deploy.sh` (osascript bridge), worker via the
+  workspace `wrangler` binary (the OAuth grant still deploys even though the *bearer* token
+  for direct REST reads expired ~07:16Z 2026-06-01 — `reference_cloudflare_account_id`).
+- **Clean backfill: 366 rows sent / 366 applied / 0 errors / 0 skipped.**
+- **Parity: 23/23 populated+synced tables match** (Sheet count == D1 count); Audit_Log
+  excluded; **idempotent** (3 backfills, no growth).
+- **PHI audit (`POST /v1/phi-audit`, counts-only, never values): `phi_intact:true,
+  total_bad:0`.** IMPORTANT — every PHI column is `populated:0`: the live Consumers (12) /
+  Interpreters (10) rows carry NO encrypted PHI (display_initials only; seed/demo-grade
+  data). So the pass-through mechanism is correct and in place, but there is no populated
+  PHI to have moved. Do NOT read this as "PHI ciphertext verified under load" — there was
+  none to verify.
+- **`d1SyncTick` trigger reinstalled** (every 30 min) only AFTER idempotency was proven.
+
+> clasp/Apps Script gotchas for the next agent: clasp lives in
+> `projects/interpreter/node_modules/.bin/clasp` (NOT under apps-script/); `clasp push`
+> ships the gitignored `d1-secret.gs` fine (no `.claspignore` needed); an `/exec` GET
+> brownout (`reference_appsscript_fetch_brownout`) returns a stale/empty report — add
+> `&_cb=<ts>` to every `d1op` GET.
+
+### Phase 3/4 — NOT done this session (deliberate)
+
+Reads + writes are NOT flipped. The Sheet remains the system of record and the rollback
+net. After a soak (parity stays green for a day or two): phase 3 flips reads to D1; phase 4
+flips writes to D1-only + `MIRROR_ENABLED=true` + godview `data_store: d1`. **Before phase
+3/4 the live `Audit_Log` header MUST be repaired so audit history syncs.** Rollback at any
+phase = point reads back at the Sheet.
 
 ## Rollback
 
 Nothing destructive happened to the live system. The Sheet remains the sole source of
-truth; no interpreter data was read, moved, or modified. To fully abandon: delete the D1
-(`DELETE /accounts/<acct>/d1/database/<id>`), drop this worker dir, revert the godview row.
+truth; phase 2 only READ the Sheet to copy into D1. To fully abandon: `d1op=uninstall_trigger`,
+then delete the D1 (`DELETE /accounts/<acct>/d1/database/<id>`), drop this worker dir,
+revert the godview row.

@@ -40,15 +40,51 @@
 // EXCLUDED on purpose: Inbound + Deaf_Owned_Applications (append-only marketing
 // capture, ADR §4 allowlisted to stay on Sheets) and Sys_Log (the Worker writes
 // it). Those have no PK in the Worker registry, so re-syncing would duplicate.
+// Tables intentionally NOT synced to D1 (besides Inbound/Deaf_Owned_Applications
+// which aren't in _tenantSchema()):
+//   Audit_Log — the LIVE Sheet's Audit_Log tab has a CORRUPT/legacy header
+//   ['timestamp','action','form_id','detail', …] that does NOT match the schema
+//   ['audit_id','tenant_id','ts',…]. `_logAudit` appends 12-value rows under that
+//   4-named header, so `audit_id` (the PK) is unreadable. Auto-remapping a 7-year
+//   legal audit record by column POSITION would risk misattribution — refuse it.
+//   Tracked as a separate Sheet-cleanup item (HANDOFF). Re-enable once the live
+//   Audit_Log header is repaired to match _tenantSchema().Audit_Log.
+var D1_SYNC_EXCLUDE = { Audit_Log: 'corrupt live header — see HANDOFF' };
+
 function _d1SyncTables_() {
   // _tenantSchema() keys ARE the Worker table names / tab names (33 tables),
   // plus the upsertable magic-link log. Control tables handled separately.
-  return Object.keys(_tenantSchema()).concat(['Auth_Tokens']);
+  return Object.keys(_tenantSchema()).concat(['Auth_Tokens']).filter(function (t) {
+    return !D1_SYNC_EXCLUDE[t];
+  });
+}
+
+// Primary-key column(s) per table — MUST match the Worker's db.ts TABLES registry.
+// Used to SKIP rows with an empty PK: an empty PK reaches D1 as NULL, and SQLite
+// permits multiple NULLs in a TEXT PRIMARY KEY, so the upsert can't dedupe them
+// and every re-sync re-inserts → unbounded duplication (Audit_Log doubled 28→56
+// before this guard). For all single-PK tables the PK is the first schema column;
+// the two composite ones (Settings, Tenant_Owners) need BOTH cols non-empty.
+function _d1Pk_(tableName) {
+  if (tableName === 'Settings') return ['tenant_id', 'key'];
+  if (tableName === 'Tenant_Owners') return ['tenant_id', 'user_id'];
+  if (tableName === 'Tenants') return ['tenant_id'];
+  if (tableName === 'Auth_Tokens') return ['token_hash'];
+  var cols = _tenantSchema()[tableName];
+  return cols && cols.length ? [cols[0]] : null; // first column is the PK
 }
 
 // --- low-level: sign + POST the HMAC envelope ------------------------------
 function _d1Sign_(payload) {
-  var raw = Utilities.computeHmacSha256Signature(payload, _d1Secret_());
+  // MUST sign UTF-8 bytes. The STRING overload computeHmacSha256Signature(str, str)
+  // does NOT emit UTF-8 for non-ASCII payloads, so it diverges from the Worker's
+  // Web Crypto HMAC over TextEncoder().encode() (UTF-8) the moment a row carries an
+  // accent / curly quote / em-dash — the whole batch then 401s "bad signature".
+  // newBlob(str).getBytes() IS UTF-8; the Byte[] overload signs exactly those bytes,
+  // and we key with the secret's UTF-8 bytes too (matches the Worker's UTF-8 key).
+  var payloadBytes = Utilities.newBlob(payload).getBytes();
+  var secretBytes = Utilities.newBlob(_d1Secret_()).getBytes();
+  var raw = Utilities.computeHmacSha256Signature(payloadBytes, secretBytes);
   return Utilities.base64Encode(raw);
 }
 
@@ -84,12 +120,18 @@ function _d1Norm_(v) {
 
 function _d1FlushBatch_(writes) {
   var r = _d1Post_('/v1/dual-write/batch', { writes: writes });
-  var applied = 0, errors = writes.length;
+  var applied = 0, errors = writes.length, firstErr = null;
   if (r.code === 200) {
-    try { var b = JSON.parse(r.body); applied = b.applied || 0; errors = (b.errors && b.errors.length) || 0; }
-    catch (_) { errors = writes.length; }
+    try {
+      var b = JSON.parse(r.body);
+      applied = b.applied || 0;
+      errors = (b.errors && b.errors.length) || 0;
+      if (b.errors && b.errors.length) firstErr = b.errors[0].error;
+    } catch (_) { errors = writes.length; firstErr = 'parse:' + String(r.body).slice(0, 120); }
+  } else {
+    firstErr = 'http' + r.code + ':' + String(r.body).slice(0, 120);
   }
-  return { sent: writes.length, applied: applied, errors: errors };
+  return { sent: writes.length, applied: applied, errors: errors, firstErr: firstErr };
 }
 
 // --- sync one tab of one Sheet into D1 (idempotent upserts, 200/batch) ------
@@ -100,7 +142,8 @@ function _d1SyncTab_(spreadsheetId, tableName, tenantFallback) {
   var data = sh.getDataRange().getValues();
   if (data.length < 2) return { table: tableName, rows: 0 };
   var hdr = data[0];
-  var writes = [], sent = 0, applied = 0, errors = 0;
+  var pkCols = _d1Pk_(tableName);
+  var writes = [], sent = 0, applied = 0, errors = 0, skippedNoPk = 0, firstErr = null;
   for (var i = 1; i < data.length; i++) {
     var row = {}, empty = true;
     for (var c = 0; c < hdr.length; c++) {
@@ -111,17 +154,40 @@ function _d1SyncTab_(spreadsheetId, tableName, tenantFallback) {
       if (v !== '' && v !== null) empty = false;
     }
     if (empty) continue;
+    // SKIP rows with an empty PK — they'd land as NULL in D1 and re-insert on
+    // every sync (SQLite allows many NULLs in a TEXT PRIMARY KEY). This is the
+    // anti-duplication guarantee that makes the trigger safe to run forever.
+    // NOTE: never gate on tenant_id — for tenant-scoped tables it's always
+    // supplied by the envelope (tid below), and some tabs (Settings) don't even
+    // carry a tenant_id column in the Sheet (the D1 schema adds it). So only the
+    // NON-tenant PK columns must be present in the Sheet row.
+    if (pkCols) {
+      var pkMissing = false;
+      for (var k = 0; k < pkCols.length; k++) {
+        if (pkCols[k] === 'tenant_id') continue;
+        var pv = row[pkCols[k]];
+        if (pv === '' || pv === null || pv === undefined) { pkMissing = true; break; }
+      }
+      if (pkMissing) { skippedNoPk++; continue; }
+    }
     // The Worker pins tenant_id from the envelope for tenant-scoped tables, so
     // send the row's OWN tenant_id (fallback to this Sheet's tenant) to avoid
     // relabelling. Global tables ignore it.
     var tid = row.tenant_id || tenantFallback || 'host';
     writes.push({ tenant_id: tid, table: tableName, op: 'upsert', row: row });
     if (writes.length >= 200) {
-      var r = _d1FlushBatch_(writes); sent += r.sent; applied += r.applied; errors += r.errors; writes = [];
+      var r = _d1FlushBatch_(writes); sent += r.sent; applied += r.applied; errors += r.errors;
+      if (!firstErr && r.firstErr) firstErr = r.firstErr; writes = [];
     }
   }
-  if (writes.length) { var r2 = _d1FlushBatch_(writes); sent += r2.sent; applied += r2.applied; errors += r2.errors; }
-  return { table: tableName, sent: sent, applied: applied, errors: errors };
+  if (writes.length) {
+    var r2 = _d1FlushBatch_(writes); sent += r2.sent; applied += r2.applied; errors += r2.errors;
+    if (!firstErr && r2.firstErr) firstErr = r2.firstErr;
+  }
+  var out = { table: tableName, sent: sent, applied: applied, errors: errors };
+  if (skippedNoPk) out.skippedNoPk = skippedNoPk;
+  if (firstErr) out.firstErr = firstErr;
+  return out;
 }
 
 // --- enumerate tenant Sheets (host + any in the control Sheet) -------------
@@ -180,6 +246,7 @@ function _d1ParityAll_() {
         try { var sh = SpreadsheetApp.openById(tn.spreadsheet_id).getSheetByName(tbl); if (sh) sheetTotal += Math.max(0, sh.getLastRow() - 1); } catch (_) {}
       });
     }
+    if (D1_SYNC_EXCLUDE[tbl]) { out.push({ table: tbl, sheet: sheetTotal, d1: null, excluded: D1_SYNC_EXCLUDE[tbl] }); return; }
     var r = _d1Post_('/v1/parity', { table: tbl });
     var d1 = null; if (r.code === 200) { try { d1 = JSON.parse(r.body).count; } catch (_) {} }
     out.push({ table: tbl, sheet: sheetTotal, d1: d1, match: (sheetTotal === d1) });
@@ -207,6 +274,23 @@ function installD1SyncTrigger() {
   return 'installed: d1SyncTick every 30 min';
 }
 
+function uninstallD1SyncTrigger() {
+  var n = 0, ts = ScriptApp.getProjectTriggers();
+  for (var i = 0; i < ts.length; i++) {
+    if (ts[i].getHandlerFunction() === 'd1SyncTick') { ScriptApp.deleteTrigger(ts[i]); n++; }
+  }
+  return 'removed ' + n + ' d1SyncTick trigger(s)';
+}
+
+// Truncate D1 synced tables (the worker's HMAC-gated /v1/admin/truncate). Only
+// clears D1 — the Sheet (system of record) is never touched. Used to reset for a
+// clean re-backfill after the earlier non-idempotent/null-PK rows duplicated.
+function _d1Truncate_(onlyTab) {
+  var body = onlyTab ? { table: onlyTab } : { all: true };
+  var r = _d1Post_('/v1/admin/truncate', body);
+  try { return JSON.parse(r.body); } catch (_) { return { code: r.code, body: String(r.body).slice(0, 200) }; }
+}
+
 // --- HTTP entrypoint (short-circuited from doGet/doPost on ?d1op) -----------
 function handleD1Op_(e) {
   var p = (e && e.parameter) || {};
@@ -222,5 +306,31 @@ function handleD1Op_(e) {
     return _json({ ok: true, report: _d1Backfill_(null) });
   }
   if (op === 'install_trigger') return _json({ ok: true, result: installD1SyncTrigger() });
-  return _json({ ok: false, error: 'unknown d1op (ping|backfill|parity|tick|install_trigger)' });
+  if (op === 'uninstall_trigger') return _json({ ok: true, result: uninstallD1SyncTrigger() });
+  if (op === 'reset') return _json({ ok: true, reset: _d1Truncate_(p.tab || null) });
+  if (op === 'peek') return _json({ ok: true, peek: _d1Peek_(p.tab) });
+  return _json({ ok: false, error: 'unknown d1op (ping|backfill|parity|tick|install_trigger|uninstall_trigger|reset|peek)' });
+}
+
+// Inspect a tab's header + first rows of its PK column(s). REFUSES any table with
+// PHI/encrypted columns so it can never leak ciphertext or sensitive cells.
+function _d1Peek_(tableName) {
+  if (!tableName) return { error: 'tab required' };
+  if (tableName === 'Consumers' || tableName === 'Interpreters') return { error: 'refused: PHI table' };
+  var sh = SpreadsheetApp.openById(SHEET_ID).getSheetByName(tableName);
+  if (!sh) return { error: 'no tab' };
+  var data = sh.getDataRange().getValues();
+  if (data.length < 1) return { rows: 0 };
+  var hdr = data[0].map(function (h) { return String(h || ''); });
+  var pkCols = _d1Pk_(tableName);
+  var pkIdx = (pkCols || []).map(function (c) { return hdr.indexOf(c); });
+  var sample = [];
+  for (var i = 1; i < Math.min(data.length, 4); i++) {
+    var rec = { _row: i + 1 };
+    for (var k = 0; k < (pkCols || []).length; k++) {
+      rec[pkCols[k]] = pkIdx[k] >= 0 ? String(data[i][pkIdx[k]]) : '(col-not-found)';
+    }
+    sample.push(rec);
+  }
+  return { header: hdr, pkCols: pkCols, pkIndexes: pkIdx, dataRows: data.length - 1, sample: sample };
 }
