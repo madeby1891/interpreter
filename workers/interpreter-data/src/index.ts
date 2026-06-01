@@ -186,6 +186,44 @@ async function route(request: Request, env: Env): Promise<Response> {
     return json({ ok: true, phi_intact: totalBad === 0, total_bad: totalBad, report });
   }
 
+  // Key-set parity (HMAC-gated). The sender posts the exact set of primary keys it
+  // found in the Sheet for one table; we compare against D1's PK set. This upgrades
+  // "row counts match" to "the SAME record set" — the real precondition for flipping
+  // reads. PKs are opaque IDs (no normalization ambiguity) so any diff is real.
+  // Composite-PK tables join cols with US (). Sample lists are capped + the
+  // sensitive tables (PHI + Auth_Tokens) report counts only, never key values.
+  if (path === '/v1/keyset' && request.method === 'POST') {
+    const env2 = await openEnvelope<{ table?: string; pkCols?: string[]; keys?: string[] }>(request, env);
+    if (!env2.ok) return env2.resp;
+    const table = String(env2.data.table || '');
+    if (!TABLES[table]) return json({ ok: false, error: `unknown table: ${table}` }, 400);
+    const pkCols = Array.isArray(env2.data.pkCols) && env2.data.pkCols.length
+      ? env2.data.pkCols : TABLES[table].pk;
+    if (!pkCols) return json({ ok: false, error: `${table} has no PK (append-only)` }, 400);
+    const sent = new Set((env2.data.keys || []).map(String));
+    const q = (s: string) => `"${s.replace(/"/g, '""')}"`;
+    const { results } = await env.DB.prepare(
+      `SELECT ${pkCols.map(q).join(', ')} FROM ${q(table)}`,
+    ).all<Record<string, unknown>>();
+    const d1 = new Set<string>();
+    for (const r of results ?? []) d1.add(pkCols.map((c) => String(r[c] ?? '')).join('|'));
+    const missingInD1: string[] = [];   // in Sheet, absent from D1
+    const orphanInD1: string[] = [];    // in D1, absent from Sheet
+    for (const k of sent) if (!d1.has(k)) missingInD1.push(k);
+    for (const k of d1) if (!sent.has(k)) orphanInD1.push(k);
+    const sensitive = table === 'Consumers' || table === 'Interpreters' || table === 'Auth_Tokens';
+    return json({
+      ok: true, table, pkCols,
+      sheet_keys: sent.size, d1_keys: d1.size,
+      missing_in_d1: missingInD1.length, orphan_in_d1: orphanInD1.length,
+      match: missingInD1.length === 0 && orphanInD1.length === 0,
+      ...(sensitive ? {} : {
+        missing_sample: missingInD1.slice(0, 20),
+        orphan_sample: orphanInD1.slice(0, 20),
+      }),
+    });
+  }
+
   return json({ ok: false, error: 'not found' }, 404);
 }
 

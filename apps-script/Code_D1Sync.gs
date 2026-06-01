@@ -231,6 +231,65 @@ function _d1Backfill_(onlyTab) {
   return report;
 }
 
+// --- key-set parity: exact PK set Sheet-vs-D1 (catches equal-count/different-rows) ---
+// Gathers each table's primary-key set from the Sheet and posts it to /v1/keyset,
+// which diffs against D1's PK set. This is the precondition for flipping reads: if
+// every Sheet key exists in D1 (missing_in_d1 == 0), a D1 read can never 404 a row
+// the Sheet has. orphan_in_d1 > 0 means D1 has rows the Sheet dropped (e.g. a
+// hard-deleted Sheet row the upsert never removes) — informational for now.
+function _d1KeysetAll_() {
+  var out = [];
+  var tables = _d1SyncTables_().concat(['Tenants', 'Tenant_Owners']);
+  var tenants = _d1Tenants_();
+  var cid = PropertiesService.getScriptProperties().getProperty('CONTROL_SHEET_ID');
+  tables.forEach(function (tbl) {
+    if (D1_SYNC_EXCLUDE[tbl]) { out.push({ table: tbl, excluded: D1_SYNC_EXCLUDE[tbl] }); return; }
+    var pkCols = _d1Pk_(tbl);
+    if (!pkCols) { out.push({ table: tbl, skipped: 'no pk' }); return; }
+    // Non-tenant PK part(s) only — the Worker keys its set the same way (tenant_id
+    // is pinned, and for composite PKs the Worker concatenates all pk cols; here we
+    // send the row's actual pk-col values, including tenant_id when it's a pk col).
+    var keys = {};
+    function collectFrom(ss, fallbackTenant) {
+      if (!ss) return;
+      var sh = ss.getSheetByName(tbl); if (!sh) return;
+      var data = sh.getDataRange().getValues(); if (data.length < 2) return;
+      var hdr = data[0].map(function (h) { return String(h || '').trim(); });
+      var idx = pkCols.map(function (c) { return hdr.indexOf(c); });
+      for (var i = 1; i < data.length; i++) {
+        var parts = [], ok = true;
+        for (var k = 0; k < pkCols.length; k++) {
+          if (pkCols[k] === 'tenant_id') {
+            // The Worker keys its D1 set with each row's STORED tenant_id (which the
+            // sync pinned from the envelope = this Sheet's tenant). Mirror that here:
+            // use the Sheet column if present, else the iterating tenant. Must match
+            // the Worker side exactly or every composite key would false-mismatch.
+            var tv = idx[k] >= 0 ? String(data[i][idx[k]] || '') : '';
+            parts.push(tv || fallbackTenant || 'host');
+            continue;
+          }
+          if (idx[k] < 0) { ok = false; break; }
+          var v = String(data[i][idx[k]] === null ? '' : data[i][idx[k]]);
+          if (v === '') { ok = false; break; } // empty non-tenant PK = skipped on sync too
+          parts.push(v);
+        }
+        if (ok) keys[parts.join('|')] = 1;
+      }
+    }
+    if (tbl === 'Tenants' || tbl === 'Tenant_Owners') { if (cid) collectFrom(SpreadsheetApp.openById(cid), null); }
+    else tenants.forEach(function (tn) { try { collectFrom(SpreadsheetApp.openById(tn.spreadsheet_id), tn.tenant_id); } catch (_) {} });
+    var keyList = Object.keys(keys);
+    var r = _d1Post_('/v1/keyset', { table: tbl, pkCols: pkCols, keys: keyList });
+    var res = {}; if (r.code === 200) { try { res = JSON.parse(r.body); } catch (_) {} }
+    out.push({
+      table: tbl, sheet_keys: keyList.length, d1_keys: res.d1_keys,
+      missing_in_d1: res.missing_in_d1, orphan_in_d1: res.orphan_in_d1, match: res.match,
+      missing_sample: res.missing_sample, orphan_sample: res.orphan_sample
+    });
+  });
+  return out;
+}
+
 // --- parity: per-table Sheet rowcount vs D1 rowcount -----------------------
 function _d1ParityAll_() {
   var out = [];
@@ -301,6 +360,7 @@ function handleD1Op_(e) {
   if (op === 'ping') return _json({ ok: true, enabled: enabled, base: base });
   if (op === 'backfill') return _json({ ok: true, report: _d1Backfill_(p.tab || null) });
   if (op === 'parity') return _json({ ok: true, parity: _d1ParityAll_() });
+  if (op === 'keyset') return _json({ ok: true, keyset: _d1KeysetAll_() });
   if (op === 'tick') {
     if (!enabled) return _json({ ok: true, skipped: 'D1_DUAL_WRITE_ENABLED false' });
     return _json({ ok: true, report: _d1Backfill_(null) });
@@ -309,7 +369,8 @@ function handleD1Op_(e) {
   if (op === 'uninstall_trigger') return _json({ ok: true, result: uninstallD1SyncTrigger() });
   if (op === 'reset') return _json({ ok: true, reset: _d1Truncate_(p.tab || null) });
   if (op === 'peek') return _json({ ok: true, peek: _d1Peek_(p.tab) });
-  return _json({ ok: false, error: 'unknown d1op (ping|backfill|parity|tick|install_trigger|uninstall_trigger|reset|peek)' });
+  if (op === 'auditdiag') return _json({ ok: true, auditdiag: _d1AuditDiag_() });
+  return _json({ ok: false, error: 'unknown d1op (ping|backfill|parity|keyset|tick|install_trigger|uninstall_trigger|reset|peek)' });
 }
 
 // Inspect a tab's header + first rows of its PK column(s). REFUSES any table with
@@ -333,4 +394,41 @@ function _d1Peek_(tableName) {
     sample.push(rec);
   }
   return { header: hdr, pkCols: pkCols, pkIndexes: pkIdx, dataRows: data.length - 1, sample: sample };
+}
+
+// Read-only diagnosis of the Audit_Log tab: is the DATA in schema order under the
+// wrong (legacy) header? Audit_Log carries NO PHI, so showing cell values is safe.
+// Tests the hypothesis: col0 should be an `au_`-prefixed ULID, col2 an ISO ts,
+// col6 an action verb — i.e. _logAudit's append order == _tenantSchema().Audit_Log.
+function _d1AuditDiag_() {
+  var sh = SpreadsheetApp.openById(SHEET_ID).getSheetByName(T.Audit_Log);
+  if (!sh) return { error: 'no Audit_Log tab' };
+  var data = sh.getDataRange().getValues();
+  var schema = _tenantSchema().Audit_Log;
+  var liveHdr = (data[0] || []).map(function (h) { return String(h || ''); });
+  var n = data.length - 1;
+  var auLike = 0, isoCol2 = 0, allowCol10 = 0, sampled = 0;
+  var rows = [];
+  for (var i = 1; i < data.length; i++) {
+    sampled++;
+    var c0 = String(data[i][0] || ''), c2 = String(data[i][2] || ''), c10 = String(data[i][10] || '');
+    if (/^au_/.test(c0)) auLike++;
+    if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(c2)) isoCol2++;
+    if (c10 === 'allow' || c10 === 'deny') allowCol10++;
+    if (i <= 3) rows.push({ col0_audit_id: c0, col2_ts: c2, col6_action: String(data[i][6] || ''), col10_result: c10, ncols: data[i].length });
+  }
+  return {
+    live_header: liveHdr,
+    schema_header: schema,
+    header_matches_schema: JSON.stringify(liveHdr) === JSON.stringify(schema),
+    data_rows: n,
+    sampled: sampled,
+    col0_au_ulid_pct: sampled ? Math.round(100 * auLike / sampled) : 0,
+    col2_iso_ts_pct: sampled ? Math.round(100 * isoCol2 / sampled) : 0,
+    col10_allow_deny_pct: sampled ? Math.round(100 * allowCol10 / sampled) : 0,
+    verdict: (auLike === sampled && isoCol2 === sampled)
+      ? 'DATA IS IN SCHEMA ORDER under a stale header — safe to fix header row only'
+      : 'DATA NOT cleanly in schema order — do NOT auto-remap; inspect manually',
+    sample_rows: rows
+  };
 }
