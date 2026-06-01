@@ -56,31 +56,29 @@ Full detail (incl. the three bugs found + fixed) + phase-3/4 steps:
 `populated:0`: the live Consumers/Interpreters rows carry NO encrypted PHI (initials only;
 seed/demo-grade data). So the mechanism is correct but there was no populated PHI to move.
 
-**KNOWN ISSUE — repair before phase 3/4 (now DIAGNOSED, read-only):** the live `Audit_Log`
-tab has a stale legacy header (`timestamp,action,form_id,detail,'','',…`) that doesn't match
-the schema (`audit_id,tenant_id,ts,…`). Audit_Log is **excluded from the D1 sync**
-(`D1_SYNC_EXCLUDE` in `Code_D1Sync.gs`) so it can't duplicate. Run `?d1op=auditdiag` for the
-live read-out. Findings (2026-06-01, 28 rows):
-- **27/28 rows ARE in correct schema order** under the wrong header: col0 = `au_` ULID (96%),
-  col2 = ISO ts (96%), col6 = action verb, col10 = `allow`. Cause: `_logAudit` appends 12
-  values in schema order, but `_getOrCreateSheet` only writes the header at tab-CREATE, and
-  the tab pre-existed with the legacy 4-name header. So the DATA is fine; only row 1 (the
-  header) is wrong.
-- **1/28 is a genuine pre-schema legacy row** (`2026-05-17 … smoke_test`, col0 is an ISO
-  timestamp not a ULID) — a judgment call (keep-as-is / drop / synthesize a PK).
-- **Why the exclusion is mandatory until fixed:** the sender maps by HEADER NAME. Under the
-  wrong header the worker's allowlist drops the real columns, so `audit_id` arrives empty →
-  NULL PK → the runaway duplication that hit 812 rows before the null-PK guard. Do NOT
-  re-enable by header-position remap.
-- **Repair (NOT done here — live 7-yr legal record, needs operator/owner sign-off; spawned
-  task filed):** rewrite ONLY row 1 to `_tenantSchema().Audit_Log`, preserving every data
-  row byte-for-byte; decide the legacy smoke_test row; remove `Audit_Log` from
-  `D1_SYNC_EXCLUDE`; `?d1op=backfill&tab=Audit_Log`; verify with `?d1op=keyset`.
+**Audit_Log — REPAIRED + syncing 2026-06-01 (was the phase-3 blocker):** the live tab had a
+stale legacy header (`timestamp,action,form_id,detail,…`) ≠ schema (`audit_id,tenant_id,ts,…`).
+Fixed reversibly:
+- **Backup first:** full tab duplicated to `Audit_Log_bak_20260601141850` (28 data rows +
+  original header preserved — restore = copy it back). `auditfixheader` has a safety
+  interlock that refuses to run unless a `Audit_Log_bak_*` tab exists.
+- **Header-row-only rewrite** (`?d1op=auditbackup` → `auditfixheader`): row 1 set to
+  `_tenantSchema().Audit_Log`; **all 28 data rows untouched** (verified before==after==28).
+  The data was already in schema order (`_logAudit` appended correctly; only the tab's
+  pre-existing header was stale).
+- **Exclusion lifted** (`D1_SYNC_EXCLUDE = {}`); Audit_Log now backfills + syncs like every
+  other table.
+- **One more bug the key-set check caught:** the single legacy `2026-05-17 smoke_test` row's
+  `audit_id` literally IS an ISO timestamp, and `_d1Norm_` was epoch-converting it (PK
+  `2026-05-17T…` → `1778998319`), breaking parity. Fixed: **PK columns are never normalized**
+  — they round-trip verbatim as opaque identifiers (`_d1SyncTab_` `pkSet` guard).
+- **Verified:** Audit_Log 28/28 keys match; full set **24 tables / 394 Sheet keys == 394 D1
+  keys / 0 missing / 0 orphan; idempotent** (3 full backfills, no growth).
 
-**Phase-3 readiness check available:** `?d1op=keyset` does EXACT PK-set parity (not just
-counts). Last run: 23 tables, **366 Sheet keys == 366 D1 keys, 0 missing, 0 orphan** — i.e.
-D1 holds exactly the Sheet's record set. That (plus a soak + the Audit_Log fix) is the
-green-light for flipping reads.
+**Phase-3 readiness check:** `?d1op=keyset` does EXACT PK-set parity (not just counts). Latest:
+**24 tables, 394 == 394, 0 missing, 0 orphan** — D1 holds exactly the Sheet's record set,
+Audit_Log included. Remaining gate before flipping reads: a real **soak** (let the 30-min
+trigger run clean for a day or two; re-check `?d1op=keyset`).
 
 **Caveat:** schema applied via REST `/query`, NOT `wrangler d1 migrations apply`. Do not
 run `migrations apply` for `0001` (would dup the `schema_version` row). See MIGRATION.md.

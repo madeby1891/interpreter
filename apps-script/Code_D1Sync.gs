@@ -41,15 +41,18 @@
 // capture, ADR §4 allowlisted to stay on Sheets) and Sys_Log (the Worker writes
 // it). Those have no PK in the Worker registry, so re-syncing would duplicate.
 // Tables intentionally NOT synced to D1 (besides Inbound/Deaf_Owned_Applications
-// which aren't in _tenantSchema()):
-//   Audit_Log — the LIVE Sheet's Audit_Log tab has a CORRUPT/legacy header
-//   ['timestamp','action','form_id','detail', …] that does NOT match the schema
-//   ['audit_id','tenant_id','ts',…]. `_logAudit` appends 12-value rows under that
-//   4-named header, so `audit_id` (the PK) is unreadable. Auto-remapping a 7-year
-//   legal audit record by column POSITION would risk misattribution — refuse it.
-//   Tracked as a separate Sheet-cleanup item (HANDOFF). Re-enable once the live
-//   Audit_Log header is repaired to match _tenantSchema().Audit_Log.
-var D1_SYNC_EXCLUDE = { Audit_Log: 'corrupt live header — see HANDOFF' };
+// which aren't in _tenantSchema()).
+//
+// Audit_Log was excluded while its live tab carried a stale legacy header
+// (['timestamp','action','form_id','detail',…] ≠ schema ['audit_id','tenant_id',…]),
+// which made the name-keyed sender drop the real columns → empty audit_id → NULL PK
+// → runaway duplication. REPAIRED 2026-06-01 (d1op=auditbackup → auditfixheader,
+// header-row-only rewrite, all 28 data rows preserved; backup tab Audit_Log_bak_*),
+// so the exclusion is now LIFTED and Audit_Log syncs normally. The data was already
+// in schema order; only the header row was wrong. (One legacy 2026-05-17 smoke_test
+// row has an ISO ts in the audit_id cell instead of an au_ ULID — it still has a
+// non-empty PK so it syncs fine as its own row; harmless.)
+var D1_SYNC_EXCLUDE = {};
 
 function _d1SyncTables_() {
   // _tenantSchema() keys ARE the Worker table names / tab names (33 tables),
@@ -143,13 +146,22 @@ function _d1SyncTab_(spreadsheetId, tableName, tenantFallback) {
   if (data.length < 2) return { table: tableName, rows: 0 };
   var hdr = data[0];
   var pkCols = _d1Pk_(tableName);
+  var pkSet = {}; for (var pi = 0; pi < (pkCols || []).length; pi++) pkSet[pkCols[pi]] = 1;
   var writes = [], sent = 0, applied = 0, errors = 0, skippedNoPk = 0, firstErr = null;
   for (var i = 1; i < data.length; i++) {
     var row = {}, empty = true;
     for (var c = 0; c < hdr.length; c++) {
       var key = String(hdr[c] || '').trim();
       if (!key) continue;
-      var v = _d1Norm_(data[i][c]);
+      // NEVER normalize a primary-key column — a PK is an opaque identifier and must
+      // round-trip verbatim. _d1Norm_ converts ISO-date-shaped STRINGS to epoch ints,
+      // which silently mangled a legacy Audit_Log row whose audit_id literally was an
+      // ISO timestamp ('2026-05-17T…' → 1778998319), breaking key-set parity. Pass PK
+      // cells through as raw strings; normalize only non-PK cells.
+      var raw = data[i][c];
+      var v = pkSet[key]
+        ? (raw === null || raw === undefined ? '' : String(raw))
+        : _d1Norm_(raw);
       row[key] = v;
       if (v !== '' && v !== null) empty = false;
     }
@@ -370,7 +382,10 @@ function handleD1Op_(e) {
   if (op === 'reset') return _json({ ok: true, reset: _d1Truncate_(p.tab || null) });
   if (op === 'peek') return _json({ ok: true, peek: _d1Peek_(p.tab) });
   if (op === 'auditdiag') return _json({ ok: true, auditdiag: _d1AuditDiag_() });
-  return _json({ ok: false, error: 'unknown d1op (ping|backfill|parity|keyset|tick|install_trigger|uninstall_trigger|reset|peek)' });
+  if (op === 'auditdump') return _json({ ok: true, auditdump: _d1AuditDump_() });
+  if (op === 'auditbackup') return _json({ ok: true, auditbackup: _d1AuditBackup_() });
+  if (op === 'auditfixheader') return _json({ ok: true, auditfixheader: _d1AuditFixHeader_() });
+  return _json({ ok: false, error: 'unknown d1op (ping|backfill|parity|keyset|tick|install_trigger|uninstall_trigger|reset|peek|auditdiag|auditdump|auditbackup|auditfixheader)' });
 }
 
 // Inspect a tab's header + first rows of its PK column(s). REFUSES any table with
@@ -430,5 +445,53 @@ function _d1AuditDiag_() {
       ? 'DATA IS IN SCHEMA ORDER under a stale header — safe to fix header row only'
       : 'DATA NOT cleanly in schema order — do NOT auto-remap; inspect manually',
     sample_rows: rows
+  };
+}
+
+// Full read-only dump of the Audit_Log tab (NO PHI in this table) so the entire
+// 28-row legal record is captured in the operator log before any mutation.
+function _d1AuditDump_() {
+  var sh = SpreadsheetApp.openById(SHEET_ID).getSheetByName(T.Audit_Log);
+  if (!sh) return { error: 'no Audit_Log tab' };
+  var data = sh.getDataRange().getValues();
+  return { rows: data.length, width: (data[0] || []).length, values: data };
+}
+
+// STEP 1 of the repair: duplicate the Audit_Log tab to a timestamped backup tab in
+// the SAME Sheet. Fully reversible — the original is untouched; restore = copy the
+// backup back. Returns the backup tab name + row count. Idempotent-ish: each call
+// makes a new dated backup (cheap, 28 rows).
+function _d1AuditBackup_() {
+  var ss = SpreadsheetApp.openById(SHEET_ID);
+  var sh = ss.getSheetByName(T.Audit_Log);
+  if (!sh) return { error: 'no Audit_Log tab' };
+  var name = 'Audit_Log_bak_' + new Date().toISOString().replace(/[^0-9]/g, '').slice(0, 14);
+  var copy = sh.copyTo(ss).setName(name);
+  return { backup_tab: name, rows: copy.getLastRow(), width: copy.getLastColumn() };
+}
+
+// STEP 2 of the repair: rewrite ONLY row 1 (the header) to the schema header.
+// NEVER touches a data row. Safety interlock: refuses unless an Audit_Log_bak_*
+// tab already exists (so a backup was provably taken first). After this the
+// header names match _tenantSchema().Audit_Log and the sender can map by name.
+function _d1AuditFixHeader_() {
+  var ss = SpreadsheetApp.openById(SHEET_ID);
+  var hasBackup = ss.getSheets().some(function (s) { return /^Audit_Log_bak_/.test(s.getName()); });
+  if (!hasBackup) return { error: 'refused: take a backup first (d1op=auditbackup)' };
+  var sh = ss.getSheetByName(T.Audit_Log);
+  if (!sh) return { error: 'no Audit_Log tab' };
+  var schema = _tenantSchema().Audit_Log; // 12 cols
+  var before = sh.getRange(1, 1, 1, Math.max(sh.getLastColumn(), schema.length)).getValues()[0];
+  var rowsBefore = sh.getLastRow();
+  sh.getRange(1, 1, 1, schema.length).setValues([schema]);
+  sh.setFrozenRows(1);
+  var rowsAfter = sh.getLastRow();
+  return {
+    ok: true,
+    old_header: before.map(function (h) { return String(h || ''); }),
+    new_header: schema,
+    data_rows_before: rowsBefore - 1,
+    data_rows_after: rowsAfter - 1,
+    data_rows_unchanged: rowsBefore === rowsAfter
   };
 }
