@@ -2057,9 +2057,11 @@ function _logCommunication(ss, tenantId, channel, direction, templateId, toUserI
 // AI INTAKE — natural-language email → structured Job draft via Claude API
 // ============================================================================
 //
-// Reads the Anthropic API key from Script Properties (key: ANTHROPIC_API_KEY) OR
-// from the Settings tab (key: anthropic.api_key). Returns parsed fields ready
-// for apiCreateJob. PHI redaction runs BEFORE the model call.
+// Reads the Anthropic API key from Script Properties (key: ANTHROPIC_API_KEY)
+// or the gitignored anthropic-secret.gs runtime constant — NEVER from the Sheet
+// (a plaintext key in Settings 'anthropic.api_key' was a credential leak, removed
+// 2026-06-01). Returns parsed fields ready for apiCreateJob. PHI redaction runs
+// BEFORE the model call.
 
 function apiTestAnthropic(e) {
   var s = _requireSession(e);
@@ -2203,12 +2205,19 @@ function apiAiIntake(e) {
 }
 
 function _anthropicKey() {
-  var props = PropertiesService.getScriptProperties();
-  var k = props.getProperty('ANTHROPIC_API_KEY');
+  // 1) Script Property override (ops-managed); 2) the gitignored runtime constant
+  // in anthropic-secret.gs (_anthropicKeyValue_, mirrors the d1-secret.gs pattern —
+  // pushed to the editor by clasp, never committed). The legacy Settings-tab
+  // fallback (_getSetting 'anthropic.api_key') was REMOVED 2026-06-01: storing a
+  // live key in the Sheet exposed it to anyone with Sheet access and leaked it into
+  // D1 via the ADR-001 dual-write. The key now lives only in a Worker secret +
+  // this constant — never in the Sheet, never in git.
+  var k = PropertiesService.getScriptProperties().getProperty('ANTHROPIC_API_KEY');
   if (k) return k;
-  // Allow Settings-tab override (admin-managed)
-  var ss = SpreadsheetApp.openById(SHEET_ID);
-  return _getSetting(ss, 'anthropic.api_key');
+  if (typeof _anthropicKeyValue_ === 'function') {
+    try { return _anthropicKeyValue_() || ''; } catch (_) {}
+  }
+  return '';
 }
 
 // Sliding 1-hour rate-limit check for AI intake. CacheService TTL is 1 hour;

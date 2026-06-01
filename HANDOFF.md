@@ -48,19 +48,36 @@ Full detail (incl. the three bugs found + fixed) + phase-3/4 steps:
 - [x] **Fresh-on-write** nudge (phase-3 prereq): post-write re-sync of touched tables (flag-gated, non-blocking) — proven 10/10 Settings rows refreshed in 1.3s after a simulated stale D1
 - [x] Read surface `/v1/read` (HMAC-gated, PHI- + secret-redacted) for the read flip
 - [ ] Human-readable mirror live (`mirror.ts`, INERT until phase 4)
-- [ ] Reads flipped — **NOT done.** Remaining gates: (a) a real soak; (b) rotate/relocate the
-      Settings `anthropic.api_key` secret (below); (c) flip `site/assets/js/api.js` to a D1
-      read path — BLOCKED on a clean `site/` tree (a parallel agent has uncommitted site/
-      changes; `deploy.sh` builds the working tree, so don't static-deploy over it)
+- [ ] Reads flipped — **NOT done.** Remaining gates: (a) a real soak; (b) ~~relocate the Settings
+      `anthropic.api_key` secret~~ **DONE 2026-06-01** — plaintext purged from Sheet + D1, key
+      relocated to Worker secret + gitignored constant; only the console *revocation* of the burned
+      key remains (operator, see SECURITY below) and it no longer blocks the read flip; (c) flip
+      `site/assets/js/api.js` to a D1 read path — BLOCKED on a clean `site/` tree (a parallel agent
+      has uncommitted site/ changes; `deploy.sh` builds the working tree, so don't static-deploy over it)
 - [ ] Writes flipped; old Sheet demoted to read-only mirror; godview `data_store: d1` (phase 4)
 
-**🔴 SECURITY (open, needs operator) — leaked Anthropic key:** the Settings tab has a row
-`anthropic.api_key` holding a **plaintext live `sk-ant-…` key** (pre-existing; the sync
-copied it into D1). The migration's `/v1/read` + `safeRowForLog` now **redact** secret-shaped
-values so the read API can't serve it — but the stored plaintext still exists in the Sheet
-AND D1 and must be **rotated + moved to a Worker secret** (spawned task filed). It's the only
-secret-shaped Settings row. Settings reads CANNOT flip to D1 until this is resolved (the app
-reads the key from Settings server-side; repoint to the secret first).
+**🟡 SECURITY — leaked Anthropic key (REMEDIATED 2026-06-01; one operator step left):** the
+Settings tab held `anthropic.api_key` = a **plaintext live `sk-ant-…` key** (pre-D1; the
+dual-write copied it into D1). The `/v1/read` + `safeRowForLog` redaction was only a band-aid;
+the stored plaintext itself is now gone. **Fixed this session:**
+- **Relocated off the Sheet.** Apps Script `_anthropicKey()` (`Code.gs`) no longer reads
+  Settings — Script Property → gitignored `apps-script/anthropic-secret.gs` constant
+  (`_anthropicKeyValue_`, mirrors `d1-secret.gs`; clasp-pushed, never committed). The Worker
+  (`1891-interpreter-api`, `translate.ts`) already read `env.ANTHROPIC_API_KEY`; set that
+  secret (it was **unset** — this also enables the Worker Claude translate path).
+- **Reuse, not net-new** (CRED §0): both point at the workspace-shared key, cached at
+  `~/.config/1891/anthropic-key` (created — was missing; same value as `teleprompter-claude-key`,
+  `sk-ant-api03-k2_Al…`, validated live). The leaked key (`sk-ant-api03-mX_3O…`, len 108) was
+  interpreter's OWN dedicated key — distinct from the workspace + marcom keys → revoking it is
+  interpreter-only blast radius.
+- **Deleted from both stores.** New `?d1op=purgesecrets` removed the Settings row
+  (`deleted:1, secret_rows_remaining:0`); `?d1op=reset&tab=Settings` + `backfill` re-synced D1
+  (10→9 rows). Verified: Sheet `settings_row_present:false`; D1 (raw SELECT) `anthropic_key_rows:0,
+  secret_shaped_rows:0`. New `?d1op=anthropiccheck` is a non-leaking self-check (prefix+len only).
+- **⛔ STILL OPEN — revoke the compromised key at the console (needs operator):** no Anthropic
+  admin key on disk + Chrome MCP down, so the agent can't do it. **Anthony:** console.anthropic.com
+  → API keys → find the key beginning `sk-ant-api03-mX_3O` (interpreter AI-intake; last used
+  ~today) → **Revoke**. Already orphaned (nothing reads it) but live/valid until revoked.
 
 **Fresh-on-write mechanism (how the read flip stays correct):** `_d1NudgeAfterWrite_`
 (`Code_D1Sync.gs`) runs after every successful write via `_safeCall` + `_dispatchWithLiveBoard_`

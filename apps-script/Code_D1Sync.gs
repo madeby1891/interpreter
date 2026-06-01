@@ -506,12 +506,79 @@ function handleD1Op_(e) {
   if (op === 'install_trigger') return _json({ ok: true, result: installD1SyncTrigger() });
   if (op === 'uninstall_trigger') return _json({ ok: true, result: uninstallD1SyncTrigger() });
   if (op === 'reset') return _json({ ok: true, reset: _d1Truncate_(p.tab || null) });
+  if (op === 'purgesecrets') return _json({ ok: true, purge: _settingsPurgeSecrets_() });
+  if (op === 'anthropiccheck') return _json({ ok: true, check: _anthropicSelfCheck_() });
   if (op === 'peek') return _json({ ok: true, peek: _d1Peek_(p.tab) });
   if (op === 'auditdiag') return _json({ ok: true, auditdiag: _d1AuditDiag_() });
   if (op === 'auditdump') return _json({ ok: true, auditdump: _d1AuditDump_() });
   if (op === 'auditbackup') return _json({ ok: true, auditbackup: _d1AuditBackup_() });
   if (op === 'auditfixheader') return _json({ ok: true, auditfixheader: _d1AuditFixHeader_() });
-  return _json({ ok: false, error: 'unknown d1op (ping|backfill|parity|keyset|tick|install_trigger|uninstall_trigger|reset|peek|auditdiag|auditdump|auditbackup|auditfixheader)' });
+  return _json({ ok: false, error: 'unknown d1op (ping|backfill|parity|keyset|tick|install_trigger|uninstall_trigger|reset|purgesecrets|anthropiccheck|peek|auditdiag|auditdump|auditbackup|auditfixheader)' });
+}
+
+// --- security remediation: purge leaked secrets from the Settings Sheet --------
+// One-shot (idempotent) cleanup for the 2026-06-01 ADR-001 incident: a live
+// Anthropic key was stored plaintext in the host Sheet Settings tab
+// (key='anthropic.api_key') and the dual-write copied it into D1. The key now
+// lives only as a Worker secret + the gitignored anthropic-secret.gs constant.
+// This deletes any Settings row whose VALUE is provider-key shaped (or the known
+// anthropic.api_key row) from the SETUP (host) Sheet. After running, call
+// ?d1op=reset&tab=Settings then ?d1op=backfill&tab=Settings so D1 drops it too.
+// Gated by setup===SHEET_ID in handleD1Op_. NEVER returns a secret value.
+var SETTINGS_SECRET_VALUE_RE = /(sk-ant-|sk_live_|sk_test_|rk_live_|xox[bap]-|ghp_|AKIA[0-9A-Z]{12}|AIza[0-9A-Za-z_-]{20}|-----BEGIN)/;
+function _settingsPurgeSecrets_() {
+  var ss = SpreadsheetApp.openById(SHEET_ID);
+  var sh = ss.getSheetByName(T.Settings);
+  if (!sh) return { error: 'no Settings tab' };
+  var data = sh.getDataRange().getValues();
+  if (data.length < 2) return { deleted: [], deleted_count: 0, secret_rows_remaining: 0 };
+  var hdr = data[0];
+  var iKey = hdr.indexOf('key');
+  var iValue = hdr.indexOf('value');
+  var deleted = [];
+  // Bottom-up so surviving row indices stay valid as we delete.
+  for (var r = data.length - 1; r >= 1; r--) {
+    var key = iKey >= 0 ? String(data[r][iKey] || '') : '';
+    var val = iValue >= 0 ? String(data[r][iValue] || '') : '';
+    if (key === 'anthropic.api_key' || (val && SETTINGS_SECRET_VALUE_RE.test(val))) {
+      sh.deleteRow(r + 1);                 // +1: data[] is 0-based, Sheet rows 1-based
+      deleted.push(key || ('row_' + (r + 1)));
+    }
+  }
+  if (deleted.length) {
+    try { _logAudit('settings.purge_secret', 'host', 'system', deleted.join(',')); } catch (_) {}
+  }
+  // Re-scan for the verification number (must be 0 after a clean purge).
+  var after = sh.getDataRange().getValues();
+  var remaining = 0;
+  for (var i = 1; i < after.length; i++) {
+    if (iValue >= 0 && SETTINGS_SECRET_VALUE_RE.test(String(after[i][iValue] || ''))) remaining++;
+  }
+  return { deleted: deleted, deleted_count: deleted.length, secret_rows_remaining: remaining };
+}
+
+// Non-leaking self-check: does _anthropicKey() resolve a key now, from where, and
+// is the legacy Settings 'anthropic.api_key' row gone? Returns prefix+len only.
+function _anthropicSelfCheck_() {
+  var fromProp = PropertiesService.getScriptProperties().getProperty('ANTHROPIC_API_KEY');
+  var k = '';
+  try { k = _anthropicKey() || ''; } catch (_) {}
+  var sh = SpreadsheetApp.openById(SHEET_ID).getSheetByName(T.Settings);
+  var hasRow = false;
+  if (sh) {
+    var data = sh.getDataRange().getValues();
+    var iKey = (data[0] || []).indexOf('key');
+    for (var r = 1; iKey >= 0 && r < data.length; r++) {
+      if (String(data[r][iKey]) === 'anthropic.api_key') { hasRow = true; break; }
+    }
+  }
+  return {
+    configured: !!k,
+    prefix: k ? k.slice(0, 18) : '',
+    len: k.length,
+    source: fromProp ? 'script_property' : (k ? 'secret_gs_constant' : 'none'),
+    settings_row_present: hasRow
+  };
 }
 
 // Inspect a tab's header + first rows of its PK column(s). REFUSES any table with
