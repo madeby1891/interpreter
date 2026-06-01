@@ -1,0 +1,195 @@
+# Auto-deploy changed Cloudflare Workers on push to main.
+#
+# Adapted from the 1892-workspace copy of this workflow. Two things differ in
+# this repo, and both shape the file below:
+#
+#   1. There is NO shared/ops/worker-deploy.sh and NO per-worker deploy.sh here
+#      (those live in the workspace, not in the cloned interpreter repo). So the
+#      deploy step inlines the equivalent: `wrangler deploy` + smoke /healthz.
+#      The workspace's .last-deploy.json record-back job is also dropped — this
+#      repo has no worker-drift-check.py consuming it.
+#
+#   2. DEPLOY ONLY — never `wrangler d1 migrations apply`. interpreter-data's D1
+#      schema was applied out-of-band via the Cloudflare REST API (see
+#      workers/interpreter-data/MIGRATION.md). Re-applying migration 0001 would
+#      duplicate the schema_version row. `wrangler deploy` does not touch D1
+#      schema, so deploy-only is both correct and safe.
+#
+# Why this exists: source under workers/<name>/ was getting committed and
+# pushed, but `wrangler deploy` wasn't being run, so the live Worker kept
+# serving old code (interpreter-data had to be deployed by hand this session).
+# CI is the forcing function — push to main = deploy.
+#
+# How it works:
+#   1. detect-changes finds every workers/<name>/ that changed since the
+#      previous push (github.event.before -> HEAD).
+#   2. deploy fans out as a matrix; one job per changed Worker. Each runs
+#      `npx wrangler deploy` then smokes the live *.workers.dev/healthz URL.
+#
+# Workers in this repo:
+#   workers/api              -> name "1891-interpreter-api"  (no /healthz; smoke
+#                               treats any non-5xx as alive)
+#   workers/interpreter-data -> name "interpreter-data"      (/healthz returns
+#                               {"ok":true,...,"tables":39})
+#
+# Required GitHub secrets (CREDENTIAL_PROVISIONING.md §1.27 — same values as the
+# workspace repo already holds):
+#   - CLOUDFLARE_API_TOKEN   — template "Edit Cloudflare Workers"
+#   - CLOUDFLARE_ACCOUNT_ID  — 8c3571f09abd644406f30db05056e6d2
+#
+# Manual / clean redeploy (no commit needed): Actions tab -> deploy-workers ->
+# "Run workflow" and type a worker name into the `worker` input.
+
+name: deploy-workers
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'workers/**'
+      - '.github/workflows/deploy-workers.yml'
+  workflow_dispatch:
+    inputs:
+      worker:
+        description: 'Worker dir to force-deploy (e.g. interpreter-data). Leave empty to deploy all changed.'
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  # Serialize the workflow so two pushes don't fight over the same Worker.
+  # Different Workers still deploy in parallel inside one run via the matrix.
+  group: deploy-workers
+  cancel-in-progress: false
+
+jobs:
+  detect-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      workers: ${{ steps.list.outputs.workers }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Need history to diff against github.event.before; depth=1 can't.
+          fetch-depth: 50
+
+      - name: List changed Workers
+        id: list
+        env:
+          BEFORE_SHA: ${{ github.event.before }}
+          FORCED: ${{ inputs.worker }}
+        run: |
+          set -euo pipefail
+          if [ -n "${FORCED}" ]; then
+            # Manual dispatch with a worker name — deploy just that one.
+            if [ ! -f "workers/${FORCED}/wrangler.toml" ]; then
+              echo "::error::workers/${FORCED}/wrangler.toml not found"
+              exit 1
+            fi
+            workers_json="[\"${FORCED}\"]"
+          else
+            # Auto: every Worker whose dir contains a changed file since the
+            # previous push. github.event.before may be all-zeros on the first
+            # push to a branch; fall back to comparing against HEAD~1.
+            if [ -z "${BEFORE_SHA:-}" ] || [ "${BEFORE_SHA}" = "0000000000000000000000000000000000000000" ]; then
+              base="HEAD~1"
+            else
+              base="${BEFORE_SHA}"
+            fi
+            changed_files=$(git diff --name-only "${base}" HEAD || true)
+            # Pull workers/<name>/... lines, dedupe by name, keep only ones that
+            # still have a wrangler.toml (filters out pure deletions).
+            workers=$(printf '%s\n' "${changed_files}" \
+              | grep -E '^workers/[^/]+/' \
+              | awk -F/ '{print $2}' \
+              | sort -u \
+              | while read -r w; do
+                  [ -f "workers/${w}/wrangler.toml" ] && echo "${w}"
+                done || true)
+            if [ -z "${workers}" ]; then
+              # Only the workflow file changed (or a deletion) — nothing to deploy.
+              workers_json="[]"
+            else
+              workers_json=$(printf '%s\n' "${workers}" | jq -R . | jq -s -c .)
+            fi
+          fi
+          echo "workers=${workers_json}" >> "${GITHUB_OUTPUT}"
+          echo "Detected workers: ${workers_json}"
+
+  deploy:
+    needs: detect-changes
+    if: ${{ needs.detect-changes.outputs.workers != '[]' && needs.detect-changes.outputs.workers != '' }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        worker: ${{ fromJson(needs.detect-changes.outputs.workers) }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Worker deps
+        working-directory: workers/${{ matrix.worker }}
+        run: |
+          # Gets each Worker's pinned local wrangler (api ^3.80, interpreter-data
+          # ^3.78). interpreter-data has no package-lock.json, so `npm ci` falls
+          # back to `npm install`.
+          if [ -f package.json ]; then
+            npm ci --no-audit --no-fund --silent || npm install --no-audit --no-fund --silent
+          fi
+
+      - name: Deploy (deploy ONLY — no d1 migrations apply)
+        working-directory: workers/${{ matrix.worker }}
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          set -euo pipefail
+          # DEPLOY ONLY. We deliberately never run `wrangler d1 migrations apply`
+          # here — interpreter-data's schema was applied out-of-band via the D1
+          # REST API; re-applying 0001 would duplicate the schema_version row.
+          # `wrangler deploy` does not touch D1 schema.
+          echo "▶ wrangler deploy (${{ matrix.worker }})"
+          npx wrangler deploy
+
+      - name: Smoke /healthz
+        working-directory: workers/${{ matrix.worker }}
+        run: |
+          set -euo pipefail
+          # The *.workers.dev subdomain is the Worker NAME from wrangler.toml,
+          # which differs from the directory (dir "api" -> name
+          # "1891-interpreter-api"). Neither Worker uses [env.*] sections, so the
+          # top-level `name` is authoritative.
+          worker_name="$(grep -E '^name[[:space:]]*=' wrangler.toml | head -1 \
+            | sed -E 's/^name[[:space:]]*=[[:space:]]*"([^"]+)".*/\1/')"
+          if [ -z "${worker_name}" ]; then
+            echo "::error::could not parse name from workers/${{ matrix.worker }}/wrangler.toml"
+            exit 1
+          fi
+          url="https://${worker_name}.anthonymowl.workers.dev/healthz"
+          echo "▶ smoke ${url}"
+          # Edge caches can serve a stale 404 right after deploy; retry 3x.
+          ok=0
+          code=000
+          for attempt in 1 2 3; do
+            code="$(curl -s -o /tmp/smoke_body -w '%{http_code}' -m 15 \
+              -A 'deploy-workers-ci/1.0 (1891-ops)' "${url}" || echo 000)"
+            echo "  attempt ${attempt}: HTTP ${code}"
+            echo "  body: $(head -c 400 /tmp/smoke_body 2>/dev/null || true)"
+            # Alive = the Worker booted and routed. 200 (has /healthz) and 401/404
+            # (no /healthz but routing — e.g. workers/api) both prove liveness.
+            # Only an unreachable 000 or a 5xx means the deploy is broken.
+            if [ "${code}" != "000" ] && [ "${code}" -lt 500 ]; then ok=1; break; fi
+            sleep 4
+          done
+          if [ "${ok}" -ne 1 ]; then
+            echo "::error::smoke failed for ${worker_name} at ${url} (last HTTP ${code})"
+            echo "Worker may have deployed but is not responding. Inspect with: npx wrangler tail ${worker_name}"
+            exit 1
+          fi
+          echo "✓ ${worker_name} live at ${url} (HTTP ${code})"
