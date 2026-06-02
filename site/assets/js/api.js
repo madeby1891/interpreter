@@ -3,8 +3,8 @@
 (function (root) {
   'use strict';
 
-  // Cloudflare Worker proxy (adds CORS headers, lets us read POST responses).
-  // Falls through to the Apps Script /exec under the hood; same query-string
+  // Edge proxy (adds CORS headers, lets us read POST responses).
+  // Falls through to the backend /exec under the hood; same query-string
   // and form-body contract. JSONP still works against this URL too.
   var ENDPOINT = 'https://1891-interpreter-api.anthonymowl.workers.dev/v1/proxy/exec';
   var STORAGE = '1891int.session';

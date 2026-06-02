@@ -3,7 +3,7 @@
 (function () {
   'use strict';
 
-  // Marketing forms POST through the Cloudflare Worker proxy → Apps Script.
+  // Marketing forms POST through the edge proxy → the backend.
   // The proxy adds CORS headers so we get real responses (not opaque no-cors).
   var FORMS_ENDPOINT = 'https://1891-interpreter-api.anthonymowl.workers.dev/v1/proxy/exec';
 

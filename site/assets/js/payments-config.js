@@ -14,7 +14,7 @@
 (function (root) {
   'use strict';
   root.IntPayments = {
-    // Cloudflare Worker base URL. Public.
+    // Edge API base URL. Public.
     workerBase: 'https://1891-interpreter-api.anthonymowl.workers.dev',
     // Stripe publishable key. Public by design (PAYMENTS.md §6.3).
     // Fill in `pk_live_*` post-deploy. Empty value is fine for the subscribe

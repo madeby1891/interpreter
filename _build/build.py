@@ -301,7 +301,7 @@ def home_body() -> str:
       <div class="center-text" style="margin-bottom:var(--1891int-s-6)">
         <span class="eyebrow">Click and see it</span>
         <h2 data-reveal>Four things you'd never quite believe in a screenshot.</h2>
-        <p class="lede" data-reveal data-delay="100" style="margin:0 auto">Each of these is real, shipped behavior. Mess with them.</p>
+        <p class="lede" data-reveal data-delay="100" style="margin:0 auto">Each of these is real, ready behavior. Mess with them.</p>
       </div>
       <div class="widget-showcase" style="display:grid;grid-template-columns:1fr 1fr;gap:var(--1891int-s-6)">
         <div class="showcase-tile" data-reveal>
@@ -493,7 +493,7 @@ def home_body() -> str:
   <section class="section">
     <div class="wrap">
       <div class="center-text" style="margin-bottom:var(--1891int-s-7)">
-        <span class="eyebrow">From the workbench</span>
+        <span class="eyebrow">From the workspace</span>
         <h2>The kit the products are built from.</h2>
         <p class="lede" style="margin:0 auto">A handful of capabilities the studio sharpens every year. Each product picks the ones its room needs.</p>
       </div>
@@ -505,7 +505,7 @@ def home_body() -> str:
         <div class="pillar"><h3>Captions default-on</h3><p>Audio is additive, never sole. Every state change carries color, icon, and text. Speakers muted, the product still works.</p></div>
         <div class="pillar"><h3>Built in Frederick</h3><p>The same person who solders the board writes the firmware and pushes the deploy. The studio that built it is the studio that runs it.</p></div>
       </div>
-      <p class="muted" style="text-align:center; margin-top:var(--1891int-s-6); font-size:14px">See the workbench at <a href="https://madeby1891.com/products/" style="color:inherit; text-decoration:underline">madeby1891.com/products</a>.</p>
+      <p class="muted" style="text-align:center; margin-top:var(--1891int-s-6); font-size:14px">See the workspace at <a href="https://madeby1891.com/products/" style="color:inherit; text-decoration:underline">madeby1891.com/products</a>.</p>
     </div>
   </section>
 
@@ -518,7 +518,7 @@ def home_body() -> str:
       <div class="grid grid-3">
         <a class="pillar" href="https://madeby1891.com/parliamentarian/" style="text-decoration:none; color:inherit; display:block">
           <h3>Parliamentarian</h3>
-          <p>Robert's Rules, on the TV at the front of the room and the phone in every hand.</p>
+          <p>Robert's Rules, on the screen at the front of the room and in every hand.</p>
           <p style="font-size:14px; color:#5B6770">Walk through it →</p>
         </a>
         <a class="pillar" href="https://madeby1891.com/meetings/" style="text-decoration:none; color:inherit; display:block">
@@ -619,7 +619,7 @@ def for_agencies_body() -> str:
             <li>Spoken languages — on-site, VRI, OPI.</li>
             <li>CART (NCRA-CRC) realtime captioning.</li>
             <li>Document translation with human-in-the-loop.</li>
-            <li>Live captions from speech (Deepgram Nova-3 default; vendor-abstracted).</li>
+            <li>Live captions from speech (vendor-abstracted streaming transcription).</li>
           </ul>
         </div>
         <div>
@@ -841,7 +841,7 @@ def for_interpreters_body() -> str:
             <li><strong>Two-tap claim.</strong> Offer shows the rate, initials of the consumer, generic venue, team — full record unlocks the moment you accept.</li>
             <li><strong>SMS YES/NO works too.</strong> Reply <code>YES</code> to claim, <code>NO</code> to decline. Edge-verified inbound text; same audit trail as a tap.</li>
             <li><strong>See your pay before you accept.</strong> Hourly, per-event, mileage, premium pay — itemized. Pay-side floor is 60% of the client charge; you see both numbers when your agency turns that on.</li>
-            <li><strong>Quiet by default.</strong> Per-event cadence per channel: immediate, daily 6am ET digest, weekly Monday 7am ET digest, or off. Email / SMS each independent. (Mobile push isn't shipped yet — email and SMS are.)</li>
+            <li><strong>Quiet by default.</strong> Per-event cadence per channel: immediate, daily 6am ET digest, weekly Monday 7am ET digest, or off. Email / SMS each independent. (Mobile push isn't ready yet — email and SMS are.)</li>
             <li><strong>1099 year-to-date strip.</strong> Open the app, see your earnings in seconds. Multi-agency interpreters see each agency's slice.</li>
             <li><strong>Get paid on the day the agency promised.</strong> Stripe Connect Express by default; manual ACH fallback. 1099-NEC issued via track1099 each January.</li>
           </ul>
@@ -1567,7 +1567,7 @@ def features_index_body() -> str:
         ("translation.html",    "Document translation","Human-in-the-loop. DeepL Pro where it supports the pair; Claude elsewhere. No pre-fill on medical or legal."),
         ("ai-intake.html",      "AI intake",           "Natural-language intake parses email/voicemail to a draft job — every parse reviewable, never auto-confirmed for clinical work. PHI redacted before any model call."),
         ("vri-opi.html",        "VRI &amp; OPI",       "Built-in WebRTC video client; OPI bridged through a HIPAA-eligible carrier. Per-minute infrastructure passed through at vendor cost."),
-        ("cart.html",           "CART",                "NCRA-CRC realtime captioning, in the same scheduling queue. Vendor-abstracted live-STT (Deepgram Nova-3 default)."),
+        ("cart.html",           "CART",                "NCRA-CRC realtime captioning, in the same scheduling queue. Vendor-abstracted live-STT."),
         ("reporting.html",      "Reporting",           "Read-only natural-language reporting. Pre-built KPIs (fill rate, time-to-fill, A/R aging). Export to CSV, PDF, or the audit trail."),
         ("integrations.html",   "Integrations",        "QuickBooks, Xero, NetSuite, Bill.com, ADP, Gusto, Paychex, Rippling, track1099, Plaid, Stripe Connect, transactional email, transactional SMS."),
     ]
@@ -1748,7 +1748,7 @@ def security_body() -> str:
         </div>
         <div class="card card-warm">
           <h3 class="mt-0">Per-tenant prompt-cache isolation</h3>
-          <p class="ink-soft">Every model call begins with <code>tenant_id: &lt;id&gt;</code> in the system prompt. Anthropic prompt-caching keys on prefix, which means cache hits cannot cross tenant boundaries even if two prompts are otherwise identical.</p>
+          <p class="ink-soft">Every model call begins with <code>tenant_id: &lt;id&gt;</code> in the system prompt. The model provider's prompt-caching keys on prefix, which means cache hits cannot cross tenant boundaries even if two prompts are otherwise identical.</p>
         </div>
       </div>
     </div>
@@ -2125,7 +2125,7 @@ def build_pages() -> list[Page]:
           ("SMS YES/NO", "<p>Reply <code>YES</code> to claim, <code>NO</code> to decline. Edge-verified inbound text; same audit trail as a tap. Useful when your hands are full or you're between assignments.</p>"),
           ("See-your-pay-first", "<p>Hourly, per-event, mileage, premium pay — itemized before you accept. Pay-side floor is 60% of the client charge when your agency enables transparency; you see both numbers.</p>"),
           ("Close-out modal", "<p>After the job: actual start and end times, expense lines (mileage / parking / tolls / supplies / meal / other), optional receipt upload (≤ 8 MB image or PDF), notes. Live divergence preview warns at ≥ 25% from scheduled. Approved expenses roll into the next Payout PDF automatically.</p>"),
-          ("Quiet by default", "<p>Per-event cadence per channel: immediate, daily 6am ET digest, weekly Monday 7am ET digest, or off. Email and SMS each independent. Mobile push isn't shipped yet — email and SMS are.</p>"),
+          ("Quiet by default", "<p>Per-event cadence per channel: immediate, daily 6am ET digest, weekly Monday 7am ET digest, or off. Email and SMS each independent. Mobile push isn't ready yet — email and SMS are.</p>"),
           ("1099 strip", "<p>Year-to-date 1099 totals visible in the app. 1099-NEC issued each January via track1099. Multi-agency interpreters see each agency's slice.</p>")]),
 
         ("billing.html", "Billing", "Feature · Billing",
@@ -2159,7 +2159,7 @@ def build_pages() -> list[Page]:
         ("cart.html", "CART", "Feature · CART",
          "NCRA-CRC realtime captioning, in the same scheduling queue. Vendor-abstracted live-STT integration.",
          [("CRC integration", "<p>NCRA-CRC realtime captioning jobs schedule alongside ASL and spoken-language jobs. Same rate cards, same payouts, same invoicing.</p>"),
-          ("Live STT for everything else", "<p>For sessions where a CRC isn't booked but live captions are needed (meetings, training, internal events), the platform calls a streaming STT vendor through the <code>StreamingStt</code> interface — Deepgram Nova-3 by default, AssemblyAI or Cloudflare Whisper as alternates. Vendor-abstracted at the Worker boundary; you can swap vendors without touching workflows.</p>"),
+          ("Live STT for everything else", "<p>For sessions where a CRC isn't booked but live captions are needed (meetings, training, internal events), the platform calls a streaming STT vendor through the <code>StreamingStt</code> interface — vendor-abstracted, with failover across providers; you can swap vendors without touching workflows.</p>"),
           ("Consent and retention", "<p>Two-party consent baked in. RECORDING indicator on every shared screen. PAUSE for executive session. Raw audio 30 days, transcripts 1 year, approved minutes permanent. See the <a href=\"" + BASE_PATH + "/security\">security page</a> for the full table.</p>")]),
 
         ("reporting.html", "Reporting", "Feature · Reporting",
