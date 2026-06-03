@@ -588,7 +588,7 @@ def for_agencies_body() -> str:
           <ul class="xs">
             <li><strong>1–5 interpreters</strong> — Solo ($9/mo) or Practice ($249/mo) once you hire a scheduler.</li>
             <li><strong>6–25 interpreters</strong> — Practice tier. $249/mo flat, no surprises.</li>
-            <li><strong>26–100 interpreters</strong> — Studio tier. $749/mo, with single sign-on and your own web address.</li>
+            <li><strong>26–100 interpreters</strong> — Studio tier. $749/mo, with single sign-on and advanced reporting.</li>
             <li><strong>100+ interpreters, multi-state</strong> — Network tier. From $2,400/mo, with your own branding, security-log export, and a dedicated support agreement.</li>
             <li><strong>Verified Deaf-owned</strong> — $0. Full features. No asterisks.</li>
           </ul>
@@ -643,8 +643,8 @@ def for_agencies_body() -> str:
             <li>Per-hour, per-event, per-word — your rates, your way.</li>
             <li>One clean bill per client, however their departments and locations are organized.</li>
             <li>Invoice numbers that run in order, with no gaps to chase.</li>
-            <li>1099 filing handled, and interpreters paid by direct deposit.</li>
-            <li>Hands off to QuickBooks, Xero, NetSuite, and Bill.com.</li>
+            <li>1099 totals tracked and export-ready; interpreters paid by direct deposit from your agency's own account.</li>
+            <li>Exports clean files for your accounting and bill-pay tools — QuickBooks, Xero, NetSuite, Bill.com — with named connectors built on request.</li>
             <li>Payment stubs that separate the work from the expenses, each with its own total.</li>
           </ul>
         </div>
@@ -910,7 +910,7 @@ def ui_integrations() -> str:
       <div class="ui-integ">
         <div class="ui-itile"><div class="ui-itile-ico">📒</div><span class="ui-itile-lbl">Accounting</span></div>
         <div class="ui-itile"><div class="ui-itile-ico">💳</div><span class="ui-itile-lbl">Payouts</span></div>
-        <div class="ui-itile"><div class="ui-itile-ico">🧾</div><span class="ui-itile-lbl">1099 filing</span></div>
+        <div class="ui-itile"><div class="ui-itile-ico">🧾</div><span class="ui-itile-lbl">1099 totals</span></div>
         <div class="ui-itile"><div class="ui-itile-ico">👥</div><span class="ui-itile-lbl">Payroll hours</span></div>
         <div class="ui-itile"><div class="ui-itile-ico">✉️</div><span class="ui-itile-lbl">Email &amp; text</span></div>
         <div class="ui-itile"><div class="ui-itile-ico">🔐</div><span class="ui-itile-lbl">Single sign-on</span></div>
@@ -1268,11 +1268,11 @@ def for_payers_body() -> str:
         <div>
           <h2>Exports and payouts.</h2>
           <ul class="checks">
-            <li>Sends straight to QuickBooks Online and Xero.</li>
-            <li>Connects to NetSuite, with your fields mapped your way.</li>
-            <li>Pushes bills to Bill.com.</li>
-            <li>Plain spreadsheet or data file for everything else.</li>
-            <li>1099 filing handled for you.</li>
+            <li>Export-ready files for QuickBooks Online and Xero.</li>
+            <li>NetSuite export with your fields mapped your way; a direct connector we build on request.</li>
+            <li>Bill.com export for your bill-pay queue.</li>
+            <li>Plain spreadsheet or data file for everything else — one click.</li>
+            <li>1099 totals tracked and export-ready at year end.</li>
             <li>Payment stubs that separate the work from the expenses, each with its own total.</li>
             <li>Invoice numbers that run in order, with no gaps to chase.</li>
           </ul>
@@ -1300,8 +1300,8 @@ def pricing_body() -> str:
         ("Solo", "$9", "/mo (annual)", "Individual freelance interpreters acting as their own agency.",
          ["1 user",
           "200 jobs/year",
-          "1099 + invoicing",
-          "Direct-deposit payouts",
+          "1099 totals + invoicing",
+          "Direct-deposit payouts (your account)",
           "BAA available on request"],
          None, None, False, "solo"),
         ("Practice", "$249", "/mo (annual)", "Small agencies, up to 25 active interpreters.",
@@ -1315,10 +1315,10 @@ def pricing_body() -> str:
         ("Studio", "$749", "/mo (annual)", "Mid agencies, up to 100 active interpreters.",
          ["Everything in Practice",
           "Single sign-on",
-          "Your own web address (yourname.1891interpreter.app)",
-          "Per-location phone numbers",
           "Advanced reporting",
-          "NetSuite + Bill.com connectors"],
+          "Custom domain — on the roadmap",
+          "Per-location phone numbers — on the roadmap",
+          "NetSuite + Bill.com exports (connectors on request)"],
          None, None, False, "studio"),
         ("Network", "from $2,400", "/mo (annual)", "Large agencies (100+ interpreters), multi-state.",
          ["Everything in Studio",
@@ -2292,7 +2292,7 @@ def build_pages() -> list[Page]:
     pages.append(Page(
         path="for-payers.html",
         title="For billing, AP, and CFOs — 1891 Interpreter",
-        description="One clean bill per client, however their departments and locations are organized. Invoice lines with exactly the detail your client needs, patient details kept private by default, and a tidy hand-off to QuickBooks, Xero, NetSuite, and Bill.com.",
+        description="One clean bill per client, however their departments and locations are organized. Invoice lines with exactly the detail your client needs, patient details kept private by default, and tidy exports for QuickBooks, Xero, NetSuite, and Bill.com (named connectors on request).",
         nav_active="",
         breadcrumb_html=breadcrumb(("Home", f"{BASE_PATH}/"), ("Billing & AP", "")),
         body=for_payers_body(),
@@ -2399,7 +2399,7 @@ def build_pages() -> list[Page]:
                  "media": mock_frame("Close out · Medical · ASL", ui_closeout(),
                                      caption="Real times and expenses, attached to the job in seconds.")},
                 {"h": "Get paid on the day you were promised",
-                 "body": "<p class=\"ink-soft\">Direct deposit to your account, with a clear stub that lists your work and your expenses on separate lines. Your year-to-date earnings are always a tap away, and if you work for more than one agency on the platform, you see each one's share. Your 1099 shows up every January.</p>",
+                 "body": "<p class=\"ink-soft\">Direct deposit to your account, with a clear stub that lists your work and your expenses on separate lines. Your year-to-date earnings are always a tap away, and if you work for more than one agency on the platform, you see each one's share. Your year-end totals are ready for tax time, every January.</p>",
                  "media": None},
                 {"h": "Quiet by default",
                  "body": "<p class=\"ink-soft\">You decide how often you hear from us — the moment a job posts, a once-a-day morning digest, a weekly roundup, or nothing at all. Set it per channel. We'd rather be useful than noisy.</p>",
@@ -2422,8 +2422,8 @@ def build_pages() -> list[Page]:
                 {"h": "Interpreters paid on time, with a clear stub",
                  "body": "<p class=\"ink-soft\">Each payment stub lists the work and the expenses on separate lines, each with its own subtotal and a grand total at the bottom. Patient details are kept private on every bill and stub by default. The day you promised is the day they're paid.</p>",
                  "media": None},
-                {"h": "Sends to the books you already keep",
-                 "body": "<p class=\"ink-soft\">Hours and invoices hand off cleanly to the accounting and payroll tools you already run — QuickBooks, Xero, NetSuite, ADP, Gusto, and the rest — and your 1099 filings go out automatically. Nothing to re-key, no copy-paste at month end.</p>",
+                {"h": "Exports to the books you already keep",
+                 "body": "<p class=\"ink-soft\">Export hours and invoices for the accounting and payroll tools you already run — QuickBooks, Xero, NetSuite, ADP, Gusto, and the rest — and keep your 1099 totals export-ready. Named connectors we build on request; nothing to re-key, no copy-paste at month end in the meantime.</p>",
                  "media": None},
             ],
         },
@@ -2520,13 +2520,13 @@ def build_pages() -> list[Page]:
         },
         {
             "slug": "integrations.html", "label": "Connections", "eyebrow": "Feature · Connections",
-            "lede": "Plays nicely with the accounting, payroll, payout, and sign-in tools you already run. Hours and invoices flow where they need to go — nothing to re-key.",
-            "description": "Connects to the accounting, payroll, payout, and identity tools you already use — QuickBooks, Xero, NetSuite, ADP, Gusto, and more. Hours and invoices flow automatically, with nothing to re-key.",
+            "lede": "Exports cleanly into the accounting, payroll, payout, and sign-in tools you already run — nothing to re-key.",
+            "description": "Exports for the accounting, payroll, and payout tools you already use — QuickBooks, Xero, NetSuite, ADP, Gusto, and more — plus single sign-on for identity. Named connectors we build on request, so hours and invoices land where they need to with nothing to re-key.",
             "hero": mock_frame("Connections", ui_integrations(), href=_demo,
                                caption="The tools you already run, wired in. <strong>Click for the live demo.</strong>"),
             "rows": [
                 {"h": "The tools you already run",
-                 "body": "<p class=\"ink-soft\">Send invoices and hours to your accounting books (QuickBooks, Xero, NetSuite, Bill.com), push payroll hours to ADP, Gusto, Paychex, or Rippling, pay interpreters by direct deposit, and file 1099s automatically. Sign-in works with single sign-on for the bigger plans, and passkeys for everyone.</p>",
+                 "body": "<p class=\"ink-soft\">Export invoices and hours for your accounting books (QuickBooks, Xero, NetSuite, Bill.com) and payroll (ADP, Gusto, Paychex, Rippling); pay interpreters by direct deposit from your agency's own account, with 1099 totals export-ready at year end. Named connectors we build on request. Sign-in works with single sign-on on the bigger plans, and secure magic links for everyone.</p>",
                  "media": None},
                 {"h": "Nothing to re-key",
                  "body": "<p class=\"ink-soft\">The point of every connection is to save you the copy-paste. Numbers move on their own, on a schedule, so month-end close stops being an evening of retyping. Where a direct connection isn't available, a clean spreadsheet export is always one click away.</p>",
