@@ -1,0 +1,348 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Export your data — 1891 Interpreter</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#C8553D">
+<link rel="icon" type="image/svg+xml" href="/interpreter/assets/img/favicon.svg">
+<link rel="stylesheet" href="/interpreter/assets/css/site.css">
+<link rel="stylesheet" href="/interpreter/assets/css/app.css">
+<style>
+  .export-hero { display:flex; gap:var(--1891int-s-4); align-items:flex-start; flex-wrap:wrap }
+  .export-hero .col { flex:1 1 320px }
+  .stat-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:var(--1891int-s-3); margin:var(--1891int-s-4) 0 }
+  .stat-grid .stat { background:#FAFAF7; border:1px solid var(--1891int-line); border-radius:var(--1891int-radius-md); padding:14px }
+  .stat .num { font-size:26px; font-weight:700; font-variant-numeric:tabular-nums; line-height:1.1 }
+  .stat .lbl { font-size:11px; text-transform:uppercase; letter-spacing:.08em; color:var(--1891int-fog); margin-top:4px }
+  .phi-note { padding:12px 16px; background:var(--1891int-river-tint, rgba(46,94,92,0.10)); border-left:4px solid var(--1891int-river, #2E5E5C); border-radius:var(--1891int-radius-sm); font-size:13.5px; line-height:1.5 }
+  .phi-note code { font-size:12px }
+  table.tbl-list { width:100%; border-collapse:collapse; font-size:13.5px; margin-top:var(--1891int-s-3) }
+  table.tbl-list th { text-align:left; padding:8px 10px; border-bottom:2px solid var(--1891int-ink); font-size:11px; text-transform:uppercase; letter-spacing:.06em; color:var(--1891int-fog) }
+  table.tbl-list td { padding:8px 10px; border-bottom:1px solid var(--1891int-line); vertical-align:middle }
+  table.tbl-list td.num { text-align:right; font-variant-numeric:tabular-nums }
+  .dl-row { display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin:var(--1891int-s-4) 0 }
+</style>
+</head>
+<body>
+<a href="#main" class="skip">Skip to main content</a>
+
+<div class="app-shell">
+  <header class="app-header">
+    <div class="wrap">
+      <a href="/interpreter/app/" class="brand"><img src="/interpreter/assets/img/brand-mark.svg" alt="" width="32" height="32"><span>1891 <span class="brand-sub">Scheduler</span></span></a>
+      <div class="who"><span>Signed in as </span><strong id="who-name">…</strong><button id="signout" type="button">Sign out</button></div>
+    </div>
+  </header>
+
+  <nav class="app-nav" aria-label="App sections">
+    <div class="wrap">
+      <a href="/interpreter/app/">Day-of board</a>
+      <a href="/interpreter/app/interpreters/">Interpreters</a>
+      <a href="/interpreter/app/requestors/">Requestors</a>
+      <a href="/interpreter/app/settings/">Settings</a>
+      <a href="/interpreter/app/settings/export" aria-current="page">Export</a>
+    </div>
+  </nav>
+
+  <main id="main" class="app-main">
+    <div class="wrap" style="max-width:820px;margin:0 auto">
+      <h1 style="font-size:32px;margin:0 0 var(--1891int-s-2)">Export your data</h1>
+      <p class="ink-soft" style="font-size:14.5px;max-width:68ch">Your agency's records belong to you. Pull everything we hold for your tenant — every table, in the clear where it's safe — any day, in one click. No tickets, no waiting. Taking your data with you is a right, not a paid add-on.</p>
+
+      <section class="card" style="margin-top:var(--1891int-s-5)">
+        <div class="export-hero">
+          <div class="col">
+            <h2 class="mt-0">One-click full export</h2>
+            <p class="ink-soft" style="font-size:14px">We build the file in your browser — nothing extra is stored on a server. You get a single archive with the whole dataset as JSON, plus a clean CSV for every table that has rows.</p>
+            <div class="dl-row">
+              <button class="btn btn-primary btn-lg" type="button" id="btn-export">Export all data</button>
+              <span id="export-status" class="ink-soft" style="font-size:13.5px"></span>
+            </div>
+          </div>
+        </div>
+
+        <div class="phi-note" id="phi-note" style="display:none">
+          <strong>PHI columns are exported as encrypted ciphertext.</strong>
+          Consumer names, sealed notes, and payment details come through as opaque
+          encrypted blobs — they can't be read without the server-held key. Display
+          initials and non-sensitive fields export in the clear. This is your tenant's
+          own data, walled off from every other tenant.
+        </div>
+
+        <div id="summary" style="display:none">
+          <div class="stat-grid">
+            <div class="stat"><div class="num" id="s-tables">0</div><div class="lbl">Tables</div></div>
+            <div class="stat"><div class="num" id="s-rows">0</div><div class="lbl">Rows</div></div>
+            <div class="stat"><div class="num" id="s-gen" style="font-size:14px;font-weight:600">—</div><div class="lbl">Generated</div></div>
+          </div>
+
+          <h3 style="font-size:15px;margin-bottom:0">Download individual tables</h3>
+          <p class="ink-soft" style="font-size:13px;margin:4px 0 0">The combined archive already holds all of these. Use the per-table buttons if you only want one CSV.</p>
+          <table class="tbl-list">
+            <thead><tr><th>Table</th><th class="num">Rows</th><th style="text-align:right">CSV</th></tr></thead>
+            <tbody id="tbl-rows"></tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+  </main>
+</div>
+
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+<script src="/interpreter/assets/js/whitelabel.js" defer></script>
+<script src="/interpreter/assets/js/api.js" defer></script>
+<script src="/interpreter/assets/js/api-multitenant.js" defer></script>
+<script src="/interpreter/assets/js/app-header.js" defer></script>
+<script>
+(function () {
+  'use strict';
+  document.addEventListener('DOMContentLoaded', init);
+
+  var state = { payload: null };
+
+  function $(id) { return document.getElementById(id); }
+  function toast(msg, kind) { var t = $('toast'); t.textContent = msg; t.className = 'toast show' + (kind ? ' ' + kind : ''); setTimeout(function () { t.className = 'toast'; }, 3500); }
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' })[c]; }); }
+
+  function init() {
+    if (!IntApi.getSession()) { location.href = '/interpreter/sign-in'; return; }
+    IntApi.whoami().then(function (r) {
+      if (!r || !r.ok) { IntApi.clearSession(); location.href = '/interpreter/sign-in'; return; }
+      $('who-name').textContent = (r.user && (r.user.display_name || r.user.email)) || 'unknown';
+      if (window.IntTheme && r.agency) IntTheme.apply(r.agency);
+    }).catch(function () { toast('Could not reach the server.', 'error'); });
+
+    $('signout').addEventListener('click', function () { IntApi.clearSession(); location.href = '/interpreter/'; });
+    $('btn-export').addEventListener('click', runExport);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Export
+  // ---------------------------------------------------------------------------
+  function runExport() {
+    var btn = $('btn-export');
+    btn.disabled = true;
+    $('export-status').textContent = 'Gathering your data…';
+    IntApi.jsonp({ action: 'export_tenant' }).then(function (r) {
+      btn.disabled = false;
+      if (!r || !r.ok) {
+        $('export-status').textContent = '';
+        toast((r && r.error) || 'Export failed.', 'error');
+        return;
+      }
+      state.payload = r;
+      renderSummary(r);
+      // Build + download the single combined archive immediately (one click).
+      buildAndDownloadArchive(r);
+      $('export-status').textContent = 'Archive downloaded. Per-table CSVs are below.';
+    }).catch(function () {
+      btn.disabled = false;
+      $('export-status').textContent = '';
+      toast('Network error during export.', 'error');
+    });
+  }
+
+  function renderSummary(r) {
+    $('s-tables').textContent = String(r.table_count || 0);
+    $('s-rows').textContent = String(r.row_count || 0);
+    $('s-gen').textContent = r.generated_at ? new Date(r.generated_at).toLocaleString() : '—';
+    $('phi-note').style.display = '';
+    $('summary').style.display = '';
+
+    var tables = r.tables || {};
+    var rows = Object.keys(tables).map(function (name) {
+      var t = tables[name] || {};
+      var n = (t.rows || []).length;
+      var disabled = n === 0 ? ' disabled' : '';
+      return '<tr>' +
+        '<td>' + esc(name) + '</td>' +
+        '<td class="num">' + n + '</td>' +
+        '<td style="text-align:right"><button class="btn btn-ghost btn-sm" type="button" data-csv="' + esc(name) + '"' + disabled + '>' + (n ? 'Download CSV' : 'empty') + '</button></td>' +
+      '</tr>';
+    }).join('');
+    $('tbl-rows').innerHTML = rows;
+    $('tbl-rows').querySelectorAll('button[data-csv]').forEach(function (b) {
+      b.addEventListener('click', function () { downloadTableCsv(b.getAttribute('data-csv')); });
+    });
+  }
+
+  function tenantSlug() {
+    var t = (state.payload && state.payload.tenant_id) || 'tenant';
+    return String(t).replace(/[^A-Za-z0-9._-]/g, '_');
+  }
+  function stamp() {
+    var d = (state.payload && state.payload.generated_at) ? new Date(state.payload.generated_at) : new Date();
+    return d.toISOString().slice(0, 10);
+  }
+
+  // ---- CSV ----
+  function csvCell(v) {
+    var s = (v == null) ? '' : String(v);
+    if (/[",\r\n]/.test(s)) s = '"' + s.replace(/"/g, '""') + '"';
+    return s;
+  }
+  function tableToCsv(table) {
+    var headers = table.headers || [];
+    var rows = table.rows || [];
+    var lines = [headers.map(csvCell).join(',')];
+    for (var i = 0; i < rows.length; i++) {
+      lines.push((rows[i] || []).map(csvCell).join(','));
+    }
+    // CRLF line endings — the most portable for spreadsheet apps.
+    return lines.join('\r\n');
+  }
+
+  function downloadTableCsv(name) {
+    var t = (state.payload && state.payload.tables && state.payload.tables[name]) || null;
+    if (!t || !(t.rows || []).length) { toast('That table is empty.', 'error'); return; }
+    var blob = new Blob([tableToCsv(t)], { type: 'text/csv;charset=utf-8' });
+    triggerDownload(blob, '1891-interpreter-' + tenantSlug() + '-' + name + '-' + stamp() + '.csv');
+  }
+
+  function triggerDownload(blob, filename) {
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url; a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(function () { document.body.removeChild(a); URL.revokeObjectURL(url); }, 1000);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Single-archive build — combined JSON + one CSV per non-empty table, packed
+  // into one STORE-method (uncompressed) .zip built entirely in the browser.
+  // ---------------------------------------------------------------------------
+  function buildAndDownloadArchive(r) {
+    var files = [];
+    var jsonName = '1891-interpreter-' + tenantSlug() + '-' + stamp() + '.json';
+    files.push({ name: jsonName, data: strToU8(JSON.stringify(r, null, 2)) });
+
+    var tables = r.tables || {};
+    Object.keys(tables).forEach(function (name) {
+      var t = tables[name] || {};
+      if (!(t.rows || []).length) return; // one CSV per NON-empty table
+      files.push({ name: 'tables/' + name + '.csv', data: strToU8(tableToCsv(t)) });
+    });
+
+    var zipBlob = makeZip(files);
+    triggerDownload(zipBlob, '1891-interpreter-' + tenantSlug() + '-' + stamp() + '.zip');
+  }
+
+  function strToU8(str) {
+    // UTF-8 encode.
+    if (window.TextEncoder) return new TextEncoder().encode(str);
+    // Fallback (older browsers): encodeURIComponent round-trip.
+    var enc = unescape(encodeURIComponent(str));
+    var out = new Uint8Array(enc.length);
+    for (var i = 0; i < enc.length; i++) out[i] = enc.charCodeAt(i);
+    return out;
+  }
+
+  // --- Minimal ZIP writer (STORE / no compression). Self-contained, no deps. ---
+  var CRC_TABLE = (function () {
+    var t = new Uint32Array(256);
+    for (var n = 0; n < 256; n++) {
+      var c = n;
+      for (var k = 0; k < 8; k++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+      t[n] = c >>> 0;
+    }
+    return t;
+  })();
+  function crc32(buf) {
+    var c = 0xFFFFFFFF;
+    for (var i = 0; i < buf.length; i++) c = CRC_TABLE[(c ^ buf[i]) & 0xFF] ^ (c >>> 8);
+    return (c ^ 0xFFFFFFFF) >>> 0;
+  }
+  function dosDateTime(d) {
+    var dt = d || new Date();
+    var time = (dt.getHours() << 11) | (dt.getMinutes() << 5) | (Math.floor(dt.getSeconds() / 2));
+    var date = ((dt.getFullYear() - 1980) << 9) | ((dt.getMonth() + 1) << 5) | dt.getDate();
+    return { time: time & 0xFFFF, date: date & 0xFFFF };
+  }
+  function makeZip(files) {
+    var nameEnc = window.TextEncoder ? new TextEncoder() : null;
+    var encName = function (s) { return nameEnc ? nameEnc.encode(s) : strToU8(s); };
+    var localParts = [];
+    var central = [];
+    var offset = 0;
+    var dt = dosDateTime(new Date());
+
+    files.forEach(function (f) {
+      var nameBytes = encName(f.name);
+      var data = f.data;
+      var crc = crc32(data);
+      var size = data.length;
+
+      // Local file header
+      var lh = new Uint8Array(30 + nameBytes.length);
+      var dv = new DataView(lh.buffer);
+      dv.setUint32(0, 0x04034b50, true);     // signature
+      dv.setUint16(4, 20, true);             // version needed
+      dv.setUint16(6, 0x0800, true);         // flags: UTF-8 filename
+      dv.setUint16(8, 0, true);              // method: STORE
+      dv.setUint16(10, dt.time, true);
+      dv.setUint16(12, dt.date, true);
+      dv.setUint32(14, crc, true);
+      dv.setUint32(18, size, true);          // compressed size
+      dv.setUint32(22, size, true);          // uncompressed size
+      dv.setUint16(26, nameBytes.length, true);
+      dv.setUint16(28, 0, true);             // extra len
+      lh.set(nameBytes, 30);
+
+      localParts.push(lh, data);
+
+      // Central directory header
+      var ch = new Uint8Array(46 + nameBytes.length);
+      var cv = new DataView(ch.buffer);
+      cv.setUint32(0, 0x02014b50, true);     // signature
+      cv.setUint16(4, 20, true);             // version made by
+      cv.setUint16(6, 20, true);             // version needed
+      cv.setUint16(8, 0x0800, true);         // flags: UTF-8
+      cv.setUint16(10, 0, true);             // method
+      cv.setUint16(12, dt.time, true);
+      cv.setUint16(14, dt.date, true);
+      cv.setUint32(16, crc, true);
+      cv.setUint32(20, size, true);
+      cv.setUint32(24, size, true);
+      cv.setUint16(28, nameBytes.length, true);
+      cv.setUint16(30, 0, true);             // extra len
+      cv.setUint16(32, 0, true);             // comment len
+      cv.setUint16(34, 0, true);             // disk number
+      cv.setUint16(36, 0, true);             // internal attrs
+      cv.setUint32(38, 0, true);             // external attrs
+      cv.setUint32(42, offset, true);        // local header offset
+      ch.set(nameBytes, 46);
+      central.push(ch);
+
+      offset += lh.length + data.length;
+    });
+
+    var centralSize = central.reduce(function (a, c) { return a + c.length; }, 0);
+    var centralOffset = offset;
+
+    // End of central directory
+    var eocd = new Uint8Array(22);
+    var ev = new DataView(eocd.buffer);
+    ev.setUint32(0, 0x06054b50, true);
+    ev.setUint16(4, 0, true);
+    ev.setUint16(6, 0, true);
+    ev.setUint16(8, files.length, true);
+    ev.setUint16(10, files.length, true);
+    ev.setUint32(12, centralSize, true);
+    ev.setUint32(16, centralOffset, true);
+    ev.setUint16(20, 0, true);
+
+    return new Blob(localParts.concat(central, [eocd]), { type: 'application/zip' });
+  }
+})();
+</script>
+<!-- BEGIN UMBRELLA-CONSENT -->
+<link rel="stylesheet" href="/shared/lib/consent/consent.css">
+<script src="/shared/lib/consent/consent.js" data-project="interpreter" data-coppa="false" data-tenant-type="public" defer></script>
+<script src="/shared/lib/event-capture/event-capture-pixels.js" data-project="interpreter" data-conv-url="https://conv.madeby1891.com/v1/track" defer></script>
+<!-- END UMBRELLA-CONSENT -->
+</body>
+</html>

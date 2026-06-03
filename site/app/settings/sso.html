@@ -1,0 +1,280 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Single sign-on (SSO) — 1891 Interpreter</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#C8553D">
+<link rel="icon" type="image/svg+xml" href="/interpreter/assets/img/favicon.svg">
+<link rel="stylesheet" href="/interpreter/assets/css/site.css">
+<link rel="stylesheet" href="/interpreter/assets/css/app.css">
+<style>
+  .sso-help { padding:12px 16px; background:#FAFAF7; border:1px solid var(--1891int-line); border-radius:var(--1891int-radius-md); font-size:13.5px; line-height:1.55; margin-bottom:var(--1891int-s-4) }
+  .sso-help code { font-size:12px }
+  .secret-state { font-size:12.5px; margin-top:4px }
+  .secret-state.set { color:var(--1891int-ok,#1d6f3f) }
+  .toggle-row { display:flex; align-items:center; gap:10px; font-size:14.5px; margin-bottom:var(--1891int-s-3) }
+  .grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:var(--1891int-s-4) }
+  @media (max-width:680px) { .grid-2 { grid-template-columns:1fr } }
+  .redirect-box { display:flex; gap:8px; align-items:stretch; margin-top:6px }
+  .redirect-box input { flex:1; padding:8px 10px; border:1px solid var(--1891int-line); border-radius:4px; font-family:var(--1891int-mono); font-size:12px; background:#FAFAFA }
+</style>
+</head>
+<body>
+<a href="#main" class="skip">Skip to main content</a>
+
+<div class="app-shell">
+  <header class="app-header">
+    <div class="wrap">
+      <a href="/interpreter/app/" class="brand"><img src="/interpreter/assets/img/brand-mark.svg" alt="" width="32" height="32"><span>1891 <span class="brand-sub">Scheduler</span></span></a>
+      <div class="who"><span>Signed in as </span><strong id="who-name">…</strong><button id="signout" type="button">Sign out</button></div>
+    </div>
+  </header>
+
+  <nav class="app-nav" aria-label="App sections">
+    <div class="wrap">
+      <a href="/interpreter/app/">Day-of board</a>
+      <a href="/interpreter/app/interpreters/">Interpreters</a>
+      <a href="/interpreter/app/requestors/">Requestors</a>
+      <a href="/interpreter/app/settings/">Settings</a>
+      <a href="/interpreter/app/settings/sso.html" aria-current="page">SSO</a>
+    </div>
+  </nav>
+
+  <main id="main" class="app-main">
+    <div class="wrap" style="max-width:780px;margin:0 auto">
+      <h1 style="font-size:32px;margin:0 0 var(--1891int-s-2)">Single sign-on (SSO)</h1>
+      <p class="ink-soft" style="font-size:14.5px;max-width:68ch">Let your team sign in through your own identity provider with OpenID Connect — Google Workspace, Microsoft Entra ID, Okta, Auth0, or any OIDC provider. Magic-link sign-in keeps working alongside this.</p>
+
+      <div id="loading" class="empty-state" style="margin-top:var(--1891int-s-4)"><span class="spinner"></span> Loading SSO configuration&hellip;</div>
+
+      <form id="sso-form" style="display:none;margin-top:var(--1891int-s-4)">
+        <section class="card" style="margin-bottom:var(--1891int-s-5)">
+          <div class="toggle-row">
+            <input type="checkbox" id="enabled" style="width:18px;height:18px">
+            <label for="enabled" style="font-weight:600">Enable single sign-on for this organization</label>
+          </div>
+          <p class="ink-soft" style="font-size:13.5px;margin:0">When on, people whose email domain matches the allowed domain below can sign in at <a href="/interpreter/app/sso/">/app/sso/</a>.</p>
+        </section>
+
+        <section class="card" style="margin-bottom:var(--1891int-s-5)">
+          <h2 class="mt-0">Provider endpoints</h2>
+          <div class="sso-help">
+            Two ways to set this up:
+            <ul style="margin:6px 0 0 18px;padding:0">
+              <li><strong>Easiest — issuer auto-discovery:</strong> enter the <strong>Issuer URL</strong> and we'll pull the authorize / token / userinfo endpoints from its <code>/.well-known/openid-configuration</code>.</li>
+              <li><strong>Manual:</strong> leave the issuer blank and fill the three endpoint URLs yourself.</li>
+            </ul>
+          </div>
+
+          <div class="field"><label for="issuer">Issuer URL (for auto-discovery)</label><input id="issuer" type="url" placeholder="https://accounts.google.com"></div>
+
+          <div class="grid-2">
+            <div class="field"><label for="client_id">Client ID</label><input id="client_id" type="text" autocomplete="off"></div>
+            <div class="field">
+              <label for="client_secret">Client secret</label>
+              <input id="client_secret" type="password" autocomplete="off" placeholder="••••••••">
+              <span class="hint">Write-only. We never display a saved secret.</span>
+              <span id="secret-state" class="secret-state"></span>
+            </div>
+          </div>
+
+          <div class="field"><label for="authorize_url">Authorize URL</label><input id="authorize_url" type="url" placeholder="auto-filled from issuer, or enter manually"></div>
+          <div class="field"><label for="token_url">Token URL</label><input id="token_url" type="url" placeholder="auto-filled from issuer, or enter manually"></div>
+          <div class="field"><label for="userinfo_url">Userinfo URL</label><input id="userinfo_url" type="url" placeholder="auto-filled from issuer, or enter manually"></div>
+
+          <div class="field">
+            <label>Redirect URL (register this with your provider)</label>
+            <div class="redirect-box">
+              <input id="redirect-uri" type="text" readonly value="https://madeby1891.com/interpreter/app/sso/callback.html">
+              <button class="btn btn-sm" type="button" id="copy-redirect">Copy</button>
+            </div>
+            <span class="hint">Add this exact URL to your provider's allowed redirect / callback list.</span>
+          </div>
+        </section>
+
+        <section class="card" style="margin-bottom:var(--1891int-s-5)">
+          <h2 class="mt-0">Access &amp; provisioning</h2>
+          <div class="field">
+            <label for="allowed_domain">Allowed email domain</label>
+            <input id="allowed_domain" type="text" placeholder="acme.org">
+            <span class="hint">Only people whose email ends in this domain may sign in via SSO. Required.</span>
+          </div>
+
+          <div class="toggle-row" style="margin-top:var(--1891int-s-3)">
+            <input type="checkbox" id="auto_provision" style="width:18px;height:18px">
+            <label for="auto_provision" style="font-weight:600">Auto-provision new accounts on first SSO login</label>
+          </div>
+          <p class="ink-soft" style="font-size:13px;margin:0 0 var(--1891int-s-3)">On: anyone in the allowed domain gets an account the first time they sign in, with the default role below. Off: a person must already be invited before SSO will let them in.</p>
+
+          <div class="field" style="max-width:280px">
+            <label for="default_role">Default role for new accounts</label>
+            <select id="default_role">
+              <option value="role_interpreter">Interpreter</option>
+              <option value="role_scheduler">Scheduler</option>
+              <option value="role_admin">Admin</option>
+              <option value="role_manager">Manager</option>
+            </select>
+          </div>
+        </section>
+
+        <div class="cluster">
+          <button class="btn btn-primary btn-lg" type="button" id="save">Save SSO configuration</button>
+          <span id="save-status" class="muted" style="font-size:14px"></span>
+        </div>
+      </form>
+    </div>
+  </main>
+</div>
+
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+<script src="/interpreter/assets/js/whitelabel.js" defer></script>
+<script src="/interpreter/assets/js/api.js" defer></script>
+<script src="/interpreter/assets/js/api-multitenant.js" defer></script>
+<script src="/interpreter/assets/js/app-header.js" defer></script>
+<script>
+(function () {
+  'use strict';
+  document.addEventListener('DOMContentLoaded', init);
+
+  function $(id) { return document.getElementById(id); }
+  function toast(msg, kind) { var t = $('toast'); t.textContent = msg; t.className = 'toast show' + (kind ? ' ' + kind : ''); setTimeout(function () { t.className = 'toast'; }, 3500); }
+
+  // CORS POST through the proxy that reads the JSON response. The backend reads
+  // form params (e.parameter) for sso_config_set, so we send urlencoded.
+  function postConfig(fields) {
+    var body = new URLSearchParams();
+    body.append('action', 'sso_config_set');
+    Object.keys(fields).forEach(function (k) { body.append(k, String(fields[k])); });
+    var s = IntApi.getSession();
+    if (s) body.append('session', s);
+    return fetch(IntApi.ENDPOINT, {
+      method: 'POST',
+      mode: 'cors',
+      headers: { 'Accept': 'application/json' },
+      body: body
+    }).then(function (r) { return r.json(); });
+  }
+
+  function init() {
+    if (!IntApi.getSession()) { location.href = '/interpreter/sign-in'; return; }
+    IntApi.whoami().then(function (r) {
+      if (!r || !r.ok) { IntApi.clearSession(); location.href = '/interpreter/sign-in'; return; }
+      $('who-name').textContent = (r.user && (r.user.display_name || r.user.email)) || 'unknown';
+      if (window.IntTheme && r.agency) IntTheme.apply(r.agency);
+      loadConfig();
+    }).catch(function () { toast('Could not reach the server.', 'error'); });
+
+    $('signout').addEventListener('click', function () { IntApi.clearSession(); location.href = '/interpreter/'; });
+    $('save').addEventListener('click', save);
+    $('copy-redirect').addEventListener('click', copyRedirect);
+  }
+
+  function loadConfig() {
+    IntApi.jsonp({ action: 'sso_config_get' }).then(function (r) {
+      $('loading').style.display = 'none';
+      if (!r || !r.ok) { toast((r && r.error) || 'Could not load SSO config.', 'error'); return; }
+      var c = r.config || {};
+      $('enabled').checked = !!c.enabled;
+      $('issuer').value = c.issuer || '';
+      $('client_id').value = c.client_id || '';
+      $('authorize_url').value = c.authorize_url || '';
+      $('token_url').value = c.token_url || '';
+      $('userinfo_url').value = c.userinfo_url || '';
+      $('allowed_domain').value = c.allowed_domain || '';
+      $('auto_provision').checked = !!c.auto_provision;
+      if (c.default_role) $('default_role').value = c.default_role;
+      renderSecretState(r.has_secret);
+      $('sso-form').style.display = '';
+    }).catch(function () { $('loading').style.display = 'none'; toast('Network error loading SSO config.', 'error'); });
+  }
+
+  function renderSecretState(hasSecret) {
+    var el = $('secret-state');
+    if (hasSecret) {
+      el.textContent = '✓ A client secret is set. Leave blank to keep it; type a new one to replace.';
+      el.className = 'secret-state set';
+      $('client_secret').placeholder = '•••••••• (secret is set)';
+    } else {
+      el.textContent = 'No client secret saved yet.';
+      el.className = 'secret-state';
+      $('client_secret').placeholder = 'Paste the client secret from your provider';
+    }
+  }
+
+  function save() {
+    var enabled = $('enabled').checked;
+    var allowedDomain = $('allowed_domain').value.trim().toLowerCase();
+    var issuer = $('issuer').value.trim();
+    var authorize = $('authorize_url').value.trim();
+    var token = $('token_url').value.trim();
+    var userinfo = $('userinfo_url').value.trim();
+
+    if (enabled) {
+      if (!$('client_id').value.trim()) { toast('Client ID is required to enable SSO.', 'error'); return; }
+      if (!allowedDomain) { toast('An allowed email domain is required to enable SSO.', 'error'); return; }
+      if (!issuer && (!authorize || !token || !userinfo)) {
+        toast('Enter an issuer URL for auto-discovery, or all three endpoint URLs.', 'error'); return;
+      }
+    }
+
+    var fields = {
+      enabled: enabled ? 'true' : 'false',
+      issuer: issuer,
+      client_id: $('client_id').value.trim(),
+      authorize_url: authorize,
+      token_url: token,
+      userinfo_url: userinfo,
+      allowed_domain: allowedDomain,
+      auto_provision: $('auto_provision').checked ? 'true' : 'false',
+      default_role: $('default_role').value
+    };
+    // Only send the secret if the owner typed a new one (write-only).
+    var secret = $('client_secret').value;
+    if (secret) fields.client_secret = secret;
+
+    var btn = $('save');
+    btn.disabled = true;
+    $('save-status').textContent = 'Saving…';
+    postConfig(fields).then(function (r) {
+      btn.disabled = false;
+      if (!r || !r.ok) { $('save-status').textContent = ''; toast((r && r.error) || 'Save failed.', 'error'); return; }
+      // Reflect back any endpoints auto-discovered from the issuer.
+      var c = r.config || {};
+      if (c.authorize_url) $('authorize_url').value = c.authorize_url;
+      if (c.token_url) $('token_url').value = c.token_url;
+      if (c.userinfo_url) $('userinfo_url').value = c.userinfo_url;
+      $('client_secret').value = '';
+      renderSecretState(r.has_secret);
+      $('save-status').textContent = 'Saved.';
+      toast('SSO configuration saved.', 'ok');
+    }).catch(function () {
+      btn.disabled = false;
+      $('save-status').textContent = '';
+      toast('Network error saving SSO config.', 'error');
+    });
+  }
+
+  function copyRedirect() {
+    var input = $('redirect-uri');
+    input.select();
+    input.setSelectionRange(0, input.value.length);
+    var ok = false;
+    try { ok = document.execCommand('copy'); } catch (_) { ok = false; }
+    if (!ok && navigator.clipboard) {
+      navigator.clipboard.writeText(input.value).then(function () { toast('Copied.', 'ok'); }, function () { toast('Press Ctrl+C / Cmd+C to copy.', 'error'); });
+      return;
+    }
+    toast(ok ? 'Copied.' : 'Press Ctrl+C / Cmd+C to copy.', ok ? 'ok' : 'error');
+  }
+})();
+</script>
+<!-- BEGIN UMBRELLA-CONSENT -->
+<link rel="stylesheet" href="/shared/lib/consent/consent.css">
+<script src="/shared/lib/consent/consent.js" data-project="interpreter" data-coppa="false" data-tenant-type="public" defer></script>
+<script src="/shared/lib/event-capture/event-capture-pixels.js" data-project="interpreter" data-conv-url="https://conv.madeby1891.com/v1/track" defer></script>
+<!-- END UMBRELLA-CONSENT -->
+</body>
+</html>

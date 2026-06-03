@@ -51,12 +51,37 @@
     });
   }
 
+  // CORS POST that reads the JSON response (the proxy adds CORS headers). Used
+  // for actions where we need the reply body — e.g. a file upload that returns
+  // the drive_id + extracted text. The backend reads JSON post data for upload.
+  function _postCorsJson(action, body) {
+    var s = getSession();
+    var url = ENDPOINT + '?action=' + encodeURIComponent(action) + (s ? '&session=' + encodeURIComponent(s) : '');
+    return fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      mode: 'cors',
+      body: JSON.stringify(body || {})
+    }).then(function (r) { return r.json(); });
+  }
+
   // ---- Documents + translation jobs (Apps Script) ----
   function listDocuments(kind) {
     return jsonp({ action: 'list_documents', kind: kind || '' });
   }
   function getDocument(id) {
     return jsonp({ action: 'get_document', id: id });
+  }
+
+  // Upload a translation source file. body = { filename, mime, bytes_b64 }.
+  // Returns { ok, drive_id, filename, mime, size_bytes, sha256, extracted_text }.
+  function uploadSource(body) {
+    return _postCorsJson('upload_translation_source', body);
+  }
+  // Inline viewer URL for an uploaded source document (GET, session-scoped).
+  function sourceUrl(driveId) {
+    var s = encodeURIComponent(getSession() || '');
+    return ENDPOINT + '?action=get_translation_source&id=' + encodeURIComponent(driveId) + '&session=' + s;
   }
   function createTranslationJob(fields) {
     // Returns no body (no-cors). UI re-polls listDocuments() to surface the new row.
@@ -139,6 +164,8 @@
   root.IntApiTranslate = {
     listDocuments: listDocuments,
     getDocument: getDocument,
+    uploadSource: uploadSource,
+    sourceUrl: sourceUrl,
     createTranslationJob: createTranslationJob,
     startTranslation: startTranslation,
     submitTranslationReview: submitTranslationReview,

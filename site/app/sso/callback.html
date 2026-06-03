@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Finishing single sign-on — 1891 Interpreter</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#C8553D">
+<link rel="icon" type="image/svg+xml" href="/interpreter/assets/img/favicon.svg">
+<link rel="stylesheet" href="/interpreter/assets/css/site.css">
+<link rel="stylesheet" href="/interpreter/assets/css/app.css">
+</head>
+<body>
+<a href="#main" class="skip">Skip to main content</a>
+<main id="main">
+  <div class="signin-card center-text" id="card">
+    <h1>Finishing sign-in&hellip;</h1>
+    <p class="lede" id="status"><span class="spinner" aria-hidden="true"></span> Completing single sign-on with your identity provider.</p>
+    <div id="actions" style="display:none">
+      <a class="btn btn-primary btn-lg" href="/interpreter/app/">Open dashboard</a>
+    </div>
+    <div id="error-actions" style="display:none">
+      <p class="muted">If this keeps failing, sign in again below.</p>
+      <a class="btn btn-secondary" href="/interpreter/app/sso/">Back to single sign-on</a>
+      <a class="btn btn-ghost" href="/interpreter/sign-in" style="margin-left:8px">Use a sign-in link instead</a>
+    </div>
+  </div>
+</main>
+
+<!-- Plain (non-defer) scripts so IntApi is defined when the inline script runs;
+     mirrors /app/callback.html. -->
+<script src="/interpreter/assets/js/whitelabel.js"></script>
+<script src="/interpreter/assets/js/api.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  var statusEl = document.getElementById('status');
+  var actions = document.getElementById('actions');
+  var errActions = document.getElementById('error-actions');
+
+  function fail(msg) {
+    statusEl.textContent = msg;
+    statusEl.style.color = 'var(--1891int-err)';
+    if (errActions) errActions.style.display = 'block';
+  }
+  function ok(user) {
+    statusEl.innerHTML = 'Signed in as <strong>' + (user.email || user.user_id || 'you') + '</strong>.';
+    statusEl.style.color = 'var(--1891int-ok)';
+    if (actions) actions.style.display = 'block';
+    setTimeout(function () { location.href = '/interpreter/app/'; }, 1200);
+  }
+
+  if (typeof IntApi === 'undefined') {
+    fail('Sign-in helper failed to load. Check your connection and reload.');
+    return;
+  }
+
+  var params = new URLSearchParams(location.search);
+  var code = params.get('code');
+  var state = params.get('state');
+  var idpError = params.get('error');
+
+  if (idpError) {
+    fail('Your identity provider returned an error: ' + idpError + (params.get('error_description') ? (' — ' + params.get('error_description')) : '') + '.');
+    return;
+  }
+  if (!code || !state) { fail('Missing sign-in code. Please start single sign-on again.'); return; }
+
+  // POST { code, state } to sso_callback. We need the response body (the session
+  // token), so this is a CORS POST through the proxy, which adds CORS headers.
+  // The backend reads JSON post data for sso_callback.
+  fetch(IntApi.ENDPOINT + '?action=sso_callback', {
+    method: 'POST',
+    mode: 'cors',
+    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+    body: JSON.stringify({ code: code, state: state })
+  }).then(function (r) { return r.json(); }).then(function (res) {
+    if (res && res.ok && res.session) {
+      // Store the session under the SAME key/mechanism as the magic-link
+      // callback — downstream app pages read IntApi.getSession() identically.
+      IntApi.setSession(res.session);
+      ok(res.user || {});
+    } else {
+      fail((res && res.error) || 'Single sign-on could not be completed.');
+    }
+  }).catch(function (err) {
+    fail('Connection problem completing sign-in. ' + (err && err.message || String(err)));
+  });
+})();
+</script>
+<!-- BEGIN UMBRELLA-CONSENT -->
+<link rel="stylesheet" href="/shared/lib/consent/consent.css">
+<script src="/shared/lib/consent/consent.js" data-project="interpreter" data-coppa="false" data-tenant-type="public" defer></script>
+<script src="/shared/lib/event-capture/event-capture-pixels.js" data-project="interpreter" data-conv-url="https://conv.madeby1891.com/v1/track" defer></script>
+<!-- END UMBRELLA-CONSENT -->
+</body>
+</html>

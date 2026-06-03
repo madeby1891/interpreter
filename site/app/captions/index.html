@@ -1,0 +1,273 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Live Captions — 1891 Interpreter</title>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#C8553D">
+<meta name="description" content="Live captions from speech for the whole room. Everyone sees the conversation captioned on their own screen. Any device can be the microphone.">
+<link rel="icon" type="image/svg+xml" href="/interpreter/assets/img/favicon.svg">
+<link rel="stylesheet" href="/interpreter/assets/css/site.css">
+<link rel="stylesheet" href="/interpreter/assets/css/app.css">
+<style>
+  /* Live Captions — scoped styles on top of the shared app shell. Uses the
+     --1891int-* tokens so the page reads as native to the Interpreter app. */
+  .cap-wrap { max-width: 860px; margin: 0 auto; }
+
+  /* ----- Start panel (lobby) ----- */
+  .cap-start {
+    background: var(--1891int-paper);
+    border: 1px solid var(--1891int-line);
+    border-radius: var(--1891int-radius-lg);
+    box-shadow: var(--1891int-shadow-sm);
+    padding: var(--1891int-s-6);
+  }
+  .cap-start h1 { font-size: 30px; margin: 0 0 var(--1891int-s-3); }
+  .cap-lede { font-size: 16px; color: var(--1891int-ink-soft); max-width: 60ch; margin: 0 0 var(--1891int-s-5); line-height: 1.55; }
+  .cap-field { margin-bottom: var(--1891int-s-4); }
+  .cap-field label { display: block; font-weight: 600; font-size: 13.5px; margin-bottom: 4px; }
+  .cap-field input {
+    width: 100%;
+    font-size: 16px;
+    padding: 12px 14px;
+    border-radius: var(--1891int-radius-md);
+    border: 1px solid var(--1891int-line);
+    background: var(--1891int-paper-warm);
+    font-family: var(--1891int-body);
+  }
+  .cap-field input:focus-visible { outline: 3px solid var(--1891int-bloom); outline-offset: 1px; }
+  .cap-row { display: grid; grid-template-columns: 1fr 1fr; gap: var(--1891int-s-4); }
+  @media (max-width: 620px) { .cap-row { grid-template-columns: 1fr; } }
+  .cap-actions { display: flex; flex-wrap: wrap; gap: var(--1891int-s-3); margin-top: var(--1891int-s-5); }
+  .cap-how { margin: var(--1891int-s-6) 0 0; padding: 0; list-style: none; color: var(--1891int-fog); font-size: 14px; }
+  .cap-how li { margin-bottom: 6px; }
+  .cap-how strong { color: var(--1891int-bloom); }
+  .cap-foot-note { font-size: 13px; color: var(--1891int-fog); margin-top: var(--1891int-s-4); line-height: 1.5; }
+
+  /* ----- Session view ----- */
+  .cap-session { display: none; }
+  .cap-bar {
+    display: flex; flex-wrap: wrap; align-items: center; gap: var(--1891int-s-3);
+    padding: var(--1891int-s-3) var(--1891int-s-4);
+    background: var(--1891int-paper-warm);
+    border: 1px solid var(--1891int-line);
+    border-radius: var(--1891int-radius-md);
+    margin-bottom: var(--1891int-s-4);
+  }
+  .cap-conn { display: inline-flex; align-items: center; gap: 8px; font-size: 13.5px; color: var(--1891int-ink-soft); }
+  .cap-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--1891int-fog); }
+  .cap-dot[data-state="connected"] { background: var(--1891int-ok); }
+  .cap-dot[data-state="connecting"] { background: var(--1891int-warn); }
+  .cap-dot[data-state="offline"] { background: var(--1891int-err); }
+  .cap-code-box { display: inline-flex; align-items: baseline; gap: 8px; }
+  .cap-code-label { font-size: 12px; color: var(--1891int-fog); text-transform: uppercase; letter-spacing: .04em; }
+  .cap-code { font-family: var(--1891int-mono); font-size: 18px; font-weight: 700; letter-spacing: .06em; color: var(--1891int-ink); }
+  .cap-spacer { flex: 1 1 auto; }
+  .cap-people { font-size: 13.5px; color: var(--1891int-ink-soft); }
+
+  .cap-invite {
+    display: flex; flex-wrap: wrap; align-items: center; gap: var(--1891int-s-3);
+    margin-bottom: var(--1891int-s-4); font-size: 13.5px; color: var(--1891int-ink-soft);
+  }
+  .cap-invite code { font-family: var(--1891int-mono); font-size: 13px; color: var(--1891int-river); word-break: break-all; }
+
+  .cap-roster { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: var(--1891int-s-4); }
+  .cap-chip {
+    display: inline-flex; align-items: center; gap: 7px;
+    padding: 5px 11px; border-radius: var(--1891int-radius-pill);
+    background: var(--1891int-paper); border: 1px solid var(--1891int-line); font-size: 13px;
+  }
+  .cap-chip.speaking { border-color: var(--1891int-bloom); box-shadow: 0 0 0 1px var(--1891int-bloom); }
+  .cap-chip .cdot { width: 10px; height: 10px; border-radius: 50%; flex: 0 0 10px; }
+  .cap-chip .mic-on { font-size: 12px; }
+  .cap-chip .name-voice {
+    border: none; background: var(--1891int-river-tint); color: var(--1891int-river);
+    border-radius: var(--1891int-radius-pill); font-size: 11px; padding: 2px 8px; cursor: pointer;
+  }
+
+  /* ----- Feed ----- */
+  .cap-feed {
+    background: var(--1891int-paper);
+    border: 1px solid var(--1891int-line);
+    border-radius: var(--1891int-radius-lg);
+    padding: var(--1891int-s-5);
+    min-height: 320px;
+    max-height: 56vh;
+    overflow-y: auto;
+  }
+  .cap-empty { color: var(--1891int-fog); font-size: 15px; line-height: 1.6; text-align: center; padding: var(--1891int-s-7) var(--1891int-s-4); }
+  .cap-banner {
+    background: var(--1891int-bloom-tint); color: var(--1891int-bloom-deep);
+    border-radius: var(--1891int-radius-sm); padding: 10px 14px; font-size: 13.5px; margin-bottom: var(--1891int-s-4);
+  }
+  .cap-line { font-size: 18px; line-height: 1.55; margin: 0 0 14px; }
+  .cap-line .who { font-weight: 700; margin-right: 8px; }
+  .cap-line.interim { opacity: .62; }
+  .cap-line .said-interim { opacity: .7; }
+
+  /* ----- Mic bar (RECORDING indicator) ----- */
+  .cap-micbar { margin-top: var(--1891int-s-5); }
+  .cap-rec {
+    display: flex; align-items: center; gap: 12px;
+    background: rgba(179,38,30,0.07); border: 1px solid var(--1891int-err);
+    border-radius: var(--1891int-radius-md); padding: 10px 14px; margin-bottom: var(--1891int-s-3);
+  }
+  .cap-rec[hidden] { display: none; }
+  .cap-rec-dot { width: 12px; height: 12px; border-radius: 50%; background: var(--1891int-err); flex: 0 0 12px; animation: capPulse 1.4s ease-in-out infinite; }
+  @keyframes capPulse { 0%,100% { opacity: 1; } 50% { opacity: .3; } }
+  @media (prefers-reduced-motion: reduce) { .cap-rec-dot { animation: none; } }
+  .cap-rec-text { font-size: 13.5px; font-weight: 600; color: var(--1891int-err); }
+  .cap-level-track { flex: 1 1 auto; height: 8px; border-radius: var(--1891int-radius-pill); background: var(--1891int-paper-deep); overflow: hidden; max-width: 200px; }
+  .cap-level { height: 100%; width: 0%; background: var(--1891int-err); transition: width .08s linear; }
+  .cap-mic-btn { width: 100%; justify-content: center; }
+  .cap-mic-btn[data-on="1"] { background: var(--1891int-err); color: #fff; border-color: var(--1891int-err); }
+  .cap-micnote { font-size: 13px; color: var(--1891int-fog); margin-top: 10px; text-align: center; }
+
+  /* ----- Consent modal ----- */
+  .cap-modal { position: fixed; inset: 0; background: rgba(15,20,25,.55); display: flex; align-items: center; justify-content: center; padding: 20px; z-index: 50; }
+  .cap-modal[hidden] { display: none; }
+  .cap-modal-card { background: var(--1891int-paper); border-radius: var(--1891int-radius-lg); max-width: 480px; padding: var(--1891int-s-6); box-shadow: var(--1891int-shadow-lg); }
+  .cap-modal-card h2 { font-size: 22px; margin: 0 0 var(--1891int-s-3); }
+  .cap-modal-card p { font-size: 14.5px; line-height: 1.55; color: var(--1891int-ink-soft); margin: 0 0 var(--1891int-s-3); }
+  .cap-modal-actions { display: flex; gap: var(--1891int-s-3); justify-content: flex-end; margin-top: var(--1891int-s-5); }
+</style>
+</head>
+<body>
+<a href="#main" class="skip">Skip to main content</a>
+
+<div class="app-shell">
+  <header class="app-header">
+    <div class="wrap">
+      <a href="/interpreter/app/" class="brand" aria-label="1891 Interpreter dashboard">
+        <img src="/interpreter/assets/img/brand-mark.svg" alt="" width="32" height="32">
+        <span>1891 <span class="brand-sub">Captions</span></span>
+      </a>
+    </div>
+  </header>
+
+  <nav class="app-nav" aria-label="App sections">
+    <div class="wrap">
+      <a href="/interpreter/app/">Day-of board</a>
+      <a href="/interpreter/app/interpreters/">Interpreters</a>
+      <a href="/interpreter/app/translate/">Translations</a>
+      <a href="/interpreter/app/captions/" aria-current="page">Live Captions</a>
+    </div>
+  </nav>
+
+  <main id="main" class="app-main">
+    <div class="wrap cap-wrap">
+
+      <!-- ===================== START PANEL ===================== -->
+      <section id="start-view" class="cap-start">
+        <h1>Live Captions</h1>
+        <p class="cap-lede">Live captions from speech, for the whole room. Everyone
+          sees the conversation captioned on their own screen — phone, tablet, or
+          laptop. Any device can be the microphone. No install, no account.</p>
+
+        <form id="start-form" autocomplete="off">
+          <div class="cap-row">
+            <div class="cap-field">
+              <label for="f-name">Your name</label>
+              <input id="f-name" type="text" maxlength="40" placeholder="e.g. Sam" required>
+            </div>
+            <div class="cap-field">
+              <label for="f-code">Session code</label>
+              <input id="f-code" type="text" maxlength="24" placeholder="e.g. K7P2RX9MTN"
+                     inputmode="latin" autocapitalize="characters" spellcheck="false">
+            </div>
+          </div>
+          <div class="cap-actions">
+            <button type="submit" class="btn btn-primary btn-lg">Join the session</button>
+            <button id="new-session" type="button" class="btn btn-ghost btn-lg">Start a new session</button>
+          </div>
+        </form>
+
+        <ul class="cap-how">
+          <li><strong>1.</strong> Start a session, or enter a code someone shared.</li>
+          <li><strong>2.</strong> Share the code or link so others see the same captions.</li>
+          <li><strong>3.</strong> Tap <em>Use this device as the microphone</em> to add a voice.</li>
+        </ul>
+        <p class="cap-foot-note">Live captions are free here, with no per-feature
+          tax — Deaf-first means access isn't an add-on. Captions come from speech;
+          the microphone is consent-gated, and you can stop it anytime.</p>
+      </section>
+
+      <!-- ===================== SESSION VIEW ===================== -->
+      <section id="session-view" class="cap-session">
+        <div class="cap-bar">
+          <span class="cap-conn">
+            <span id="conn-dot" class="cap-dot" data-state="connecting" aria-hidden="true"></span>
+            <span id="conn-label">Joining&hellip;</span>
+          </span>
+          <span class="cap-code-box">
+            <span class="cap-code-label">Code</span>
+            <strong id="session-code" class="cap-code">····</strong>
+          </span>
+          <span class="cap-spacer"></span>
+          <span id="people-count" class="cap-people">0 people</span>
+          <button id="leave-btn" type="button" class="btn btn-ghost btn-sm">Leave</button>
+        </div>
+
+        <div class="cap-invite">
+          <span>Anyone can join at</span>
+          <code id="invite-link"></code>
+          <button id="copy-btn" type="button" class="btn btn-secondary btn-sm">Copy link</button>
+          <button id="rename-btn" type="button" class="btn btn-ghost btn-sm">Rename me</button>
+          <button id="export-btn" type="button" class="btn btn-ghost btn-sm">Export transcript</button>
+        </div>
+
+        <div id="roster" class="cap-roster" aria-label="People in this session"></div>
+
+        <div id="feed" class="cap-feed">
+          <p id="no-captions" class="cap-banner" hidden>Live captions are paused right now.
+            You can still see who's here.</p>
+          <p id="empty-state" class="cap-empty">No captions yet. Tap
+            <strong>Use this device as the microphone</strong> below and start
+            talking — the words show up here for everyone.</p>
+          <div id="lines" role="log" aria-live="polite" aria-label="Live captions"></div>
+        </div>
+
+        <footer class="cap-micbar">
+          <div id="rec-indicator" class="cap-rec" hidden role="status" aria-live="polite">
+            <span class="cap-rec-dot" aria-hidden="true"></span>
+            <span class="cap-rec-text">Recording — this device is the microphone</span>
+            <span class="cap-level-track" aria-hidden="true"><span id="level" class="cap-level"></span></span>
+          </div>
+          <button id="mic-btn" type="button" class="btn btn-primary btn-lg cap-mic-btn" data-on="0" aria-pressed="false">
+            <span id="mic-btn-label">Use this device as the microphone</span>
+          </button>
+          <p class="cap-micnote">Live captions come from speech. Everyone in the session can see them.</p>
+        </footer>
+      </section>
+
+    </div>
+  </main>
+</div>
+
+<!-- ===================== CONSENT ===================== -->
+<div id="consent" class="cap-modal" hidden role="dialog" aria-modal="true" aria-labelledby="consent-title">
+  <div class="cap-modal-card">
+    <h2 id="consent-title">Turn this device into the microphone?</h2>
+    <p>Your microphone will be used to caption what's spoken near this device. The
+      captions appear on every screen in the session. The session keeps a
+      transcript you can export — the audio itself isn't stored.</p>
+    <p>Make sure everyone here is okay with live captions before you start. You can
+      stop the microphone anytime.</p>
+    <div class="cap-modal-actions">
+      <button id="consent-cancel" type="button" class="btn btn-ghost">Not now</button>
+      <button id="consent-agree" type="button" class="btn btn-primary">Everyone's okay — start</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+<script src="./captions.js?v=1"></script>
+<!-- BEGIN UMBRELLA-CONSENT -->
+<link rel="stylesheet" href="/shared/lib/consent/consent.css">
+<script src="/shared/lib/consent/consent.js" data-project="interpreter" data-coppa="false" data-tenant-type="public" defer></script>
+<script src="/shared/lib/event-capture/event-capture-pixels.js" data-project="interpreter" data-conv-url="https://conv.madeby1891.com/v1/track" defer></script>
+<!-- END UMBRELLA-CONSENT -->
+</body>
+</html>

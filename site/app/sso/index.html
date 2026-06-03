@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Single sign-on — 1891 Interpreter</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#C8553D">
+<link rel="icon" type="image/svg+xml" href="/interpreter/assets/img/favicon.svg">
+<link rel="stylesheet" href="/interpreter/assets/css/site.css">
+<link rel="stylesheet" href="/interpreter/assets/css/app.css">
+</head>
+<body>
+<a href="#main" class="skip">Skip to main content</a>
+<main id="main">
+  <div class="signin-card" id="card">
+    <h1>Sign in with SSO</h1>
+    <p class="lede">Use your organization's single sign-on. Enter your work email (or just your company's domain) and we'll send you to your identity provider.</p>
+
+    <form id="sso-form" autocomplete="on">
+      <div class="field" style="text-align:left;margin-top:var(--1891int-s-4)">
+        <label for="work-email" style="display:block;font-size:13px;font-weight:600;margin-bottom:4px">Work email or domain</label>
+        <input id="work-email" type="text" inputmode="email" autocomplete="email"
+               placeholder="you@acme.org  or  acme.org"
+               style="width:100%;padding:10px 12px;border:1px solid var(--1891int-line);border-radius:6px;font-size:15px;box-sizing:border-box">
+        <span class="hint" style="display:block;font-size:12.5px;color:var(--1891int-fog);margin-top:4px">We use this only to find your organization's SSO. Nothing is stored here.</span>
+      </div>
+      <button class="btn btn-primary btn-lg" type="submit" id="go" style="margin-top:var(--1891int-s-4)">Continue to your provider</button>
+      <p id="status" class="muted" style="font-size:13.5px;margin-top:var(--1891int-s-3)"></p>
+    </form>
+
+    <p class="muted" style="font-size:13px;margin-top:var(--1891int-s-5)">
+      No SSO at your organization? <a href="/interpreter/sign-in">Use a one-time sign-in link instead</a>.
+    </p>
+  </div>
+</main>
+
+<script src="/interpreter/assets/js/whitelabel.js"></script>
+<script src="/interpreter/assets/js/api.js"></script>
+<script>
+(function () {
+  'use strict';
+  function $(id) { return document.getElementById(id); }
+
+  function setStatus(msg, isError) {
+    var el = $('status');
+    el.textContent = msg || '';
+    el.style.color = isError ? 'var(--1891int-err)' : 'var(--1891int-fog)';
+  }
+
+  document.getElementById('sso-form').addEventListener('submit', function (e) {
+    e.preventDefault();
+    if (typeof IntApi === 'undefined') { setStatus('Sign-in helper failed to load. Reload the page.', true); return; }
+
+    var raw = $('work-email').value.trim().toLowerCase();
+    if (!raw) { setStatus('Enter your work email or your company domain.', true); return; }
+
+    // If it looks like an email, pass email; otherwise treat it as a domain.
+    var fields;
+    if (raw.indexOf('@') >= 0) fields = { action: 'sso_start', email: raw };
+    else fields = { action: 'sso_start', domain: raw.replace(/^https?:\/\//, '').replace(/\/.*$/, '') };
+
+    var btn = $('go');
+    btn.disabled = true;
+    setStatus('Looking up your organization…', false);
+
+    IntApi.jsonp(fields).then(function (r) {
+      if (r && r.ok && r.authorize_url) {
+        setStatus('Redirecting to your identity provider…', false);
+        location.href = r.authorize_url;
+        return;
+      }
+      btn.disabled = false;
+      setStatus((r && r.error) || 'No single sign-on is set up for that organization. Use a sign-in link instead.', true);
+    }).catch(function () {
+      btn.disabled = false;
+      setStatus('Could not reach the server. Check your connection and try again.', true);
+    });
+  });
+})();
+</script>
+<!-- BEGIN UMBRELLA-CONSENT -->
+<link rel="stylesheet" href="/shared/lib/consent/consent.css">
+<script src="/shared/lib/consent/consent.js" data-project="interpreter" data-coppa="false" data-tenant-type="public" defer></script>
+<script src="/shared/lib/event-capture/event-capture-pixels.js" data-project="interpreter" data-conv-url="https://conv.madeby1891.com/v1/track" defer></script>
+<!-- END UMBRELLA-CONSENT -->
+</body>
+</html>

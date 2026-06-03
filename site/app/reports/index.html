@@ -1,0 +1,264 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Payment reports — 1891 Interpreter</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#C8553D">
+<link rel="icon" type="image/svg+xml" href="/interpreter/assets/img/favicon.svg">
+<link rel="stylesheet" href="/interpreter/assets/css/site.css">
+<link rel="stylesheet" href="/interpreter/assets/css/app.css">
+<style>
+  .bal-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:var(--1891int-s-3); margin-top:var(--1891int-s-3) }
+  .bal-card { background:#FAFAF7; border:1px solid var(--1891int-line); border-radius:var(--1891int-radius-md); padding:14px }
+  .bal-card .amt { font-size:24px; font-weight:700; font-variant-numeric:tabular-nums; line-height:1.1 }
+  .bal-card .lbl { font-size:11px; text-transform:uppercase; letter-spacing:.08em; color:var(--1891int-fog); margin-top:4px }
+  .bal-card .ccy { font-size:11px; color:var(--1891int-fog); margin-left:6px; font-weight:600 }
+  table.rpt { width:100%; border-collapse:collapse; font-size:13.5px; margin-top:var(--1891int-s-2) }
+  table.rpt th { text-align:left; padding:8px 10px; border-bottom:2px solid var(--1891int-ink); font-size:11px; text-transform:uppercase; letter-spacing:.06em; color:var(--1891int-fog) }
+  table.rpt td { padding:8px 10px; border-bottom:1px solid var(--1891int-line); vertical-align:middle }
+  table.rpt td.num { text-align:right; font-variant-numeric:tabular-nums }
+  table.rpt code { font-size:11px }
+  .status-pill { display:inline-block; padding:2px 8px; border-radius:999px; font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.04em; background:var(--1891int-paper-deep,#EEE9DD); color:var(--1891int-ink-soft) }
+  .status-pill.paid, .status-pill.succeeded { background:var(--1891int-ok-tint,#d9f2e0); color:var(--1891int-ok,#1d6f3f) }
+  .status-pill.pending, .status-pill.in_transit { background:var(--1891int-warn-tint,#fff1d6); color:#8a5a00 }
+  .status-pill.failed, .status-pill.canceled { background:var(--1891int-err-tint,#fde0e0); color:#a82f2f }
+  .ro-note { padding:12px 16px; background:rgba(46,94,92,0.10); border-left:4px solid var(--1891int-river,#2E5E5C); border-radius:var(--1891int-radius-sm); font-size:13.5px; line-height:1.5; margin-bottom:var(--1891int-s-4) }
+  .sub-h { font-size:16px; margin:var(--1891int-s-5) 0 0 }
+</style>
+</head>
+<body>
+<a href="#main" class="skip">Skip to main content</a>
+
+<div class="app-shell">
+  <header class="app-header">
+    <div class="wrap">
+      <a href="/interpreter/app/" class="brand"><img src="/interpreter/assets/img/brand-mark.svg" alt="" width="32" height="32"><span>1891 <span class="brand-sub">Scheduler</span></span></a>
+      <div class="who"><span>Signed in as </span><strong id="who-name">…</strong><button id="signout" type="button">Sign out</button></div>
+    </div>
+  </header>
+
+  <nav class="app-nav" aria-label="App sections">
+    <div class="wrap">
+      <a href="/interpreter/app/">Day-of board</a>
+      <a href="/interpreter/app/interpreters/">Interpreters</a>
+      <a href="/interpreter/app/requestors/">Requestors</a>
+      <a href="/interpreter/app/invoices/">Invoices</a>
+      <a href="/interpreter/app/payments/">Payments</a>
+      <a href="/interpreter/app/reports/" aria-current="page">Reports</a>
+      <a href="/interpreter/app/settings/">Settings</a>
+    </div>
+  </nav>
+
+  <main id="main" class="app-main">
+    <div class="wrap" style="max-width:980px">
+      <div class="toolbar">
+        <h1 style="margin:0;font-size:28px">Payment reports</h1>
+        <div class="spacer"></div>
+        <button class="btn btn-ghost btn-sm" type="button" id="refresh">Refresh</button>
+      </div>
+
+      <p class="ink-soft" style="font-size:14.5px;max-width:74ch">A read-only window into your agency's own connected payout account: balance, recent payouts, charges, and invoices. Your agency pays its interpreters and files their 1099s through this account — 1891 never moves the money and never holds it. We only read your summary figures so you can see them here.</p>
+
+      <!-- Loading -->
+      <div id="loading" class="empty-state"><span class="spinner"></span> Loading your payment summary&hellip;</div>
+
+      <!-- Not connected / unconfigured -->
+      <section id="not-connected" class="card" style="display:none;border-left:4px solid var(--1891int-bloom);margin-top:var(--1891int-s-4)">
+        <h2 class="mt-0">Connect your agency's payout account</h2>
+        <p style="font-size:14.5px" id="not-connected-msg">Connect your own payout account to see your balance, payouts, charges, and invoices here. You stay in control — your agency pays interpreters and files 1099s through that account; 1891 only reads your summary data.</p>
+        <a class="btn btn-primary" href="/interpreter/app/payments/" id="connect-cta">Go to Payments to connect</a>
+      </section>
+
+      <!-- Report -->
+      <section id="report" style="display:none">
+        <div class="card" style="margin-top:var(--1891int-s-4)">
+          <h2 class="mt-0">Balance <code id="acct-id" style="font-size:12px;font-weight:normal;color:var(--1891int-fog)"></code></h2>
+          <div id="balance" class="bal-grid"></div>
+          <div id="balance-empty" class="ink-soft" style="font-size:13.5px;display:none">No balance reported.</div>
+        </div>
+
+        <h3 class="sub-h">Recent payouts</h3>
+        <div id="payouts-wrap"></div>
+
+        <h3 class="sub-h">Recent charges</h3>
+        <div id="charges-wrap"></div>
+
+        <h3 class="sub-h">Recent invoices</h3>
+        <div id="invoices-wrap"></div>
+      </section>
+    </div>
+  </main>
+</div>
+
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+<script src="/interpreter/assets/js/whitelabel.js" defer></script>
+<script src="/interpreter/assets/js/api.js" defer></script>
+<script src="/interpreter/assets/js/api-multitenant.js" defer></script>
+<script src="/interpreter/assets/js/app-header.js" defer></script>
+<script>
+(function () {
+  'use strict';
+  document.addEventListener('DOMContentLoaded', init);
+
+  function $(id) { return document.getElementById(id); }
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' })[c]; }); }
+  function toast(msg, kind) { var t = $('toast'); t.textContent = msg; t.className = 'toast show' + (kind ? ' ' + kind : ''); setTimeout(function () { t.className = 'toast'; }, 3200); }
+
+  // Stripe amounts are in the smallest currency unit (cents for USD).
+  function fmtMoney(amountMinor, currency) {
+    var ccy = String(currency || 'usd').toUpperCase();
+    var val = (Number(amountMinor) || 0) / 100;
+    try {
+      return new Intl.NumberFormat('en-US', { style: 'currency', currency: ccy }).format(val);
+    } catch (_) {
+      return val.toFixed(2) + ' ' + ccy;
+    }
+  }
+  // Stripe timestamps are unix seconds.
+  function fmtDate(unixSec) {
+    if (!unixSec) return '—';
+    var d = new Date(Number(unixSec) * 1000);
+    if (isNaN(d.getTime())) return '—';
+    return d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+  }
+  function statusPill(status) {
+    var s = String(status || '').toLowerCase();
+    return '<span class="status-pill ' + esc(s) + '">' + esc(status || '—') + '</span>';
+  }
+
+  function init() {
+    if (!IntApi.getSession()) { location.href = '/interpreter/sign-in'; return; }
+    IntApi.whoami().then(function (r) {
+      if (!r || !r.ok) { IntApi.clearSession(); location.href = '/interpreter/sign-in'; return; }
+      $('who-name').textContent = (r.user && (r.user.display_name || r.user.email)) || 'unknown';
+      if (window.IntTheme && r.agency) IntTheme.apply(r.agency);
+      loadReport();
+    }).catch(function () { toast('Could not reach the server.', 'error'); });
+
+    $('refresh').addEventListener('click', loadReport);
+    $('signout').addEventListener('click', function () { IntApi.clearSession(); location.href = '/interpreter/'; });
+  }
+
+  function showOnly(which) {
+    $('loading').style.display = which === 'loading' ? '' : 'none';
+    $('not-connected').style.display = which === 'not-connected' ? '' : 'none';
+    $('report').style.display = which === 'report' ? '' : 'none';
+  }
+
+  function loadReport() {
+    showOnly('loading');
+    IntApi.jsonp({ action: 'agency_connect_report', limit: 20 }).then(function (r) {
+      if (r && r.ok && r.acct) { renderReport(r); return; }
+      // Not connected / unconfigured / any other not-ok state → show the CTA.
+      var msg;
+      if (r && r.status === 'unconfigured') {
+        msg = 'Payout reporting is not available yet for this workspace. Once your agency connects its payout account in Payments, your balance, payouts, charges, and invoices show up here.';
+      } else {
+        msg = 'No payout account is connected yet. Connect your own account in Payments to see your balance, payouts, charges, and invoices here. Your agency pays interpreters and files 1099s through that account — 1891 only reads your summary data.';
+      }
+      $('not-connected-msg').textContent = msg;
+      showOnly('not-connected');
+    }).catch(function () {
+      $('not-connected-msg').textContent = 'We could not load your payment summary. Check your connection and refresh, or connect your payout account in Payments.';
+      showOnly('not-connected');
+    });
+  }
+
+  function renderReport(r) {
+    $('acct-id').textContent = r.acct ? '· ' + r.acct : '';
+
+    // Balance
+    var bal = r.balance || [];
+    if (!bal.length) {
+      $('balance').innerHTML = '';
+      $('balance-empty').style.display = '';
+    } else {
+      $('balance-empty').style.display = 'none';
+      $('balance').innerHTML = bal.map(function (b) {
+        return '<div class="bal-card">' +
+          '<div class="amt">' + esc(fmtMoney(b.available_cents, b.currency)) + '<span class="ccy">' + esc(String(b.currency || '').toUpperCase()) + '</span></div>' +
+          '<div class="lbl">Available</div>' +
+          '<div class="amt" style="font-size:16px;margin-top:8px;color:var(--1891int-fog)">' + esc(fmtMoney(b.pending_cents, b.currency)) + '</div>' +
+          '<div class="lbl">Pending</div>' +
+        '</div>';
+      }).join('');
+    }
+
+    // Payouts
+    renderTable('payouts-wrap', r.recent_payouts || [],
+      ['Date', 'Amount', 'Status', 'Method', 'ID'],
+      function (p) {
+        return [
+          fmtDate(p.arrival_date),
+          { num: true, html: esc(fmtMoney(p.amount, p.currency)) },
+          { html: statusPill(p.status) },
+          esc(p.method || '—'),
+          { html: '<code>' + esc(p.id || '—') + '</code>' }
+        ];
+      }, 'No payouts in the recent window.');
+
+    // Charges
+    renderTable('charges-wrap', r.recent_charges || [],
+      ['Date', 'Amount', 'Status', 'Description', 'Refunded', 'ID'],
+      function (c) {
+        return [
+          fmtDate(c.created),
+          { num: true, html: esc(fmtMoney(c.amount, c.currency)) },
+          { html: statusPill(c.status) },
+          esc(c.description || '—'),
+          c.refunded ? 'Yes' : 'No',
+          { html: '<code>' + esc(c.id || '—') + '</code>' }
+        ];
+      }, 'No charges in the recent window.');
+
+    // Invoices
+    renderTable('invoices-wrap', r.recent_invoices || [],
+      ['Date', 'Total', 'Status', 'Customer', 'Invoice'],
+      function (i) {
+        var link = i.hosted_invoice_url
+          ? '<a href="' + esc(i.hosted_invoice_url) + '" target="_blank" rel="noopener">Open</a>'
+          : ('<code>' + esc(i.id || '—') + '</code>');
+        return [
+          fmtDate(i.created),
+          { num: true, html: esc(fmtMoney(i.total, i.currency)) },
+          { html: statusPill(i.status) },
+          esc(i.customer_email || '—'),
+          { html: link }
+        ];
+      }, 'No invoices in the recent window.');
+
+    showOnly('report');
+  }
+
+  // rows: array of records. cellFn(record) returns an array of cells; each cell
+  // is either a plain (escaped-by-caller) string or { html, num }.
+  function renderTable(wrapId, rows, headers, cellFn, emptyMsg) {
+    var wrap = $(wrapId);
+    if (!rows.length) {
+      wrap.innerHTML = '<div class="card" style="margin-top:var(--1891int-s-2)"><p class="ink-soft" style="font-size:13.5px;margin:0">' + esc(emptyMsg) + '</p></div>';
+      return;
+    }
+    var thead = '<thead><tr>' + headers.map(function (h) { return '<th>' + esc(h) + '</th>'; }).join('') + '</tr></thead>';
+    var tbody = '<tbody>' + rows.map(function (rec) {
+      var cells = cellFn(rec);
+      return '<tr>' + cells.map(function (c) {
+        if (c && typeof c === 'object') {
+          return '<td' + (c.num ? ' class="num"' : '') + '>' + (c.html != null ? c.html : '') + '</td>';
+        }
+        return '<td>' + (c == null ? '' : c) + '</td>';
+      }).join('') + '</tr>';
+    }).join('') + '</tbody>';
+    wrap.innerHTML = '<div style="overflow:auto"><table class="rpt">' + thead + tbody + '</table></div>';
+  }
+})();
+</script>
+<!-- BEGIN UMBRELLA-CONSENT -->
+<link rel="stylesheet" href="/shared/lib/consent/consent.css">
+<script src="/shared/lib/consent/consent.js" data-project="interpreter" data-coppa="false" data-tenant-type="public" defer></script>
+<script src="/shared/lib/event-capture/event-capture-pixels.js" data-project="interpreter" data-conv-url="https://conv.madeby1891.com/v1/track" defer></script>
+<!-- END UMBRELLA-CONSENT -->
+</body>
+</html>

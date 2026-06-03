@@ -258,9 +258,15 @@
         </select>
       </div>
       <div class="field">
-        <label for="t-source-text">Source text (paste)</label>
-        <textarea id="t-source-text" name="source_text" rows="8" required placeholder="Paste the document text here. File upload is coming soon — for now, paste plain text."></textarea>
-        <span class="hint">PHI is scrubbed before any model call. The full text is stored encrypted in the agency Sheet.</span>
+        <label for="t-source-file">Upload a document (optional)</label>
+        <input id="t-source-file" name="source_file" type="file" accept=".pdf,.doc,.docx,.rtf,.txt,image/*">
+        <span class="hint">PDF, Word, RTF, plain text, or an image (max 20MB). Plain-text files fill the box below automatically; other documents go straight to the translator.</span>
+        <div id="t-upload-status" class="hint" style="display:none;margin-top:6px"></div>
+      </div>
+      <div class="field">
+        <label for="t-source-text">Source text (paste, or leave blank if you uploaded a file)</label>
+        <textarea id="t-source-text" name="source_text" rows="8" placeholder="Paste the document text here, or upload a file above."></textarea>
+        <span class="hint">PHI is scrubbed before any model call. The full text is stored encrypted in the agency record. Either paste text or upload a file — you don't need both.</span>
       </div>
       <div class="field">
         <label for="t-notes">Notes to translator (optional)</label>
@@ -292,7 +298,8 @@
     detail: null,      // { document, full_text, siblings, job }
     targetDoc: null,
     targetText: '',
-    requestors: []
+    requestors: [],
+    sourceUpload: null   // { drive_id, filename, mime, size_bytes, sha256 } once a file is uploaded
   };
 
   function $(id) { return document.getElementById(id); }
@@ -325,6 +332,7 @@
     $('f-status').addEventListener('change', renderList);
     $('new-tr').addEventListener('click', openNew);
     $('save-tr').addEventListener('click', saveNew);
+    $('t-source-file').addEventListener('change', onSourceFilePicked);
     $('d-refresh').addEventListener('click', function () { var id = qparam('id'); if (id) loadDetail(id); });
     $('signout').addEventListener('click', function () { IntApi.clearSession(); location.href = '/interpreter/'; });
     var emptyBtn = $('empty-add'); if (emptyBtn) emptyBtn.addEventListener('click', openNew);
@@ -404,6 +412,9 @@
 
   function openNew() {
     $('new-tr-form').reset();
+    state.sourceUpload = null;
+    var us = $('t-upload-status');
+    if (us) { us.style.display = 'none'; us.innerHTML = ''; }
     // populate requestors
     var sel = $('t-req');
     if (sel.options.length <= 1) {
@@ -421,14 +432,91 @@
     $('m-new').classList.add('open');
   }
 
+  // Read a File as base64 (no data: prefix).
+  function fileToBase64(file) {
+    return new Promise(function (resolve, reject) {
+      var reader = new FileReader();
+      reader.onload = function () {
+        var res = String(reader.result || '');
+        var comma = res.indexOf(',');
+        resolve(comma >= 0 ? res.slice(comma + 1) : res);
+      };
+      reader.onerror = function () { reject(reader.error || new Error('read failed')); };
+      reader.readAsDataURL(file);
+    });
+  }
+
+  function onSourceFilePicked() {
+    var input = $('t-source-file');
+    var us = $('t-upload-status');
+    var file = input.files && input.files[0];
+    if (!file) { state.sourceUpload = null; us.style.display = 'none'; return; }
+    if (file.size > 20 * 1024 * 1024) {
+      toast('File too large (max 20MB).', 'error');
+      input.value = ''; state.sourceUpload = null; us.style.display = 'none';
+      return;
+    }
+    us.style.display = '';
+    us.style.color = 'var(--1891int-fog)';
+    us.textContent = 'Uploading ' + file.name + '…';
+    fileToBase64(file).then(function (b64) {
+      return IntApiTranslate.uploadSource({
+        filename: file.name,
+        mime: file.type || 'application/octet-stream',
+        bytes_b64: b64
+      });
+    }).then(function (r) {
+      if (!r || !r.ok) {
+        us.style.color = 'var(--1891int-err)';
+        us.textContent = (r && r.error) || 'Upload failed.';
+        state.sourceUpload = null;
+        return;
+      }
+      state.sourceUpload = {
+        drive_id: r.drive_id,
+        filename: r.filename,
+        mime: r.mime,
+        size_bytes: r.size_bytes,
+        sha256: r.sha256
+      };
+      // If the backend extracted plain text, drop it into the textarea.
+      if (r.extracted_text) {
+        $('t-source-text').value = r.extracted_text;
+      }
+      var viewUrl = IntApiTranslate.sourceUrl(r.drive_id);
+      us.style.color = 'var(--1891int-ok)';
+      us.innerHTML = 'Uploaded <strong>' + esc(r.filename) + '</strong> (' + esc(String(r.size_bytes)) + ' bytes) · '
+        + '<a href="' + esc(viewUrl) + '" target="_blank" rel="noopener">view</a>'
+        + (r.extracted_text ? ' · text dropped into the box below' : '');
+    }).catch(function () {
+      us.style.color = 'var(--1891int-err)';
+      us.textContent = 'Upload failed — check your connection and try again.';
+      state.sourceUpload = null;
+    });
+  }
+
   function saveNew() {
     var form = $('new-tr-form');
     if (!form.reportValidity()) return;
     var fd = new FormData(form);
     var fields = {};
     fd.forEach(function (v, k) { fields[k] = v; });
+    delete fields.source_file; // the raw File object is not sent here — we upload separately
+    // The backend accepts source_text OR an uploaded file. Require at least one.
+    var hasText = String(fields.source_text || '').trim().length > 0;
+    if (!hasText && !state.sourceUpload) {
+      toast('Paste source text or upload a document first.', 'error');
+      return;
+    }
+    if (state.sourceUpload) {
+      fields.source_drive_id   = state.sourceUpload.drive_id;
+      fields.source_filename   = state.sourceUpload.filename;
+      fields.source_mime       = state.sourceUpload.mime;
+      fields.source_size_bytes = state.sourceUpload.size_bytes;
+      fields.source_sha256     = state.sourceUpload.sha256;
+    }
     IntApiTranslate.createTranslationJob(fields).then(function () {
-      toast('Translation job created — pending Sheet sync.', 'ok');
+      toast('Translation job created — pending sync.', 'ok');
       $('m-new').classList.remove('open');
       setTimeout(loadList, 1500);
     }).catch(function () { toast('Create failed.', 'error'); });

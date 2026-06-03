@@ -16,14 +16,16 @@
   .pref-table select { padding:4px 8px; border:1px solid var(--1891int-line); border-radius:4px; font-size:12.5px; width:130px }
   .pref-table .event-name { font-weight:600 }
   .pref-table .event-help { color:var(--1891int-fog); font-size:12px; margin-top:2px }
-  .channel-disabled { opacity:.5 }
   .sms-config-warn { padding:10px 14px; background:#FFF5CC; color:#7D5C00; border-radius:6px; font-size:13.5px; margin-bottom:var(--1891int-s-3) }
+  .yes-callout { padding:12px 16px; background:var(--1891int-river-tint, rgba(46,94,92,0.10)); border-left:4px solid var(--1891int-river, #2E5E5C); border-radius:var(--1891int-radius-sm); font-size:13.5px; line-height:1.5; margin-top:var(--1891int-s-3) }
+  .yes-callout strong { color:var(--1891int-river, #2E5E5C) }
   .cal-url-box { display:flex; gap:8px; align-items:stretch; margin:10px 0 }
   .cal-url-box input { flex:1; padding:8px 10px; border:1px solid var(--1891int-line); border-radius:4px; font-family:var(--1891int-mono); font-size:12px; background:#FAFAFA; color:var(--1891int-ink) }
   .cal-help { font-size:12.5px; color:var(--1891int-fog); line-height:1.5; margin-top:var(--1891int-s-2) }
   .cal-help ul { margin:6px 0 0 18px; padding:0 }
   .cal-help li { margin:3px 0 }
   .cal-actions { display:flex; gap:8px; flex-wrap:wrap; margin-top:var(--1891int-s-2) }
+  .qh-row { display:grid; grid-template-columns:180px 1fr; gap:10px; align-items:center; font-size:14.5px }
 </style>
 </head>
 <body>
@@ -46,7 +48,7 @@
   <main id="main" class="app-main">
     <div class="wrap" style="max-width:880px">
       <h1 style="margin:0 0 var(--1891int-s-2);font-size:30px">Notification preferences</h1>
-      <p class="ink-soft" style="font-size:14.5px;max-width:64ch">Per-event delivery cadence. <strong>Immediate</strong> sends as soon as the event happens. <strong>Daily digest</strong> rolls them into one email at 6am Eastern. <strong>Weekly</strong> bundles them into a Monday-morning summary. SMS is immediate-or-off — there are no digest texts.</p>
+      <p class="ink-soft" style="font-size:14.5px;max-width:64ch">Per-event delivery cadence. <strong>Immediate</strong> sends as soon as the event happens. <strong>Daily digest</strong> rolls them into one email each morning. <strong>Weekly</strong> bundles them into a Monday-morning summary. SMS and push are immediate-or-off — there are no digest texts.</p>
 
       <section class="card" style="margin-bottom:var(--1891int-s-5)">
         <h2 class="mt-0">SMS settings</h2>
@@ -56,6 +58,9 @@
           <label for="phone">Mobile number</label>
           <input id="phone" type="tel" placeholder="+13015550100" style="padding:8px 12px;border:1px solid var(--1891int-line);border-radius:4px;font-family:var(--1891int-mono);font-size:13.5px">
           <button class="btn btn-primary btn-sm" id="save-phone">Save number</button>
+        </div>
+        <div class="yes-callout">
+          <strong>Turn on SMS for "Job offer received"</strong> and you can claim a job straight from your phone — just reply <strong>YES</strong> to the offer text. Without SMS on for that event, no claim-by-text is sent.
         </div>
       </section>
 
@@ -67,12 +72,17 @@
             <option value="5">5:00 AM ET</option><option value="6">6:00 AM ET</option><option value="7">7:00 AM ET</option><option value="8">8:00 AM ET</option><option value="17">5:00 PM ET</option><option value="18">6:00 PM ET</option>
           </select>
         </div>
-        <div style="display:grid;grid-template-columns:180px 1fr;gap:10px;align-items:center;font-size:14.5px">
+        <div style="display:grid;grid-template-columns:180px 1fr;gap:10px;align-items:center;font-size:14.5px;margin-bottom:10px">
           <label for="weekly-day">Weekly digest day</label>
           <select id="weekly-day" style="padding:6px 10px;border:1px solid var(--1891int-line);border-radius:4px;font-size:13.5px;width:200px">
             <option value="1">Monday</option><option value="2">Tuesday</option><option value="3">Wednesday</option><option value="4">Thursday</option><option value="5">Friday</option><option value="6">Saturday</option><option value="0">Sunday</option>
           </select>
         </div>
+        <div class="qh-row">
+          <label for="quiet-hours">Quiet hours (optional)</label>
+          <input id="quiet-hours" type="text" placeholder="22:00-07:00" style="padding:8px 10px;border:1px solid var(--1891int-line);border-radius:4px;font-family:var(--1891int-mono);font-size:13px;width:200px">
+        </div>
+        <p class="muted" style="font-size:12.5px;margin:6px 0 0">Quiet hours hold non-urgent notifications until the window ends. Use 24-hour <code>HH:MM-HH:MM</code> in Eastern time. Leave blank for none.</p>
         <div style="margin-top:var(--1891int-s-3)">
           <button class="btn btn-primary btn-sm" id="save-settings">Save digest settings</button>
         </div>
@@ -131,7 +141,7 @@
   function toast(msg, kind) { var t = $('toast'); t.textContent = msg; t.className = 'toast show' + (kind ? ' ' + kind : ''); setTimeout(function () { t.className = 'toast'; }, 3500); }
 
   var EVENT_LABELS = {
-    job_offer: { name: 'Job offer received', help: 'A scheduler offered you a job — preview only, PII reveals on accept' },
+    job_offer: { name: 'Job offer received', help: 'A scheduler offered you a job — turn on SMS to claim by replying YES' },
     job_claimed: { name: 'Job claimed', help: 'One of your jobs has been confirmed by an interpreter' },
     job_confirmed: { name: 'Job confirmed', help: 'Scheduler confirmed an assignment' },
     job_cancelled: { name: 'Job cancelled', help: 'A job you are/were on was cancelled' },
@@ -142,6 +152,10 @@
     doc_expiring_7d: { name: 'Doc expiring in 7 days', help: 'Urgent doc renewal needed' },
     doc_expired: { name: 'Doc expired', help: 'A required doc is now expired — you cannot be offered new jobs' }
   };
+
+  // Email supports digests; SMS and Push are immediate-or-off (backend rejects digest for SMS).
+  var EMAIL_MODES = ['immediate', 'daily_digest', 'weekly_digest', 'off'];
+  var BINARY_MODES = ['immediate', 'off'];
 
   document.addEventListener('DOMContentLoaded', init);
 
@@ -226,7 +240,8 @@
       var settings = r.settings || {};
       $('phone').value = settings.phone_e164 || '';
       if (settings.daily_digest_hour) $('daily-hour').value = String(settings.daily_digest_hour);
-      if (settings.weekly_digest_day !== undefined) $('weekly-day').value = String(settings.weekly_digest_day);
+      if (settings.weekly_digest_day !== undefined && settings.weekly_digest_day !== null) $('weekly-day').value = String(settings.weekly_digest_day);
+      $('quiet-hours').value = settings.quiet_hours || '';
       if (!settings.phone_e164) {
         $('sms-config-state').style.display = '';
         $('sms-config-state').textContent = 'No mobile number on file. SMS will not deliver. Save a number to enable.';
@@ -235,7 +250,7 @@
       }
       renderRows(prefs);
       $('table-wrap').style.display = '';
-    });
+    }).catch(function () { $('loading').style.display = 'none'; toast('Network error', 'error'); });
   }
 
   function renderRows(prefs) {
@@ -247,9 +262,9 @@
       var lbl = EVENT_LABELS[ev];
       return '<tr>' +
         '<td><div class="event-name">' + esc(lbl.name) + '</div><div class="event-help">' + esc(lbl.help) + '</div></td>' +
-        '<td>' + selectFor(ev, 'email', p.email_mode || 'immediate', false) + '</td>' +
-        '<td>' + selectFor(ev, 'sms', p.sms_mode || 'off', true) + '</td>' +
-        '<td>' + selectFor(ev, 'push', p.push_mode || 'immediate', false) + '</td>' +
+        '<td>' + selectFor(ev, 'email', p.email_mode || 'immediate', EMAIL_MODES) + '</td>' +
+        '<td>' + selectFor(ev, 'sms', p.sms_mode || 'off', BINARY_MODES) + '</td>' +
+        '<td>' + selectFor(ev, 'push', p.push_mode || 'immediate', BINARY_MODES) + '</td>' +
       '</tr>';
     }).join('');
     $('rows').innerHTML = rows;
@@ -265,13 +280,7 @@
     });
   }
 
-  function selectFor(eventType, channel, current, smsOnly) {
-    var opts;
-    if (smsOnly) {
-      opts = ['immediate', 'off'];
-    } else {
-      opts = ['immediate', 'daily_digest', 'weekly_digest', 'off'];
-    }
+  function selectFor(eventType, channel, current, opts) {
     return '<select data-pref data-event="' + esc(eventType) + '" data-channel="' + esc(channel) + '">' +
       opts.map(function (o) {
         return '<option value="' + esc(o) + '"' + (o === current ? ' selected' : '') + '>' + esc(o.replace(/_/g, ' ')) + '</option>';
@@ -290,7 +299,16 @@
     });
   }
   function saveSettings() {
-    IntApi.jsonp({ action:'update_notification_settings', daily_digest_hour: $('daily-hour').value, weekly_digest_day: $('weekly-day').value }).then(function (r) {
+    var qh = $('quiet-hours').value.trim();
+    if (qh && !/^\d{1,2}:\d{2}-\d{1,2}:\d{2}$/.test(qh)) {
+      toast('Quiet hours format is HH:MM-HH:MM (or leave blank).', 'error'); return;
+    }
+    IntApi.jsonp({
+      action:'update_notification_settings',
+      daily_digest_hour: $('daily-hour').value,
+      weekly_digest_day: $('weekly-day').value,
+      quiet_hours: qh
+    }).then(function (r) {
       if (!r || !r.ok) { toast((r && r.error) || 'Save failed', 'error'); return; }
       toast('Saved.', 'ok');
     });
