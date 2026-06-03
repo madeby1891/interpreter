@@ -71,6 +71,7 @@
           <div class="spacer"></div>
           <button class="btn btn-ghost btn-sm" type="button" id="d-refresh">Refresh</button>
           <a class="btn btn-ghost btn-sm" id="d-pdf" href="#" target="_blank" rel="noopener">Download PDF</a>
+          <button class="btn btn-secondary btn-sm" type="button" id="d-qbo" style="display:none">Push to QuickBooks</button>
           <button class="btn btn-primary btn-sm" type="button" id="d-mark-paid" style="display:none">Mark paid</button>
           <button class="btn btn-ghost btn-sm" type="button" id="d-void" style="display:none">Void</button>
         </div>
@@ -135,8 +136,20 @@
   'use strict';
   document.addEventListener('DOMContentLoaded', init);
 
-  var state = { invoices: [], me: null, payers: [] };
+  var state = { invoices: [], me: null, payers: [], qboConnected: false };
   var filter = null;
+
+  // CORS POST through the proxy that reads the JSON response (form params).
+  function postAction(action, fields) {
+    var body = new URLSearchParams();
+    body.append('action', action);
+    if (fields) Object.keys(fields).forEach(function (k) { body.append(k, String(fields[k])); });
+    var s = IntApi.getSession();
+    if (s) body.append('session', s);
+    return fetch(IntApi.ENDPOINT, {
+      method: 'POST', mode: 'cors', headers: { 'Accept': 'application/json' }, body: body
+    }).then(function (r) { return r.json(); });
+  }
 
   function $(id) { return document.getElementById(id); }
   function escHtml(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
@@ -158,6 +171,13 @@
       state.me = r.user;
       $('who-name').textContent = (r.user && (r.user.display_name || r.user.email)) || 'unknown';
       if (window.IntTheme && r.agency) IntTheme.apply(r.agency);
+      // Best-effort QuickBooks connection probe — drives the "Push to QuickBooks"
+      // affordance on the detail view. Failures just leave the button hidden.
+      IntApi.jsonp({ action: 'qbo_status' }).then(function (q) {
+        state.qboConnected = !!(q && q.ok && q.connected);
+        var id0 = qparam('id');
+        if (id0 && $('d-qbo')) $('d-qbo').style.display = state.qboConnected ? '' : 'none';
+      }).catch(function () {});
       var id = qparam('id');
       if (id) loadDetail(id);
       else loadList();
@@ -378,6 +398,14 @@
     var unpaid = (inv.status !== 'paid' && inv.status !== 'void');
     $('d-mark-paid').style.display = unpaid ? '' : 'none';
     $('d-void').style.display = unpaid ? '' : 'none';
+    // Push to QuickBooks: shown only when QuickBooks is connected and the
+    // invoice isn't void. Already-pushed invoices show a relabeled button.
+    var qboBtn = $('d-qbo');
+    if (qboBtn) {
+      var pushable = state.qboConnected && inv.status !== 'void';
+      qboBtn.style.display = pushable ? '' : 'none';
+      qboBtn.textContent = inv.qbo_invoice_id ? 'Re-push to QuickBooks' : 'Push to QuickBooks';
+    }
 
     var html = '';
     html += '<article class="job-card" data-status="' + escHtml(statusU) + '">';
@@ -435,6 +463,22 @@
         setTimeout(function () { loadDetail(inv.invoice_id); }, 1200);
       }).catch(function () { toast('Void failed.', 'error'); });
     };
+    var qboBtn = $('d-qbo');
+    if (qboBtn) {
+      qboBtn.onclick = function () {
+        if (!confirm('Push invoice ' + (inv.invoice_number || inv.invoice_id) + ' to QuickBooks?')) return;
+        qboBtn.disabled = true;
+        var prev = qboBtn.textContent;
+        qboBtn.textContent = 'Pushing…';
+        postAction('qbo_push_invoice', { invoice_id: inv.invoice_id }).then(function (r) {
+          qboBtn.disabled = false;
+          qboBtn.textContent = prev;
+          if (!r || !r.ok) { toast((r && r.error) || 'Push to QuickBooks failed.', 'error'); return; }
+          toast('Pushed to QuickBooks' + (r.qbo_doc_number ? ' (#' + r.qbo_doc_number + ')' : '') + '.', 'ok');
+          setTimeout(function () { loadDetail(inv.invoice_id); }, 1200);
+        }).catch(function () { qboBtn.disabled = false; qboBtn.textContent = prev; toast('Network error pushing to QuickBooks.', 'error'); });
+      };
+    }
   }
 })();
 </script>

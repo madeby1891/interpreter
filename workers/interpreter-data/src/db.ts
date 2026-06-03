@@ -60,7 +60,7 @@ export const TABLES: Record<string, TableDef> = {
 
   // tenant tables (verbatim from _tenantSchema)
   Agencies:      { pk: ['tenant_id'], mode: 'upsert', tenantScoped: true,
-    columns: ['tenant_id','legal_name','tax_id_last4','tier','phi_mode','timezone','primary_owner_user_id','logo_r2_key','brand_color','billing_email','_created_at','_updated_at'] },
+    columns: ['tenant_id','legal_name','tax_id_last4','tier','phi_mode','timezone','primary_owner_user_id','logo_r2_key','brand_color','billing_email','_created_at','_updated_at','qbo_realm_id'] },
   Users:         { pk: ['user_id'], mode: 'upsert', tenantScoped: true,
     columns: ['user_id','tenant_id','email','phone_e164','display_name','role_id','interpreter_id','status','mfa_enabled','webauthn_credential_ids','last_login_at','pii_scope','failed_login_count','sso_subject','calendar_token','_created_at','_updated_at'] },
   Roles:         { pk: ['role_id'], mode: 'upsert', tenantScoped: true,

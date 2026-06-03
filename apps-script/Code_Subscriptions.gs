@@ -79,7 +79,10 @@ var SUB_AGENCY_COLS = [
   'stripe_connect_status',       // 'none' | 'linked' | 'deauthorized'
   'stripe_connect_scopes',       // 'read_only' (we never ask for read_write)
   'stripe_connect_linked_at',    // ISO timestamp
-  'stripe_connect_linked_by'     // user email of admin who clicked Connect
+  'stripe_connect_linked_by',    // user email of admin who clicked Connect
+  // QuickBooks Online (QBO) — company id when linked; blank otherwise.
+  // (The refresh token is NEVER a Sheet column — it lives in Script Properties.)
+  'qbo_realm_id'
 ];
 
 // Live Stripe price IDs → tier + billing_interval. Source of truth lives in

@@ -116,6 +116,8 @@ function doGet(e) {
       // SSO (OIDC) — alongside magic-link
       case 'sso_start':          return _safeCall('apiSsoStart', e);
       case 'sso_config_get':     return _safeCall('apiSsoConfigGet', e);
+      // QuickBooks Online — link-state read (JSONP-friendly)
+      case 'qbo_status':         return _safeCall('apiQboStatus', e);
       case 'smart_fill':         return apiSmartFill(e);
       case 'list_interpreters':  return apiListInterpreters(e);
       case 'list_requestors':    return apiListRequestors(e);
@@ -273,6 +275,12 @@ function doPost(e) {
       case 'agency_connect_callback':   return _safeCall('apiAgencyConnectCallback', e);
       case 'agency_connect_report':     return _safeCall('apiAgencyConnectReport', e);
       case 'agency_connect_disconnect': return _safeCall('apiAgencyConnectDisconnect', e);
+      // QuickBooks Online (QBO) OAuth + invoice push.
+      case 'qbo_connect_start':         return _safeCall('apiQboConnectStart', e);
+      case 'qbo_connect_callback':      return _safeCall('apiQboConnectCallback', e);
+      case 'qbo_status':                return _safeCall('apiQboStatus', e);
+      case 'qbo_push_invoice':          return _safeCall('apiQboPushInvoice', e);
+      case 'qbo_disconnect':            return _safeCall('apiQboDisconnect', e);
       // Public marketing-page hop (no session). Also exposed via doGet for
       // JSONP-friendly callers; registered here so a regular POST also works.
       case 'subscription_intent_url':   return _safeCall('apiSubscriptionIntentUrl', e);
@@ -2464,7 +2472,7 @@ function bootstrapHostTenant() {
 
 function _tenantSchema() {
   return {
-    Agencies: ['tenant_id','legal_name','tax_id_last4','tier','phi_mode','timezone','primary_owner_user_id','logo_r2_key','brand_color','billing_email','_created_at','_updated_at'],
+    Agencies: ['tenant_id','legal_name','tax_id_last4','tier','phi_mode','timezone','primary_owner_user_id','logo_r2_key','brand_color','billing_email','_created_at','_updated_at','qbo_realm_id'],
     Users: ['user_id','tenant_id','email','phone_e164','display_name','role_id','interpreter_id','status','mfa_enabled','webauthn_credential_ids','last_login_at','pii_scope','failed_login_count','sso_subject','calendar_token','_created_at','_updated_at'],
     Roles: ['role_id','tenant_id','display_name','permissions','can_break_glass','max_pii_scope','_created_at','_updated_at'],
     Interpreters: ['interpreter_id','tenant_id','user_id','classification','legal_first','legal_last','pronouns','home_city','home_state','home_zip','service_radius_mi','has_vehicle','modalities','languages','certifications','skills','rate_card_id','min_call_hours','availability_prefs','availability_doc_id','payment_method','payment_details_encrypted','w9_doc_id','coi_doc_id','background_check_at','deaf','notes_internal','status','rid_member_number','bei_member_number','other_member_numbers','pay_rate_floors','cancellation_floors','evening_premium_pct','weekend_premium_pct','last_minute_premium_pct','holiday_premium_pct','mileage_rate_cents','travel_time_rate_cents','specialty_endorsements','availability_windows','onboarding_completed_at','_created_at','_updated_at','_rev'],

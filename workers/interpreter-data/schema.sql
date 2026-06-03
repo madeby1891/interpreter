@@ -97,8 +97,12 @@ CREATE TABLE IF NOT EXISTS Agencies (
   brand_color          TEXT,
   billing_email        TEXT,
   _created_at          INTEGER,
-  _updated_at          INTEGER
+  _updated_at          INTEGER,
+  qbo_realm_id         TEXT             -- QuickBooks Online company id when linked; blank otherwise
 );
+-- qbo_realm_id was appended after the live DB was provisioned, so ALTER it onto
+-- the already-deployed table (no-op on a fresh provision):
+--   ALTER TABLE Agencies ADD COLUMN qbo_realm_id TEXT;
 
 -- ── Users ────────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS Users (

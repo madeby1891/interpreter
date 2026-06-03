@@ -46,6 +46,14 @@ import {
   CONNECT_REDIRECT_URI,
 } from "./connect";
 import {
+  buildOAuthStartUrl as qboBuildOAuthStartUrl,
+  exchangeOAuthCode as qboExchangeOAuthCode,
+  pushInvoice as qboPushInvoiceImpl,
+  isConfigured as qboConfigured,
+  unconfigured as qboUnconfigured,
+  type PushInvoiceLine,
+} from "./qbo";
+import {
   createNec1099,
   getForm as get1099Form,
   isConfigured as track1099Configured,
@@ -81,6 +89,14 @@ export interface Env {
   // copies the ca_… client_id into `wrangler secret put STRIPE_CONNECT_CLIENT_ID`,
   // /v1/connect/* routes return { ok:false, status:'unconfigured' }.
   STRIPE_CONNECT_CLIENT_ID?: string;
+  // QuickBooks Online (QBO) OAuth — push interpreter invoices to QuickBooks.
+  // Until QBO_CLIENT_ID / QBO_CLIENT_SECRET / QBO_REDIRECT_URI are set as
+  // worker secrets, /v1/qbo/* routes return { ok:false, status:'unconfigured' }.
+  // QBO_ENVIRONMENT selects the API base: "sandbox" (default) or "production".
+  QBO_CLIENT_ID?: string;
+  QBO_CLIENT_SECRET?: string;
+  QBO_REDIRECT_URI?: string;
+  QBO_ENVIRONMENT?: string;
   TRACK1099_API_KEY?: string;
   TRACK1099_BASE?: string;
   PLAID_CLIENT_ID?: string;
@@ -221,6 +237,21 @@ async function handle(req: Request, env: Env, ctx: ExecutionContext): Promise<Re
   }
   if (url.pathname === "/v1/connect/report" && req.method === "POST") {
     return withCors(await handleConnectReport(req, env), req, cfg);
+  }
+
+  // QuickBooks Online (QBO) OAuth + invoice push.
+  // Internal routes: Apps Script → Worker, gated by X-1891-Internal.
+  if (url.pathname === "/v1/qbo/oauth/start" && req.method === "POST") {
+    return withCors(await handleQboOAuthStart(req, env), req, cfg);
+  }
+  if (url.pathname === "/v1/qbo/oauth/callback" && req.method === "POST") {
+    return withCors(await handleQboOAuthCallback(req, env), req, cfg);
+  }
+  if (url.pathname === "/v1/qbo/status" && req.method === "POST") {
+    return withCors(await handleQboStatus(req, env), req, cfg);
+  }
+  if (url.pathname === "/v1/qbo/push-invoice" && req.method === "POST") {
+    return withCors(await handleQboPushInvoice(req, env), req, cfg);
   }
 
   // Internal track1099 routes (Apps Script → Worker).
@@ -611,6 +642,120 @@ async function handleConnectReport(req: Request, env: Env): Promise<Response> {
 // Silence unused-import linter — CONNECT_REDIRECT_URI is exported for docs
 // and for any future site-side preflight check.
 void CONNECT_REDIRECT_URI;
+
+// ---------------------------------------------------------------------------
+// QuickBooks Online (QBO) OAuth + invoice push — internal routes
+//
+// Apps Script calls these on behalf of an admin who clicked "Connect
+// QuickBooks Online" in the in-app settings. Until QBO_CLIENT_ID /
+// QBO_CLIENT_SECRET / QBO_REDIRECT_URI are set as worker secrets, these return
+// `{ ok:false, status:'unconfigured' }` — mirrors the Stripe Connect routes.
+// ---------------------------------------------------------------------------
+
+async function handleQboOAuthStart(req: Request, env: Env): Promise<Response> {
+  const auth = verifyInternalHeader(req, env.JWT_SECRET);
+  if (!auth.authorized) return json({ ok: false, error: auth.error ?? "unauthorized" }, { status: 401 });
+  if (!qboConfigured(env)) return json(qboUnconfigured(), { status: 200 });
+  let body: { tenant_id?: string; email?: string };
+  try {
+    body = (await req.json()) as typeof body;
+  } catch {
+    return json({ ok: false, error: "bad json" }, { status: 400 });
+  }
+  const result = await qboBuildOAuthStartUrl(env, {
+    tenant_id: String(body.tenant_id ?? ""),
+    email: String(body.email ?? ""),
+  });
+  return json(result, { status: 200 });
+}
+
+async function handleQboOAuthCallback(req: Request, env: Env): Promise<Response> {
+  const auth = verifyInternalHeader(req, env.JWT_SECRET);
+  if (!auth.authorized) return json({ ok: false, error: auth.error ?? "unauthorized" }, { status: 401 });
+  if (!qboConfigured(env)) return json(qboUnconfigured(), { status: 200 });
+  let body: { code?: string; state?: string; realm_id?: string };
+  try {
+    body = (await req.json()) as typeof body;
+  } catch {
+    return json({ ok: false, error: "bad json" }, { status: 400 });
+  }
+  if (!body.code || !body.state) {
+    return json({ ok: false, error: "code + state required" }, { status: 400 });
+  }
+  const result = await qboExchangeOAuthCode(env, {
+    code: body.code,
+    state: body.state,
+    realm_id: String(body.realm_id ?? ""),
+  });
+  return json(result, { status: 200 });
+}
+
+// Status is a thin probe: it reports whether the worker is wired up. The
+// durable link state (realm_id present) lives on the Agencies row, which Apps
+// Script owns — so the connected/realm answer is composed there. This route
+// exists to surface the unconfigured vs configured distinction symmetrically.
+async function handleQboStatus(req: Request, env: Env): Promise<Response> {
+  const auth = verifyInternalHeader(req, env.JWT_SECRET);
+  if (!auth.authorized) return json({ ok: false, error: auth.error ?? "unauthorized" }, { status: 401 });
+  if (!qboConfigured(env)) return json(qboUnconfigured(), { status: 200 });
+  return json({
+    ok: true,
+    configured: true,
+    environment: String(env.QBO_ENVIRONMENT ?? "sandbox").toLowerCase() === "production" ? "production" : "sandbox",
+  });
+}
+
+async function handleQboPushInvoice(req: Request, env: Env): Promise<Response> {
+  const auth = verifyInternalHeader(req, env.JWT_SECRET);
+  if (!auth.authorized) return json({ ok: false, error: auth.error ?? "unauthorized" }, { status: 401 });
+  if (!qboConfigured(env)) return json(qboUnconfigured(), { status: 200 });
+  let body: {
+    refresh_token?: string;
+    realm_id?: string;
+    item_ref?: string;
+    invoice?: {
+      invoice_id?: string;
+      invoice_number?: string;
+      customer_ref?: string;
+      customer_name?: string;
+      due_date?: string;
+      memo?: string;
+      lines?: Array<Record<string, unknown>>;
+    };
+  };
+  try {
+    body = (await req.json()) as typeof body;
+  } catch {
+    return json({ ok: false, error: "bad json" }, { status: 400 });
+  }
+  if (!body.refresh_token) return json({ ok: false, error: "refresh_token required" }, { status: 400 });
+  if (!body.realm_id) return json({ ok: false, error: "realm_id required" }, { status: 400 });
+  const inv = body.invoice;
+  if (!inv || !Array.isArray(inv.lines) || !inv.lines.length) {
+    return json({ ok: false, error: "invoice with at least one line required" }, { status: 400 });
+  }
+  const lines: PushInvoiceLine[] = (inv.lines as Array<Record<string, unknown>>).map((ln) => ({
+    description: String(ln.description ?? "Interpreting services"),
+    amount_cents: Number(ln.amount_cents ?? 0),
+    quantity: ln.quantity != null ? Number(ln.quantity) : undefined,
+    rate_cents: ln.rate_cents != null ? Number(ln.rate_cents) : undefined,
+  }));
+  const result = await qboPushInvoiceImpl(env, {
+    refresh_token: String(body.refresh_token),
+    realm_id: String(body.realm_id),
+    item_ref: body.item_ref ? String(body.item_ref) : undefined,
+    invoice: {
+      invoice_id: String(inv.invoice_id ?? ""),
+      invoice_number: inv.invoice_number ? String(inv.invoice_number) : undefined,
+      customer_ref: inv.customer_ref ? String(inv.customer_ref) : undefined,
+      customer_name: inv.customer_name ? String(inv.customer_name) : undefined,
+      due_date: inv.due_date ? String(inv.due_date) : undefined,
+      memo: inv.memo ? String(inv.memo) : undefined,
+      lines,
+    },
+  });
+  return json(result, { status: 200 });
+}
 
 // ---------------------------------------------------------------------------
 // track1099 internal routes

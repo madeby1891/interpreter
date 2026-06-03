@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Finishing QuickBooks connection — 1891 Interpreter</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#C8553D">
+<link rel="icon" type="image/svg+xml" href="/interpreter/assets/img/favicon.svg">
+<link rel="stylesheet" href="/interpreter/assets/css/site.css">
+<link rel="stylesheet" href="/interpreter/assets/css/app.css">
+</head>
+<body>
+<a href="#main" class="skip">Skip to main content</a>
+<main id="main">
+  <div class="signin-card center-text" id="card">
+    <h1>Finishing QuickBooks connection&hellip;</h1>
+    <p class="lede" id="status"><span class="spinner" aria-hidden="true"></span> Linking your QuickBooks Online company.</p>
+    <div id="actions" style="display:none">
+      <a class="btn btn-primary btn-lg" href="/interpreter/app/settings/quickbooks">Back to QuickBooks settings</a>
+    </div>
+    <div id="error-actions" style="display:none">
+      <p class="muted">If this keeps failing, try connecting again.</p>
+      <a class="btn btn-secondary" href="/interpreter/app/settings/quickbooks">Back to QuickBooks settings</a>
+    </div>
+  </div>
+</main>
+
+<!-- Plain (non-defer) scripts so IntApi is defined when the inline script runs;
+     mirrors /app/sso/callback.html. -->
+<script src="/interpreter/assets/js/whitelabel.js"></script>
+<script src="/interpreter/assets/js/api.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  var statusEl = document.getElementById('status');
+  var actions = document.getElementById('actions');
+  var errActions = document.getElementById('error-actions');
+
+  function fail(msg) {
+    statusEl.textContent = msg;
+    statusEl.style.color = 'var(--1891int-err)';
+    if (errActions) errActions.style.display = 'block';
+  }
+  function ok(realmId) {
+    statusEl.innerHTML = 'QuickBooks connected' + (realmId ? ' (company <strong>' + realmId + '</strong>)' : '') + '.';
+    statusEl.style.color = 'var(--1891int-ok)';
+    if (actions) actions.style.display = 'block';
+    setTimeout(function () { location.href = '/interpreter/app/settings/quickbooks'; }, 1400);
+  }
+
+  if (typeof IntApi === 'undefined') {
+    fail('Connection helper failed to load. Check your connection and reload.');
+    return;
+  }
+  if (!IntApi.getSession()) {
+    fail('Your session expired. Sign in again, then reconnect QuickBooks.');
+    return;
+  }
+
+  var params = new URLSearchParams(location.search);
+  var code = params.get('code');
+  var state = params.get('state');
+  // Intuit returns the company id as `realmId`.
+  var realmId = params.get('realmId') || params.get('realm_id') || '';
+  var idpError = params.get('error');
+
+  if (idpError) {
+    fail('QuickBooks returned an error: ' + idpError + (params.get('error_description') ? (' — ' + params.get('error_description')) : '') + '.');
+    return;
+  }
+  if (!code || !state) { fail('Missing authorization code. Please start the QuickBooks connection again.'); return; }
+  if (!realmId) { fail('QuickBooks did not return a company id. Please try connecting again.'); return; }
+
+  // POST { code, state, realmId } to qbo_connect_callback. The backend reads
+  // form params (e.parameter), so send urlencoded with the session attached.
+  var body = new URLSearchParams();
+  body.append('action', 'qbo_connect_callback');
+  body.append('code', code);
+  body.append('state', state);
+  body.append('realmId', realmId);
+  body.append('session', IntApi.getSession());
+
+  fetch(IntApi.ENDPOINT, {
+    method: 'POST',
+    mode: 'cors',
+    headers: { 'Accept': 'application/json' },
+    body: body
+  }).then(function (r) { return r.json(); }).then(function (res) {
+    if (res && res.ok) {
+      ok(res.realm_id || realmId);
+    } else {
+      fail((res && res.error) || 'QuickBooks connection could not be completed.');
+    }
+  }).catch(function (err) {
+    fail('Connection problem completing the QuickBooks link. ' + (err && err.message || String(err)));
+  });
+})();
+</script>
+<!-- BEGIN UMBRELLA-CONSENT -->
+<link rel="stylesheet" href="/shared/lib/consent/consent.css">
+<script src="/shared/lib/consent/consent.js" data-project="interpreter" data-coppa="false" data-tenant-type="public" defer></script>
+<script src="/shared/lib/event-capture/event-capture-pixels.js" data-project="interpreter" data-conv-url="https://conv.madeby1891.com/v1/track" defer></script>
+<!-- END UMBRELLA-CONSENT -->
+</body>
+</html>

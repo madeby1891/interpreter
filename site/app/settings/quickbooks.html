@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>QuickBooks Online — 1891 Interpreter</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#C8553D">
+<link rel="icon" type="image/svg+xml" href="/interpreter/assets/img/favicon.svg">
+<link rel="stylesheet" href="/interpreter/assets/css/site.css">
+<link rel="stylesheet" href="/interpreter/assets/css/app.css">
+<style>
+  .qbo-help { padding:12px 16px; background:#FAFAF7; border:1px solid var(--1891int-line); border-radius:var(--1891int-radius-md); font-size:13.5px; line-height:1.55; margin-bottom:var(--1891int-s-4) }
+  .conn-row { display:flex; align-items:center; gap:12px; flex-wrap:wrap }
+  .conn-pill { display:inline-flex; align-items:center; gap:8px; padding:5px 12px; border-radius:999px; font-size:13px; font-weight:600 }
+  .conn-pill.linked { background:var(--1891int-ok-tint,#d9f2e0); color:var(--1891int-ok,#1d6f3f) }
+  .conn-pill.unlinked { background:var(--1891int-paper-deep,#EEE9DD); color:var(--1891int-ink-soft,#555) }
+  .conn-pill .dot { width:9px; height:9px; border-radius:50%; background:currentColor }
+  .realm-line { font-size:12.5px; color:var(--1891int-fog); margin-top:6px }
+  .realm-line code { font-size:12px }
+  .env-tag { font-size:11px; text-transform:uppercase; letter-spacing:.06em; padding:2px 8px; border-radius:4px; background:var(--1891int-warn-tint,#fff1d6); color:#8a5a00; font-weight:700 }
+</style>
+</head>
+<body>
+<a href="#main" class="skip">Skip to main content</a>
+
+<div class="app-shell">
+  <header class="app-header">
+    <div class="wrap">
+      <a href="/interpreter/app/" class="brand"><img src="/interpreter/assets/img/brand-mark.svg" alt="" width="32" height="32"><span>1891 <span class="brand-sub">Scheduler</span></span></a>
+      <div class="who"><span>Signed in as </span><strong id="who-name">…</strong><button id="signout" type="button">Sign out</button></div>
+    </div>
+  </header>
+
+  <nav class="app-nav" aria-label="App sections">
+    <div class="wrap">
+      <a href="/interpreter/app/">Day-of board</a>
+      <a href="/interpreter/app/interpreters/">Interpreters</a>
+      <a href="/interpreter/app/requestors/">Requestors</a>
+      <a href="/interpreter/app/invoices/">Invoices</a>
+      <a href="/interpreter/app/settings/">Settings</a>
+      <a href="/interpreter/app/settings/quickbooks" aria-current="page">QuickBooks</a>
+    </div>
+  </nav>
+
+  <main id="main" class="app-main">
+    <div class="wrap" style="max-width:780px;margin:0 auto">
+      <h1 style="font-size:32px;margin:0 0 var(--1891int-s-2)">QuickBooks Online</h1>
+      <p class="ink-soft" style="font-size:14.5px;max-width:68ch">Connect your QuickBooks Online company so you can push interpreter invoices straight into QuickBooks. Your invoices stay the record of truth here; connecting just lets you send a copy of an invoice to QuickBooks with one click from the invoice page.</p>
+
+      <div id="loading" class="empty-state" style="margin-top:var(--1891int-s-4)"><span class="spinner"></span> Checking your QuickBooks connection&hellip;</div>
+
+      <div id="panel" style="display:none;margin-top:var(--1891int-s-4)">
+
+        <!-- Not configured by the platform yet -->
+        <section class="card" id="unconfigured-card" style="display:none;margin-bottom:var(--1891int-s-5)">
+          <h2 class="mt-0">QuickBooks isn't available yet</h2>
+          <p class="ink-soft" style="font-size:14px;margin:0">The QuickBooks Online connection isn't switched on for this workspace yet. Check back soon, or reach out and we'll turn it on.</p>
+        </section>
+
+        <!-- Connection status -->
+        <section class="card" id="status-card" style="display:none;margin-bottom:var(--1891int-s-5)">
+          <h2 class="mt-0">Connection</h2>
+          <div class="conn-row">
+            <span id="conn-pill" class="conn-pill unlinked"><span class="dot" aria-hidden="true"></span><span id="conn-text">Not connected</span></span>
+            <span id="env-tag" class="env-tag" style="display:none">Sandbox</span>
+          </div>
+          <p id="realm-line" class="realm-line" style="display:none">QuickBooks company <code id="realm-id"></code></p>
+
+          <div class="qbo-help" style="margin-top:var(--1891int-s-3)">
+            When connected, open any invoice and use <strong>Push to QuickBooks</strong> to create a matching invoice in your QuickBooks company. The invoice number, lines, hours, and amounts carry over.
+          </div>
+
+          <div class="cluster" style="margin-top:var(--1891int-s-3)">
+            <button class="btn btn-primary btn-lg" type="button" id="connect-btn">Connect QuickBooks Online</button>
+            <button class="btn btn-ghost" type="button" id="disconnect-btn" style="display:none">Disconnect</button>
+            <span id="action-status" class="muted" style="font-size:14px"></span>
+          </div>
+        </section>
+      </div>
+    </div>
+  </main>
+</div>
+
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+<script src="/interpreter/assets/js/whitelabel.js" defer></script>
+<script src="/interpreter/assets/js/api.js" defer></script>
+<script src="/interpreter/assets/js/api-multitenant.js" defer></script>
+<script src="/interpreter/assets/js/app-header.js" defer></script>
+<script>
+(function () {
+  'use strict';
+  document.addEventListener('DOMContentLoaded', init);
+
+  function $(id) { return document.getElementById(id); }
+  function toast(msg, kind) { var t = $('toast'); t.textContent = msg; t.className = 'toast show' + (kind ? ' ' + kind : ''); setTimeout(function () { t.className = 'toast'; }, 3500); }
+
+  // CORS POST through the proxy that reads the JSON response. The backend reads
+  // form params (e.parameter), so we send urlencoded with the session attached.
+  function postAction(action, fields) {
+    var body = new URLSearchParams();
+    body.append('action', action);
+    if (fields) Object.keys(fields).forEach(function (k) { body.append(k, String(fields[k])); });
+    var s = IntApi.getSession();
+    if (s) body.append('session', s);
+    return fetch(IntApi.ENDPOINT, {
+      method: 'POST',
+      mode: 'cors',
+      headers: { 'Accept': 'application/json' },
+      body: body
+    }).then(function (r) { return r.json(); });
+  }
+
+  function init() {
+    if (!IntApi.getSession()) { location.href = '/interpreter/sign-in'; return; }
+    IntApi.whoami().then(function (r) {
+      if (!r || !r.ok) { IntApi.clearSession(); location.href = '/interpreter/sign-in'; return; }
+      $('who-name').textContent = (r.user && (r.user.display_name || r.user.email)) || 'unknown';
+      if (window.IntTheme && r.agency) IntTheme.apply(r.agency);
+      loadStatus();
+    }).catch(function () { toast('Could not reach the server.', 'error'); });
+
+    $('signout').addEventListener('click', function () { IntApi.clearSession(); location.href = '/interpreter/'; });
+    $('connect-btn').addEventListener('click', connect);
+    $('disconnect-btn').addEventListener('click', disconnect);
+  }
+
+  function loadStatus() {
+    IntApi.jsonp({ action: 'qbo_status' }).then(function (r) {
+      $('loading').style.display = 'none';
+      $('panel').style.display = '';
+      if (!r || !r.ok) { toast((r && r.error) || 'Could not load QuickBooks status.', 'error'); return; }
+      if (!r.configured) {
+        $('unconfigured-card').style.display = '';
+        return;
+      }
+      $('status-card').style.display = '';
+      renderStatus(r);
+    }).catch(function () { $('loading').style.display = 'none'; toast('Network error loading QuickBooks status.', 'error'); });
+  }
+
+  function renderStatus(r) {
+    var pill = $('conn-pill');
+    var text = $('conn-text');
+    if (r.connected) {
+      pill.className = 'conn-pill linked';
+      text.textContent = 'Connected';
+      $('realm-line').style.display = '';
+      $('realm-id').textContent = r.realm_id || '(unknown)';
+      $('connect-btn').textContent = 'Reconnect QuickBooks Online';
+      $('disconnect-btn').style.display = '';
+    } else {
+      pill.className = 'conn-pill unlinked';
+      text.textContent = 'Not connected';
+      $('realm-line').style.display = 'none';
+      $('connect-btn').textContent = 'Connect QuickBooks Online';
+      $('disconnect-btn').style.display = 'none';
+    }
+    if (r.environment === 'sandbox') {
+      $('env-tag').style.display = '';
+      $('env-tag').textContent = 'Sandbox';
+    } else {
+      $('env-tag').style.display = 'none';
+    }
+  }
+
+  function connect() {
+    var btn = $('connect-btn');
+    btn.disabled = true;
+    $('action-status').textContent = 'Opening QuickBooks…';
+    postAction('qbo_connect_start').then(function (r) {
+      btn.disabled = false;
+      if (!r || !r.ok || !r.authorize_url) {
+        $('action-status').textContent = '';
+        toast((r && r.error) || 'Could not start the QuickBooks connection.', 'error');
+        return;
+      }
+      // Hand off to the Intuit-hosted consent screen.
+      location.href = r.authorize_url;
+    }).catch(function () {
+      btn.disabled = false;
+      $('action-status').textContent = '';
+      toast('Network error starting the QuickBooks connection.', 'error');
+    });
+  }
+
+  function disconnect() {
+    if (!confirm('Disconnect QuickBooks Online? You can reconnect any time. This does not delete anything already in QuickBooks.')) return;
+    var btn = $('disconnect-btn');
+    btn.disabled = true;
+    postAction('qbo_disconnect').then(function (r) {
+      btn.disabled = false;
+      if (!r || !r.ok) { toast((r && r.error) || 'Disconnect failed.', 'error'); return; }
+      toast('QuickBooks disconnected.', 'ok');
+      loadStatus();
+    }).catch(function () { btn.disabled = false; toast('Network error during disconnect.', 'error'); });
+  }
+})();
+</script>
+<!-- BEGIN UMBRELLA-CONSENT -->
+<link rel="stylesheet" href="/shared/lib/consent/consent.css">
+<script src="/shared/lib/consent/consent.js" data-project="interpreter" data-coppa="false" data-tenant-type="public" defer></script>
+<script src="/shared/lib/event-capture/event-capture-pixels.js" data-project="interpreter" data-conv-url="https://conv.madeby1891.com/v1/track" defer></script>
+<!-- END UMBRELLA-CONSENT -->
+</body>
+</html>
