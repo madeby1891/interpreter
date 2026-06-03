@@ -4,14 +4,14 @@
 <meta charset="utf-8">
 <title>For schedulers — 1891 Interpreter</title>
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="description" content="Six dashboards, one filter bar. Status-chip filters and URL-persisted state. Smart-fill with score breakdown. Cancellation modal with live tier preview. Audit log viewer at /app/admin/audit.">
+<meta name="description" content="The whole day on one board — open, claimed, confirmed. The right interpreter suggested for you, warnings that explain themselves, and a clear preview of what a cancellation costs before you confirm it.">
 <meta name="theme-color" content="#C8553D">
 <link rel="canonical" href="https://madeby1891.com/interpreter/for-schedulers">
 <link rel="icon" type="image/svg+xml" href="/interpreter/assets/img/favicon.svg">
 <link rel="stylesheet" href="/interpreter/assets/css/site.css">
 <link rel="stylesheet" href="/interpreter/assets/css/marketing-interact.css">
 <meta property="og:title" content="For schedulers — 1891 Interpreter">
-<meta property="og:description" content="Six dashboards, one filter bar. Status-chip filters and URL-persisted state. Smart-fill with score breakdown. Cancellation modal with live tier preview. Audit log viewer at /app/admin/audit.">
+<meta property="og:description" content="The whole day on one board — open, claimed, confirmed. The right interpreter suggested for you, warnings that explain themselves, and a clear preview of what a cancellation costs before you confirm it.">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://madeby1891.com/interpreter/for-schedulers">
 <meta property="og:image" content="https://madeby1891.com/interpreter/assets/img/og-card.svg">
@@ -19,7 +19,7 @@
 <meta property="og:site_name" content="1891 Interpreter">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="For schedulers — 1891 Interpreter">
-<meta name="twitter:description" content="Six dashboards, one filter bar. Status-chip filters and URL-persisted state. Smart-fill with score breakdown. Cancellation modal with live tier preview. Audit log viewer at /app/admin/audit.">
+<meta name="twitter:description" content="The whole day on one board — open, claimed, confirmed. The right interpreter suggested for you, warnings that explain themselves, and a clear preview of what a cancellation costs before you confirm it.">
 <meta name="twitter:image" content="https://madeby1891.com/interpreter/assets/img/og-card.svg">
 <meta name="robots" content="index,follow">
 <script type="application/ld+json">
@@ -68,12 +68,35 @@
   <div class="wrap" style="padding-top:var(--1891int-s-6);padding-bottom:0"><nav class="audience-switch" aria-label="Audience"><a href="/interpreter/for-agencies">Agencies</a><a href="/interpreter/for-schedulers" aria-current="page">Schedulers</a><a href="/interpreter/for-interpreters">Interpreters</a><a href="/interpreter/for-requestors">Requestors</a><a href="/interpreter/for-payers">Billing / AP</a></nav></div>
   <section class="feature-hero">
     <div class="wrap">
-      <span class="eyebrow">For schedulers</span>
-      <h1>Six dashboards. One filter bar. Hit back, your filters survive.</h1>
-      <p class="lede">Jobs, Interpreters, Clients, Requestors, Invoices, Payouts — same search box, same status chips, same sort. State lives in the URL, so back-button, share-link, and tab-restore all just work.</p>
-      <div class="cluster" style="margin-top:var(--1891int-s-6)">
-        <a class="btn btn-primary btn-lg" href="/interpreter/get-a-demo">Watch the day-of demo</a>
-        <a class="btn btn-ghost btn-lg" href="/interpreter/features/scheduling">Feature detail</a>
+      <div class="hero-grid">
+        <div>
+          <span class="eyebrow">For schedulers</span>
+          <h1>The whole day on one board. No more swiveling between tabs.</h1>
+          <p class="lede">Jobs, interpreters, clients, invoices — one place, one search, one set of filters. Your view survives a refresh, a shared link, and the back button, so you never lose your spot.</p>
+          <div class="cluster" style="margin-top:var(--1891int-s-6)">
+            <a class="btn btn-primary btn-lg" href="/interpreter/get-a-demo">Watch the day-of demo</a>
+            <a class="btn btn-ghost btn-lg" href="/interpreter/features/scheduling">See the feature</a>
+          </div>
+        </div>
+        <div data-reveal data-delay="100"><div class="mock-stage"><a class="mock" href="/interpreter/get-a-demo" aria-label="Open the live demo"><div class="mock-bar"><span class="mock-dots"><span></span><span></span><span></span></span><span class="mock-tab">Today's board · your agency</span></div><div class="mock-body">
+      <div class="ui-toolbar">
+        <span class="ui-search">Today · all jobs</span>
+        <span class="mchip is-open">Open 3</span>
+        <span class="mchip is-claimed">Claimed 5</span>
+        <span class="mchip is-confirmed">Confirmed 9</span>
+      </div>
+      <div class="ui-row">
+        <div class="ui-row-main"><span class="ui-row-title">Medical · ASL · 2:00 PM</span><span class="ui-row-sub">Frederick Health Cardiology · M.R.</span></div>
+        <span class="mchip is-open">Open</span>
+      </div>
+      <div class="ui-row is-highlight">
+        <div class="ui-row-main"><span class="ui-row-title">Legal · Spanish · 3:30 PM</span><span class="ui-row-sub">Filling now — offer out to 3 interpreters</span></div>
+        <span class="mchip is-offered">Offered</span>
+      </div>
+      <div class="ui-row">
+        <div class="ui-row-main"><span class="ui-row-title">School IEP · ASL · 4:00 PM</span><span class="ui-row-sub">Pat M. · confirmed, calendar invite sent</span></div>
+        <span class="mchip is-confirmed">Confirmed</span>
+      </div></div><span class="mock-open">Open the live demo <span class="mock-open-arrow" aria-hidden="true">→</span></span></a><p class="mock-caption">Open, claimed, confirmed — at a glance. <strong>Click to walk through it.</strong></p></div></div>
       </div>
     </div>
   </section>
@@ -83,23 +106,23 @@
       <div class="grid grid-2" style="gap:var(--1891int-s-8); align-items:flex-start">
         <div>
           <h2>One board, every job in flight.</h2>
-          <p class="ink-soft">Today's roster, today's jobs, today's exceptions — all in your viewport. Click a row to expand; press <kbd>/</kbd> to filter; press <kbd>j</kbd> and <kbd>k</kbd> to move through the queue. Multi-monitor: drag the day-of board to a second screen, keep job detail on the primary.</p>
+          <p class="ink-soft">Today's roster, today's jobs, today's surprises — all on one screen. Filter by status, search anyone, sort by any column, and edit most fields right in place without opening a thing. Drag the board to a second monitor and keep the job you're working on the first.</p>
           <ul class="checks">
-            <li>Status-chip filters and search on every dashboard. Combine them; they survive a refresh.</li>
-            <li>Sort by any column — last click wins, persisted in the URL.</li>
-            <li>Inline edit on most fields without opening a modal.</li>
-            <li>Audit-log viewer at <code>/app/admin/audit</code> with date / user / action filters and CSV export.</li>
+            <li>Filters and search on every list. Stack them; they stick through a refresh.</li>
+            <li>Sort by any column with a click.</li>
+            <li>Edit most fields in place — no pop-up to wait on.</li>
+            <li>A full audit log, filterable by date, person, or action, exportable to a spreadsheet.</li>
           </ul>
         </div>
         <div class="card card-warm">
-          <h3 class="mt-0">Plain-English conflict rules</h3>
-          <p class="ink-soft">Every conflict rule has a one-sentence reason next to it, so you know why a warning fired — not just that it did.</p>
+          <h3 class="mt-0">Warnings that explain themselves</h3>
+          <p class="ink-soft">Every flag comes with a one-line reason, so you know why it fired — not just that it did.</p>
           <ul class="xs">
-            <li><strong>No double-booking, ever.</strong> Hard block. Override requires explicit reason.</li>
-            <li><strong>Back-to-back across counties.</strong> Soft warning with the drive-time estimate.</li>
-            <li><strong>Skill mismatch.</strong> Warns when an interpreter's certs don't match what the venue requires.</li>
-            <li><strong>Consumer-preference miss.</strong> Surfaces "this requestor has booked this interpreter 4× this quarter" before you send the offer.</li>
-            <li><strong>Team mismatch.</strong> Flags a CDI assignment with no voicer attached.</li>
+            <li><strong>No double-booking, ever.</strong> A hard stop; overriding asks you why.</li>
+            <li><strong>Back-to-back across town.</strong> A heads-up with the drive time.</li>
+            <li><strong>Wrong fit.</strong> Flags when an interpreter's credentials don't match what the job needs.</li>
+            <li><strong>A favorite is free.</strong> Tells you this clinic has booked this interpreter 4× this quarter — before you send the offer.</li>
+            <li><strong>Missing a teammate.</strong> Catches a team job that still needs its second interpreter.</li>
           </ul>
         </div>
       </div>
@@ -108,13 +131,17 @@
 
   <section class="section">
     <div class="wrap">
-      <span class="eyebrow">Client hierarchy</span>
-      <h2>One Client. Many Requestors. Many Locations. Many Specialists. One bill.</h2>
-      <p class="lede">Frederick Health is one Client. Cardiology, ED, Peds, and Oncology are Requestors. Main Hospital, Urbana, Mt Airy, and Brunswick are Locations. The doctor on the chart is a Specialist. All roll to one billing office on one cycle — or split however the contract says.</p>
-      <div class="grid grid-3 mt-5">
-        <div class="card"><h3 class="mt-0">Five consolidation modes</h3><p class="ink-soft"><code>one_per_client</code>, <code>one_per_requestor</code>, <code>one_per_location</code>, <code>one_per_specialist</code>, <code>one_per_job</code>. Set per client; mix on the same Net-30 cycle.</p></div>
-        <div class="card"><h3 class="mt-0">Per-client document library</h3><p class="ink-soft">Contracts, BAAs, COIs, W-9s — uploaded once, surfaced on the Client view with expiry chips so nothing lapses on you.</p></div>
-        <div class="card"><h3 class="mt-0">Invoice line detail</h3><p class="ink-soft">Each line shows location + specialist + consumer initials + interpreter name (whichever the client requires). Invoice numbers are monotonic per tenant per year — <code>INV-2026-0001</code>.</p></div>
+      <div class="grid grid-2" style="gap:var(--1891int-s-8); align-items:center">
+        <div data-reveal>
+          <span class="eyebrow">One client, one bill</span>
+          <h2>However their departments are organized, it's one clean statement.</h2>
+          <p class="ink-soft">A hospital might be one client with four departments, half a dozen locations, and a dozen doctors. You choose how the bill comes together — all on one statement, by department, by location, or one per job — and you can do it differently for each client. <strong>Click the client to open it up →</strong></p>
+          <ul class="xs mt-4">
+            <li>A document shelf per client — contracts, agreements, certificates of insurance, W-9s — with reminders before anything lapses.</li>
+            <li>Every invoice line shows exactly what the client wants to see, and invoice numbers run in order with no gaps.</li>
+          </ul>
+        </div>
+        <div data-reveal data-delay="100"><div class="widget" data-widget="clients"></div></div>
       </div>
     </div>
   </section>
@@ -123,14 +150,14 @@
     <div class="wrap">
       <div class="grid grid-2" style="gap:var(--1891int-s-8); align-items:flex-start">
         <div>
-          <span class="eyebrow">Cancellation modal</span>
-          <h2>Live tier preview before you confirm.</h2>
-          <p class="ink-soft">The cancel button doesn't fire-and-pray. The modal previews the exact charge against the client and the exact payout to each interpreter, per your tier rules, before you click confirm. <em>"Cancel now bills $X and pays $Y per interpreter."</em></p>
+          <span class="eyebrow">Before you cancel</span>
+          <h2>See what it costs — then confirm.</h2>
+          <p class="ink-soft">Canceling doesn't mean guessing. Before you confirm, you see exactly what the client is billed and what each interpreter still earns, under that client's own rules. No awkward call later. <em>“Cancel now bills $X and pays $Y per interpreter.”</em></p>
         </div>
         <div>
-          <span class="eyebrow">PII reveal-on-accept</span>
-          <h2>Redacted offer. Full detail unlocks on claim.</h2>
-          <p class="ink-soft">Interpreter browses the offer with consumer initials, generic venue, time, and rate. The moment they tap Accept, the full record opens — and the unlock is written to the audit log with their user ID and a timestamp.</p>
+          <span class="eyebrow">Private until claimed</span>
+          <h2>Just enough to decide. The rest opens on accept.</h2>
+          <p class="ink-soft">Interpreters browse offers with the kind of job, the time, the pay, and the consumer's initials. The moment they accept, the full details open — and that hand-off is written down with a name and a time.</p>
         </div>
       </div>
     </div>
@@ -138,49 +165,42 @@
 
   <section class="section">
     <div class="wrap">
-      <div class="center-text" style="margin-bottom:var(--1891int-s-7)">
-        <span class="eyebrow">Smart-fill</span>
-        <h2>Ranked candidates with a score breakdown — never a black box.</h2>
-        <p class="lede" style="margin:0 auto">Five factors: certification fit, location proximity, requestor preference, workload balance, prior performance with this consumer. Hover any score, see the math.</p>
+      <div class="grid grid-2" style="gap:var(--1891int-s-8); align-items:center">
+        <div data-reveal>
+          <span class="eyebrow">Suggested for you</span>
+          <h2>The right interpreter, ranked — and it shows its work.</h2>
+          <p class="ink-soft">For every open job you get a short list of the best people for it, ranked by who has the right credential, who's nearby, who this clinic has asked for before, and whose turn it is. Each suggestion shows why it ranks where it does, so it's a head start — never a black box. When you send it out, the offer goes to the top three at once and whoever says yes first gets the job.</p>
+        </div>
+        <div data-reveal data-delay="100"><div class="mock-stage"><div class="mock"><div class="mock-bar"><span class="mock-dots"><span></span><span></span><span></span></span><span class="mock-tab">Suggested for this job</span></div><div class="mock-body">
+      <div class="ui-row is-highlight">
+        <div class="ui-row-main"><span class="ui-row-title">Pat Morales, CDI</span><span class="ui-row-sub">Best match for this job</span></div>
+        <span class="ui-row-side">94</span>
       </div>
-      <div class="grid grid-3">
-        <div class="card">
-          <h3 class="mt-0">Transparent weights</h3>
-          <p class="ink-soft">Every weight is visible and tunable in <code>/app/settings</code>. Default weights are public.</p>
-        </div>
-        <div class="card">
-          <h3 class="mt-0">Cascade pattern</h3>
-          <p class="ink-soft">Parallel-3, first-claim-wins by default. Three top candidates get the offer simultaneously; whoever claims first locks the job.</p>
-        </div>
-        <div class="card">
-          <h3 class="mt-0">Open marketplace</h3>
-          <p class="ink-soft">If cascade exhausts, the job opens to any qualified interpreter in your roster. First-claim, written to the audit log.</p>
-        </div>
+      <div class="ui-score"><span class="ui-score-lbl">Right credential</span><span class="ui-score-track"><span class="ui-score-fill" style="width:96%"></span></span><span class="ui-score-val">96</span></div>
+      <div class="ui-score"><span class="ui-score-lbl">Close by</span><span class="ui-score-track"><span class="ui-score-fill" style="width:88%"></span></span><span class="ui-score-val">88</span></div>
+      <div class="ui-score"><span class="ui-score-lbl">Asked for before</span><span class="ui-score-track"><span class="ui-score-fill" style="width:100%"></span></span><span class="ui-score-val">100</span></div>
+      <div class="ui-score"><span class="ui-score-lbl">Fair rotation</span><span class="ui-score-track"><span class="ui-score-fill" style="width:82%"></span></span><span class="ui-score-val">82</span></div></div></div><p class="mock-caption">The reasons behind every ranking, in plain sight.</p></div></div>
       </div>
     </div>
   </section>
 
   <section class="section section-warm">
     <div class="wrap">
-      <h2>Team invitations with a role-scoped allowlist.</h2>
-      <p class="lede">Open <code>/app/settings/team</code> and invite. Managers can invite schedulers, interpreters, and client / requestor / billing contacts — but never other managers (only an owner does that). Invitation tokens live 7 days, then expire.</p>
+      <h2>Your team, with the right doors open.</h2>
+      <p class="lede">Invite anyone in a couple of clicks. Each person sees only what their job needs — a scheduler's view isn't a billing contact's view — and invitations expire on their own if they're not used.</p>
       <div class="grid grid-3 mt-5">
-        <div class="card"><h3 class="mt-0">7-tier role hierarchy</h3><p class="ink-soft">platform_staff → owner → manager → scheduler, interpreter, client_contact, requestor_contact, billing_contact. The role on the invite scopes everything that user sees.</p></div>
-        <div class="card"><h3 class="mt-0">Magic-link sign-in</h3><p class="ink-soft">No passwords. Click the email link, you're in. Sessions are agency-scoped; multi-agency users pick which tenant on landing.</p></div>
-        <div class="card"><h3 class="mt-0">Agency health dashboard</h3><p class="ink-soft">Roster active, available right now, active clients, open jobs, fill rate, median time-to-fill, doc-compliant percent, top clients by volume, outstanding A/R rollup — one screen.</p></div>
+        <div class="card"><h3 class="mt-0">Roles that fit the work</h3><p class="ink-soft">Owners, managers, schedulers, interpreters, and client, requestor, and billing contacts — each with the right reach. Managers can invite their team; only owners add other managers.</p></div>
+        <div class="card"><h3 class="mt-0">No passwords to manage</h3><p class="ink-soft">Sign in with a link sent to your email — nothing to remember or reset. If you work with more than one agency, you pick which one when you land.</p></div>
+        <div class="card"><h3 class="mt-0">Your Monday-morning screen</h3><p class="ink-soft">Roster on hand, who's available right now, open jobs, fill rate, how fast you're filling, money owed — the numbers you actually check, all in one place.</p></div>
       </div>
     </div>
   </section>
 
   <section class="section">
-    <div class="wrap">
-      <h2>Keyboard shortcuts we got right.</h2>
-      <p class="lede">If you live on the board, your hands stay on the keys.</p>
-      <div class="grid grid-3 mt-5">
-        <div><h3>Navigation</h3><ul class="xs"><li><kbd>j</kbd> / <kbd>k</kbd> — next / previous job</li><li><kbd>/</kbd> — focus search</li><li><kbd>g</kbd> then <kbd>o</kbd> — go to open jobs</li><li><kbd>?</kbd> — show all shortcuts</li></ul></div>
-        <div><h3>Actions</h3><ul class="xs"><li><kbd>a</kbd> — assign interpreter</li><li><kbd>r</kbd> — request replacement</li><li><kbd>c</kbd> — mark confirmed</li><li><kbd>x</kbd> — cancel job (asks for reason)</li></ul></div>
-        <div><h3>Inspection</h3><ul class="xs"><li><kbd>e</kbd> — expand job detail</li><li><kbd>shift</kbd>+<kbd>e</kbd> — expand all today</li><li><kbd>?</kbd> over a score — explain the ranking</li><li><kbd>cmd</kbd>+<kbd>k</kbd> — command palette</li></ul></div>
-      </div>
+    <div class="wrap-narrow center-text">
+      <span class="eyebrow">Built for the keyboard</span>
+      <h2>If you live on the board, your hands stay on the keys.</h2>
+      <p class="lede" style="margin:0 auto">Move through the queue, jump to search, assign, confirm, or cancel — all without reaching for the mouse. Press <kbd>?</kbd> any time to see the full list. The shortcuts are there when you want them and out of the way when you don't.</p>
     </div>
   </section>
 
@@ -191,7 +211,7 @@
       <p class="lede" style="margin:0 auto var(--1891int-s-6)">Either path gets you to a real person within one business day.</p>
       <div class="cluster" style="justify-content:center">
         <a class="btn btn-primary btn-lg" href="/interpreter/get-a-demo">Watch the day-of demo</a>
-        <a class="btn btn-secondary btn-lg" href="/interpreter/features/scheduling">Feature detail</a>
+        <a class="btn btn-secondary btn-lg" href="/interpreter/features/scheduling">See the feature</a>
       </div>
     </div>
   </section>

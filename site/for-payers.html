@@ -4,14 +4,14 @@
 <meta charset="utf-8">
 <title>For billing, AP, and CFOs — 1891 Interpreter</title>
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="description" content="Net-30. Five consolidation modes per client. Monotonic invoice numbers (INV-2026-0001). Per-line location + specialist + interpreter detail. PHI redacted by default. QuickBooks, Xero, NetSuite, Bill.com.">
+<meta name="description" content="One clean bill per client, however their departments and locations are organized. Invoice lines with exactly the detail your client needs, patient details kept private by default, and a tidy hand-off to QuickBooks, Xero, NetSuite, and Bill.com.">
 <meta name="theme-color" content="#C8553D">
 <link rel="canonical" href="https://madeby1891.com/interpreter/for-payers">
 <link rel="icon" type="image/svg+xml" href="/interpreter/assets/img/favicon.svg">
 <link rel="stylesheet" href="/interpreter/assets/css/site.css">
 <link rel="stylesheet" href="/interpreter/assets/css/marketing-interact.css">
 <meta property="og:title" content="For billing, AP, and CFOs — 1891 Interpreter">
-<meta property="og:description" content="Net-30. Five consolidation modes per client. Monotonic invoice numbers (INV-2026-0001). Per-line location + specialist + interpreter detail. PHI redacted by default. QuickBooks, Xero, NetSuite, Bill.com.">
+<meta property="og:description" content="One clean bill per client, however their departments and locations are organized. Invoice lines with exactly the detail your client needs, patient details kept private by default, and a tidy hand-off to QuickBooks, Xero, NetSuite, and Bill.com.">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://madeby1891.com/interpreter/for-payers">
 <meta property="og:image" content="https://madeby1891.com/interpreter/assets/img/og-card.svg">
@@ -19,7 +19,7 @@
 <meta property="og:site_name" content="1891 Interpreter">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="For billing, AP, and CFOs — 1891 Interpreter">
-<meta name="twitter:description" content="Net-30. Five consolidation modes per client. Monotonic invoice numbers (INV-2026-0001). Per-line location + specialist + interpreter detail. PHI redacted by default. QuickBooks, Xero, NetSuite, Bill.com.">
+<meta name="twitter:description" content="One clean bill per client, however their departments and locations are organized. Invoice lines with exactly the detail your client needs, patient details kept private by default, and a tidy hand-off to QuickBooks, Xero, NetSuite, and Bill.com.">
 <meta name="twitter:image" content="https://madeby1891.com/interpreter/assets/img/og-card.svg">
 <meta name="robots" content="index,follow">
 <script type="application/ld+json">
@@ -68,9 +68,9 @@
   <div class="wrap" style="padding-top:var(--1891int-s-6);padding-bottom:0"><nav class="audience-switch" aria-label="Audience"><a href="/interpreter/for-agencies">Agencies</a><a href="/interpreter/for-schedulers">Schedulers</a><a href="/interpreter/for-interpreters">Interpreters</a><a href="/interpreter/for-requestors">Requestors</a><a href="/interpreter/for-payers" aria-current="page">Billing / AP</a></nav></div>
   <section class="feature-hero">
     <div class="wrap">
-      <span class="eyebrow">For Billing, AP, and CFOs</span>
-      <h1>Net-30. Five consolidation modes per client. GL-coded on day one.</h1>
-      <p class="lede">PHI redacted from invoices by default. Each line shows location + specialist + consumer initials + interpreter name (whichever the client requires). Invoice numbers are monotonic per tenant per year (<code>INV-2026-0001</code>). Sample-invoice anatomy below — no real data, all the structure.</p>
+      <span class="eyebrow">For billing, AP, and finance</span>
+      <h1>Net-30, GL-coded, and one clean bill per client.</h1>
+      <p class="lede">Patient details kept off every invoice by default. Each line shows exactly what your client asked to see — location, provider, consumer initials, interpreter — and invoice numbers run in order with no gaps. Here's what one actually looks like.</p>
     </div>
   </section>
 
@@ -118,27 +118,26 @@
     <div class="wrap">
       <div class="grid grid-2" style="gap:var(--1891int-s-8); align-items:flex-start">
         <div>
-          <h2>Five consolidation modes, set per client.</h2>
+          <h2>Five ways to group the bill, set per client.</h2>
           <ul class="checks">
-            <li><code>one_per_client</code> — one invoice covers everything for the calendar month.</li>
-            <li><code>one_per_requestor</code> — one per department (Cardiology, ED, Peds, Oncology) on the same cycle.</li>
-            <li><code>one_per_location</code> — one per site (Main Hospital, Urbana, Mt Airy, Brunswick).</li>
-            <li><code>one_per_specialist</code> — one per doctor on the chart, when each provider gets billed separately.</li>
-            <li><code>one_per_job</code> — one invoice per event (conferences, single-shot legal engagements).</li>
+            <li><strong>One per client</strong> — a single invoice covers everything for the month.</li>
+            <li><strong>One per department</strong> — Cardiology, ED, Peds, and Oncology each get their own, on the same cycle.</li>
+            <li><strong>One per location</strong> — a bill per site (Main Hospital, Urbana, Mt Airy, Brunswick).</li>
+            <li><strong>One per provider</strong> — a bill per doctor, when each is paid separately.</li>
+            <li><strong>One per job</strong> — a bill per event, for conferences or one-off legal work.</li>
           </ul>
-          <p class="ink-soft">Set the mode per client; mix freely on the same Net-30 cycle.</p>
+          <p class="ink-soft">Pick the grouping per client; mix them freely on the same Net-30 cycle.</p>
         </div>
         <div>
-          <h2>Exports + payouts.</h2>
+          <h2>Exports and payouts.</h2>
           <ul class="checks">
-            <li>QuickBooks Online — direct OAuth export.</li>
-            <li>Xero — direct OAuth export.</li>
-            <li>NetSuite — SuiteApp connector, custom field mapping.</li>
-            <li>Bill.com — vendor-bill push.</li>
-            <li>Plain CSV / JSON — for everything else.</li>
-            <li>1099-NEC and 1042-S issuance via track1099.</li>
-            <li>Payout PDF: separate Labor + Expenses tables with subtotals.</li>
-            <li>Invoice numbers monotonic per tenant per year — <code>INV-2026-0001</code>.</li>
+            <li>Sends straight to QuickBooks Online and Xero.</li>
+            <li>Connects to NetSuite, with your fields mapped your way.</li>
+            <li>Pushes bills to Bill.com.</li>
+            <li>Plain spreadsheet or data file for everything else.</li>
+            <li>1099 filing handled for you.</li>
+            <li>Payment stubs that separate the work from the expenses, each with its own total.</li>
+            <li>Invoice numbers that run in order, with no gaps to chase.</li>
           </ul>
         </div>
       </div>

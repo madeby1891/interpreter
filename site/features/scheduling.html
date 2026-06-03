@@ -4,14 +4,14 @@
 <meta charset="utf-8">
 <title>Scheduling — 1891 Interpreter</title>
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="description" content="Six dashboards, one filter bar. URL-persisted state. Smart-fill with a five-factor score breakdown. Cancellation modal with live tier preview. Plain-English conflict rules.">
+<meta name="description" content="One board for the whole day. The right interpreter suggested for you, warnings that explain themselves, and a clear preview of what a cancellation costs before you confirm it.">
 <meta name="theme-color" content="#C8553D">
 <link rel="canonical" href="https://madeby1891.com/interpreter/features/scheduling">
 <link rel="icon" type="image/svg+xml" href="/interpreter/assets/img/favicon.svg">
 <link rel="stylesheet" href="/interpreter/assets/css/site.css">
 <link rel="stylesheet" href="/interpreter/assets/css/marketing-interact.css">
 <meta property="og:title" content="Scheduling — 1891 Interpreter">
-<meta property="og:description" content="Six dashboards, one filter bar. URL-persisted state. Smart-fill with a five-factor score breakdown. Cancellation modal with live tier preview. Plain-English conflict rules.">
+<meta property="og:description" content="One board for the whole day. The right interpreter suggested for you, warnings that explain themselves, and a clear preview of what a cancellation costs before you confirm it.">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://madeby1891.com/interpreter/features/scheduling">
 <meta property="og:image" content="https://madeby1891.com/interpreter/assets/img/og-card.svg">
@@ -19,7 +19,7 @@
 <meta property="og:site_name" content="1891 Interpreter">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="Scheduling — 1891 Interpreter">
-<meta name="twitter:description" content="Six dashboards, one filter bar. URL-persisted state. Smart-fill with a five-factor score breakdown. Cancellation modal with live tier preview. Plain-English conflict rules.">
+<meta name="twitter:description" content="One board for the whole day. The right interpreter suggested for you, warnings that explain themselves, and a clear preview of what a cancellation costs before you confirm it.">
 <meta name="twitter:image" content="https://madeby1891.com/interpreter/assets/img/og-card.svg">
 <meta name="robots" content="index,follow">
 <script type="application/ld+json">
@@ -67,57 +67,83 @@
 
   <section class="feature-hero">
     <div class="wrap">
-      <span class="eyebrow">Feature · Scheduling</span>
-      <h1>Scheduling</h1>
-      <p class="lede">Six dashboards, one filter bar. URL-persisted state. Smart-fill with a five-factor score breakdown. Cancellation modal with live tier preview. Plain-English conflict rules.</p>
+      <div class="hero-grid">
+        <div>
+          <span class="eyebrow">Feature · Scheduling</span>
+          <h1>Scheduling</h1>
+          <p class="lede">Every job for the day on one board — open, claimed, confirmed, and the few that still need a hand. The right interpreter is suggested for you, and you always see what a change costs before you make it.</p>
+          <div class="cluster" style="margin-top:var(--1891int-s-6)">
+            <a class="btn btn-primary btn-lg" href="/interpreter/get-a-demo">See it in a demo</a>
+            <a class="btn btn-ghost btn-lg" href="/interpreter/features/">All features</a>
+          </div>
+        </div>
+        <div data-reveal data-delay="100"><div class="mock-stage"><a class="mock" href="/interpreter/get-a-demo" aria-label="Open the live demo"><div class="mock-bar"><span class="mock-dots"><span></span><span></span><span></span></span><span class="mock-tab">Today's board · your agency</span></div><div class="mock-body">
+      <div class="ui-toolbar">
+        <span class="ui-search">Today · all jobs</span>
+        <span class="mchip is-open">Open 3</span>
+        <span class="mchip is-claimed">Claimed 5</span>
+        <span class="mchip is-confirmed">Confirmed 9</span>
+      </div>
+      <div class="ui-row">
+        <div class="ui-row-main"><span class="ui-row-title">Medical · ASL · 2:00 PM</span><span class="ui-row-sub">Frederick Health Cardiology · M.R.</span></div>
+        <span class="mchip is-open">Open</span>
+      </div>
+      <div class="ui-row is-highlight">
+        <div class="ui-row-main"><span class="ui-row-title">Legal · Spanish · 3:30 PM</span><span class="ui-row-sub">Filling now — offer out to 3 interpreters</span></div>
+        <span class="mchip is-offered">Offered</span>
+      </div>
+      <div class="ui-row">
+        <div class="ui-row-main"><span class="ui-row-title">School IEP · ASL · 4:00 PM</span><span class="ui-row-sub">Pat M. · confirmed, calendar invite sent</span></div>
+        <span class="mchip is-confirmed">Confirmed</span>
+      </div></div><span class="mock-open">Open the live demo <span class="mock-open-arrow" aria-hidden="true">→</span></span></a><p class="mock-caption">A real day on the board. <strong>Click to walk through it with us.</strong></p></div></div>
+      </div>
     </div>
   </section>
-
   <section class="section">
     <div class="wrap">
-      <h2>Six dashboards, one filter bar</h2>
-      <p>Jobs, Interpreters, Clients, Requestors, Invoices, Payouts — same search box, same status chips, same column sort. Combine filters; they live in the URL, so back-button, share-link, and tab-restore all just work. Keyboard-first navigation: <kbd>j</kbd>/<kbd>k</kbd>/<kbd>/</kbd>/<kbd>?</kbd>. Drag the board to a second monitor.</p>
+      <div class="feature-row" data-reveal>
+        <div class="fr-prose">
+          <h2>The right interpreter, suggested for you</h2>
+          <p class="ink-soft">For every open job, you get a short list of the best people for it — ranked by who has the right credential, who's nearby, who this clinic has asked for before, and whose turn it is. Each suggestion shows <em>why</em> it's a match, so it's a head start, never a black box.</p>
+        </div>
+        <div class="fr-media"><div class="mock-stage"><div class="mock"><div class="mock-bar"><span class="mock-dots"><span></span><span></span><span></span></span><span class="mock-tab">Suggested for this job</span></div><div class="mock-body">
+      <div class="ui-row is-highlight">
+        <div class="ui-row-main"><span class="ui-row-title">Pat Morales, CDI</span><span class="ui-row-sub">Best match for this job</span></div>
+        <span class="ui-row-side">94</span>
+      </div>
+      <div class="ui-score"><span class="ui-score-lbl">Right credential</span><span class="ui-score-track"><span class="ui-score-fill" style="width:96%"></span></span><span class="ui-score-val">96</span></div>
+      <div class="ui-score"><span class="ui-score-lbl">Close by</span><span class="ui-score-track"><span class="ui-score-fill" style="width:88%"></span></span><span class="ui-score-val">88</span></div>
+      <div class="ui-score"><span class="ui-score-lbl">Asked for before</span><span class="ui-score-track"><span class="ui-score-fill" style="width:100%"></span></span><span class="ui-score-val">100</span></div>
+      <div class="ui-score"><span class="ui-score-lbl">Fair rotation</span><span class="ui-score-track"><span class="ui-score-fill" style="width:82%"></span></span><span class="ui-score-val">82</span></div></div></div><p class="mock-caption">Why each interpreter ranks where they do — in plain sight.</p></div></div>
+      </div>
+      <div class="feature-row" data-reveal>
+        <div class="fr-prose">
+          <h2>See what a cancellation costs — before you confirm</h2>
+          <p class="ink-soft">Slide to the time the job is canceling and the screen shows exactly what the client is billed and what each interpreter still earns, under that client's own rules. No fire-and-pray, no awkward call later. <strong>Try the slider →</strong></p>
+        </div>
+        <div class="fr-media"><div class="widget" data-widget="cancel" data-reveal></div></div>
+      </div>
+      <div class="feature-row" data-reveal>
+        <div class="fr-prose">
+          <h2>Warnings that explain themselves</h2>
+          <p class="ink-soft">Every flag comes with a one-line reason, so you know why it fired — not just that it did. No double-booking, ever. A heads-up when two jobs are back-to-back across town. A nudge when this clinic has a favorite interpreter who's free.</p>
+        </div>
+        <div class="fr-media"><div class="mock-stage"><div class="mock"><div class="mock-bar"><span class="mock-dots"><span></span><span></span><span></span></span><span class="mock-tab">Before you send the offer</span></div><div class="mock-body">
+      <div class="ui-row"><div class="ui-row-main"><span class="ui-row-title">No double-booking</span><span class="ui-row-sub">Already on a 2:00 job — this one is blocked</span></div><span class="mchip is-warn">Blocked</span></div>
+      <div class="ui-row"><div class="ui-row-main"><span class="ui-row-title">Back-to-back, two counties</span><span class="ui-row-sub">38-minute drive between them — heads up</span></div><span class="mchip is-open">Warning</span></div>
+      <div class="ui-row"><div class="ui-row-main"><span class="ui-row-title">Asked for by this clinic</span><span class="ui-row-sub">Booked here 4× this quarter</span></div><span class="mchip is-confirmed">Good fit</span></div></div></div><p class="mock-caption">Plain-English reasons next to every warning.</p></div></div>
+      </div>
+      <div class="feature-row" data-reveal style="grid-template-columns:1fr">
+        <div class="fr-prose" style="max-width:74ch">
+          <h2>Private until it's claimed</h2>
+          <p class="ink-soft">Interpreters see just enough to decide — the kind of job, the time, the pay, and the consumer's initials. The full details open the moment they accept, and that hand-off is written down with a name and a time. Nobody browses patient details they haven't picked up.</p>
+        </div>
+      </div>
     </div>
   </section>
-
-  <section class="section">
-    <div class="wrap">
-      <h2>Smart-fill with transparent ranking</h2>
-      <p>Five-factor weighted score: certification fit, location proximity, requestor preference, workload balance, prior performance with this consumer. Every weight is visible and tunable in <code>/app/settings</code>. Hover any score and see the components. No black box.</p>
-    </div>
-  </section>
-
-  <section class="section">
-    <div class="wrap">
-      <h2>Cascade pattern</h2>
-      <p>Parallel-3, first-claim-wins by default. Three top candidates get the offer simultaneously; whoever claims first locks the job. Configurable per agency.</p>
-    </div>
-  </section>
-
-  <section class="section">
-    <div class="wrap">
-      <h2>Cancellation modal with tier preview</h2>
-      <p>Before you confirm a cancel, the modal previews the exact charge against the client and the exact payout to each interpreter, per your tier rules. <em>"Cancel now bills $X and pays $Y per interpreter."</em> No fire-and-pray.</p>
-    </div>
-  </section>
-
-  <section class="section">
-    <div class="wrap">
-      <h2>PII reveal-on-accept</h2>
-      <p>Interpreters see a redacted offer — consumer initials, generic venue, time, rate. The moment they accept, the full record opens and the unlock is written to the audit log with user ID and timestamp.</p>
-    </div>
-  </section>
-
-  <section class="section">
-    <div class="wrap">
-      <h2>Conflict rules in plain English</h2>
-      <p>Every rule has a one-sentence reason next to it. No double-booking, ever. Back-to-back across counties warns with the drive-time estimate. Skill mismatch flags missing certs. Consumer-preference miss surfaces prior bookings. CDI assignment without a voicer flags the gap.</p>
-    </div>
-  </section>
-
   <section class="section section-warm">
     <div class="wrap center-text">
-      <h2>See feature · scheduling in motion.</h2>
+      <h2>See scheduling for yourself.</h2>
       <p class="lede" style="margin:0 auto var(--1891int-s-6)">Either path gets you to a real person within one business day.</p>
       <div class="cluster" style="justify-content:center">
         <a class="btn btn-primary btn-lg" href="/interpreter/get-a-demo">Get a demo</a>

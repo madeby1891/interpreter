@@ -311,21 +311,21 @@ def home_body() -> str:
           <div class="widget" data-widget="clients"></div>
         </div>
         <div class="showcase-tile" data-reveal data-delay="100">
-          <span class="eyebrow">Bill side / pay side, live</span>
+          <span class="eyebrow">What's billed, what's earned — live</span>
           <h3>Pick a job. See what the client pays and what the interpreter earns — instantly.</h3>
-          <p>Modifiers stack: evening +15%, weekend +25%, last-minute +25%. Interpreter pay-rate floors override the formula when their floor is higher.</p>
+          <p>The premiums add up on their own — evening, weekend, short-notice. And when an interpreter's own minimum is higher, that's what wins.</p>
           <div class="widget" data-widget="rates"></div>
         </div>
         <div class="showcase-tile" data-reveal data-delay="200">
-          <span class="eyebrow">Cancellation tiers, no hidden math</span>
+          <span class="eyebrow">Cancellations, no hidden math</span>
           <h3>Slide the clock. See what the client pays + what the interpreter still earns.</h3>
-          <p>≥48h: 0/0. 24-48h: 50/25. 12-24h: 100/50. &lt;12h: 100/100. The scheduler sees the same preview before they confirm a cancellation.</p>
+          <p>Cancel two days out and nobody's charged. The closer it gets, the more the client owes and the more the interpreter keeps. The scheduler sees this exact preview before they confirm.</p>
           <div class="widget" data-widget="cancel"></div>
         </div>
         <div class="showcase-tile" data-reveal data-delay="300">
           <span class="eyebrow">YES claims. NO declines.</span>
           <h3>Interpreters can accept an offer by text. Try it.</h3>
-          <p>Inbound texts signature-verified at the edge. Idempotent on the message ID. STOP unsubscribes (TCPA-clean). PII never appears in the reply.</p>
+          <p>Reply YES to claim, NO to pass, STOP to opt out — that simple. We make sure every reply is really from them, never count a claim twice, and never put private details in a text.</p>
           <div class="widget" data-widget="sms"></div>
         </div>
       </div>
@@ -344,7 +344,7 @@ def home_body() -> str:
             <li><strong>Spoken languages</strong> — Spanish, Mandarin, Arabic, Haitian Creole, and the long tail. On-site, VRI, OPI.</li>
             <li><strong>CART</strong> — NCRA-CRC realtime captioning, integrated with the same scheduling queue.</li>
             <li><strong>Document translation</strong> — with a human translator in the loop. Never pre-filled on legal or medical without review.</li>
-            <li><strong>Live captions from speech</strong> — vendor-abstracted at the Worker boundary so we can swap providers without touching your workflow.</li>
+            <li><strong>Live captions from speech</strong> — for the everyday meetings and trainings in between, with the words on screen as they're spoken.</li>
           </ul>
           <p style="margin-top:var(--1891int-s-5)"><a class="btn btn-ghost" href="{BASE_PATH}/features/">Browse all features →</a></p>
         </div>
@@ -444,26 +444,26 @@ def home_body() -> str:
       <div class="grid grid-2" style="align-items:center; gap:var(--1891int-s-8)">
         <div>
           <span class="eyebrow" style="color:#FFE2D6">Security</span>
-          <h2>HIPAA-defensible by default.</h2>
-          <p class="lede" style="color:#DCE9E7">PHI is redacted before it ever reaches an AI model. Every PHI read writes to an append-only audit log. BAA included on every paid tier and on the Deaf-owned tier.</p>
+          <h2>Built to hold up to HIPAA.</h2>
+          <p class="lede" style="color:#DCE9E7">Patient details are stripped out before anything reaches an AI tool. Every time a record is opened, it's written down. And a signed BAA comes with every paid plan — and the Deaf-owned plan too.</p>
           <ul class="xs" style="margin-top:var(--1891int-s-4)">
-            <li style="color:#DCE9E7">Encrypted at rest and in transit; tenant-isolated keys.</li>
-            <li style="color:#DCE9E7">Maryland two-party-consent rules baked into the audio-capture path.</li>
-            <li style="color:#DCE9E7">7-year audit log with hash-chain integrity.</li>
-            <li style="color:#DCE9E7">Subprocessor list public; BAA on request, executed in days, not weeks.</li>
+            <li style="color:#DCE9E7">Encrypted coming and going, with your data walled off from every other agency's.</li>
+            <li style="color:#DCE9E7">Maryland's two-party-consent rules built into any moment audio is captured.</li>
+            <li style="color:#DCE9E7">A seven-year audit log that can't be quietly edited.</li>
+            <li style="color:#DCE9E7">Our subprocessor list is public, and a BAA is signed in days, not weeks.</li>
           </ul>
           <p style="margin-top:var(--1891int-s-5)"><a class="btn btn-secondary" style="border-color:#fff;color:#fff" href="{BASE_PATH}/security">Read the security posture</a></p>
         </div>
         <div>
           <div class="card" style="background:var(--1891int-river-deep); border-color:var(--1891int-river-soft); color:var(--1891int-paper)">
-            <h3 style="color:var(--1891int-paper)" class="mt-0">What never reaches Claude or DeepL raw</h3>
+            <h3 style="color:var(--1891int-paper)" class="mt-0">What the AI never sees</h3>
             <ul class="xs" style="margin:0">
-              <li style="color:#DCE9E7">Consumer names — redacted to initials before any model call.</li>
-              <li style="color:#DCE9E7">Free-text clinical notes — scrubbed by regex + NER.</li>
-              <li style="color:#DCE9E7">Phone numbers, MRNs, DOBs — token-replaced for the model, hydrated client-side after.</li>
-              <li style="color:#DCE9E7">Executive-session and paused-mic portions of any meeting.</li>
+              <li style="color:#DCE9E7">A consumer's name — shortened to initials before any of it is read.</li>
+              <li style="color:#DCE9E7">Anything clinical written in free text — removed first.</li>
+              <li style="color:#DCE9E7">Phone numbers, record numbers, dates of birth — swapped for stand-ins, and put back only on your side.</li>
+              <li style="color:#DCE9E7">Anything said during a private session or while the mic is paused.</li>
             </ul>
-            <p class="tag" style="color:#88B0AE; margin-top:var(--1891int-s-4)">Documented in detail at /security and /legal/baa.</p>
+            <p class="tag" style="color:#88B0AE; margin-top:var(--1891int-s-4)">The full details are on the security and BAA pages.</p>
           </div>
         </div>
       </div>
@@ -544,7 +544,7 @@ def for_agencies_body() -> str:
     <div class="wrap">
       <span class="eyebrow">For agency owners</span>
       <h1>The math, and your data, in your hands.</h1>
-      <p class="lede">Flat per agency, no per-seat tax, no per-job fee. Real Client → Requestor → Location → Specialist hierarchy. Hash-chained audit log. Roster, clients, invoices, and audit log export to CSV or JSON in one click.</p>
+      <p class="lede">Flat per agency — no per-seat tax, no per-job fee. One clean bill per client, however their departments and locations are organized. A tamper-evident audit log. And your roster, clients, and invoices export with one click, any day you like.</p>
       <div class="cluster" style="margin-top:var(--1891int-s-6)">
         <a class="btn btn-primary btn-lg" href="#calculator">Compare your current spend</a>
         <a class="btn btn-secondary btn-lg" href="{BASE_PATH}/get-a-demo">Talk to us</a>
@@ -561,9 +561,9 @@ def for_agencies_body() -> str:
           <p class="ink-soft">A six-person agency on a per-seat platform with five schedulers and twenty-five interpreters ends up in the high-three-figures to low-four-figures monthly once per-job fees layer in. <strong>Practice at $249 flat</strong> is a deliberate price wall. Round number, easy to defend to a CFO, doesn't require a procurement cycle.</p>
           <ul class="checks">
             <li>No per-seat fees. Five schedulers cost the same as one.</li>
-            <li>No per-job fee. Not a percentage, not a flat. You book a job, you don't pay us for that job.</li>
-            <li>No per-call/per-minute fee on VRI or OPI. Call infrastructure is passed through at vendor cost and itemized.</li>
-            <li>No payment-processing skim. Stripe fees are passed through at Stripe's published rate. We don't add bps.</li>
+            <li>No per-job fee. Not a percentage, not a flat fee. You book a job, you don't pay us for that job.</li>
+            <li>No per-minute fee on video or phone interpreting. You pay the call's actual cost, itemized — never marked up.</li>
+            <li>No skim on payments. The card processor's standard rate is all you pay; we don't take a cut on top.</li>
           </ul>
           <p style="margin-top:var(--1891int-s-5)"><a class="btn btn-ghost" href="{BASE_PATH}/pricing">See all tiers</a></p>
         </div>
@@ -573,8 +573,8 @@ def for_agencies_body() -> str:
           <ul class="xs">
             <li><strong>1–5 interpreters</strong> — Solo ($9/mo) or Practice ($249/mo) once you hire a scheduler.</li>
             <li><strong>6–25 interpreters</strong> — Practice tier. $249/mo flat, no surprises.</li>
-            <li><strong>26–100 interpreters</strong> — Studio tier. $749/mo with SSO + custom domain.</li>
-            <li><strong>100+ interpreters, multi-state</strong> — Network tier. From $2,400/mo with white-label, SIEM export, dedicated SLA.</li>
+            <li><strong>26–100 interpreters</strong> — Studio tier. $749/mo, with single sign-on and your own web address.</li>
+            <li><strong>100+ interpreters, multi-state</strong> — Network tier. From $2,400/mo, with your own branding, security-log export, and a dedicated support agreement.</li>
             <li><strong>Verified Deaf-owned</strong> — $0. Full features. No asterisks.</li>
           </ul>
           <p class="tag" style="margin-top:var(--1891int-s-4)">Compare against any quote you've gotten. The math is on our side.</p>
@@ -593,15 +593,15 @@ def for_agencies_body() -> str:
       <div class="grid grid-3">
         <div class="card">
           <h3 class="mt-0">CSV + JSON</h3>
-          <p class="ink-soft">Every entity — interpreters, requestors, consumers, jobs, invoices, payouts, rate cards — exports to both formats. Schema-stable across releases; we publish a changelog when we add columns.</p>
+          <p class="ink-soft">Everything — interpreters, requestors, consumers, jobs, invoices, payouts, rate cards — exports to both formats. The layout stays steady release to release, and we note any change in the changelog.</p>
         </div>
         <div class="card">
           <h3 class="mt-0">No data ransom</h3>
           <p class="ink-soft">Cancel today and your full export waits in your inbox before the trial expires. We don't hold roster data hostage to force a contract renewal.</p>
         </div>
         <div class="card">
-          <h3 class="mt-0">Plaintext audit log</h3>
-          <p class="ink-soft">Your audit log exports too. Every PHI read, every assignment, every refund, with timestamps and the acting user. Hash-chained for integrity.</p>
+          <h3 class="mt-0">Your audit log, in plain text</h3>
+          <p class="ink-soft">The audit log exports too. Every record opened, every assignment, every refund — with the time and the person who did it. Tamper-evident, so it can't be quietly edited.</p>
         </div>
       </div>
     </div>
@@ -615,22 +615,22 @@ def for_agencies_body() -> str:
         <div>
           <h3>Modalities</h3>
           <ul class="checks">
-            <li>ASL and other signed languages. CDI + voicer team configurations.</li>
-            <li>Spoken languages — on-site, VRI, OPI.</li>
-            <li>CART (NCRA-CRC) realtime captioning.</li>
-            <li>Document translation with human-in-the-loop.</li>
-            <li>Live captions from speech (vendor-abstracted streaming transcription).</li>
+            <li>ASL and other signed languages, including team jobs.</li>
+            <li>Spoken languages — on-site, by video, or by phone.</li>
+            <li>Real-time captioning (CART).</li>
+            <li>Document translation, with a person checking every page.</li>
+            <li>Live captions from speech for everyday meetings.</li>
           </ul>
         </div>
         <div>
           <h3>Billing</h3>
           <ul class="checks">
-            <li>Per-hour, per-event, per-word — your rate cards.</li>
-            <li>Net-30 invoicing with 5 consolidation modes (one_per_client / requestor / location / specialist / job).</li>
-            <li>Monotonic invoice numbers per tenant per year — <code>INV-2026-0001</code>.</li>
-            <li>1099-NEC issuance via track1099. Stripe Connect Express for payouts.</li>
-            <li>GL coding to NetSuite, QuickBooks, Xero, Bill.com.</li>
-            <li>Payout PDF with separate Labor and Expenses tables and subtotals.</li>
+            <li>Per-hour, per-event, per-word — your rates, your way.</li>
+            <li>One clean bill per client, however their departments and locations are organized.</li>
+            <li>Invoice numbers that run in order, with no gaps to chase.</li>
+            <li>1099 filing handled, and interpreters paid by direct deposit.</li>
+            <li>Hands off to QuickBooks, Xero, NetSuite, and Bill.com.</li>
+            <li>Payment stubs that separate the work from the expenses, each with its own total.</li>
           </ul>
         </div>
       </div>
@@ -639,14 +639,20 @@ def for_agencies_body() -> str:
 
   <section class="section">
     <div class="wrap">
-      <span class="eyebrow">Agency health dashboard</span>
-      <h2>Roster, clients, jobs, and A/R — one screen.</h2>
-      <div class="grid grid-3 mt-5">
-        <div class="card"><h3 class="mt-0">Live roster signal</h3><p class="ink-soft">Roster active, available right now, doc-compliant percent. Catch a lapsed cert or expiring W-9 before it costs you a fill.</p></div>
-        <div class="card"><h3 class="mt-0">Operations metrics</h3><p class="ink-soft">Open jobs, fill rate, median time-to-fill, active clients, top clients by volume. Click any tile to drill in to the filtered dashboard.</p></div>
-        <div class="card"><h3 class="mt-0">Money in flight</h3><p class="ink-soft">Outstanding A/R rolled up across all clients, aged. Outstanding payouts owed to your interpreters. The number you actually want to see Monday morning.</p></div>
+      <div class="grid grid-2" style="gap:var(--1891int-s-8); align-items:center">
+        <div data-reveal>
+          <span class="eyebrow">Your Monday-morning screen</span>
+          <h2>Roster, clients, jobs, and money owed — one place.</h2>
+          <p class="ink-soft">The numbers you actually check, in one glance — and you can click any of them to drill into the detail behind it.</p>
+          <ul class="checks mt-4">
+            <li><strong>Roster at a glance.</strong> Who's active, who's free right now, and a heads-up before a credential or W-9 lapses and costs you a fill.</li>
+            <li><strong>How things are running.</strong> Open jobs, fill rate, how fast you're filling, your busiest clients.</li>
+            <li><strong>Where the money is.</strong> What clients still owe, by age, and what you still owe your interpreters.</li>
+          </ul>
+        </div>
+        <div data-reveal data-delay="100">{mock_frame("This week · your agency", ui_reporting(), caption="The numbers that matter, ready every morning.")}</div>
       </div>
-      <p class="tag" style="margin-top:var(--1891int-s-4)">Audit log viewer at <code>/app/admin/audit</code>: filter by date / user / action, export to CSV. Hash-chained for integrity.</p>
+      <p class="tag" style="margin-top:var(--1891int-s-6)">And a full audit log behind it all — filter by date, person, or action, and export to a spreadsheet. Tamper-evident, so the record holds up.</p>
     </div>
   </section>
 
@@ -695,17 +701,223 @@ def cta_band(headline: str, btn1: str, href1: str, btn2: str, href2: str) -> str
 """
 
 
+# -----------------------------------------------------------------------------
+# Product mockups — clickable "screenshot" frames + the little UIs inside them.
+# These let every feature page SHOW the screen, not just describe it. Each frame
+# can be wrapped as a link (whole picture is clickable) with an "open the live
+# demo" pill that fades in on hover. Styling lives in marketing-interact.css.
+# -----------------------------------------------------------------------------
+
+def mock_frame(tab: str, inner: str, href: str = "", caption: str = "",
+               open_label: str = "Open the live demo") -> str:
+    """A browser-window screenshot frame. If href is set, the whole frame is a
+    clickable link with a hover 'open demo' overlay."""
+    bar = (
+        '<div class="mock-bar">'
+        '<span class="mock-dots"><span></span><span></span><span></span></span>'
+        f'<span class="mock-tab">{tab}</span>'
+        '</div>'
+    )
+    body = f'<div class="mock-body">{inner}</div>'
+    if href:
+        overlay = (f'<span class="mock-open">{open_label} '
+                   f'<span class="mock-open-arrow" aria-hidden="true">→</span></span>')
+        frame = f'<a class="mock" href="{href}" aria-label="{open_label}">{bar}{body}{overlay}</a>'
+    else:
+        frame = f'<div class="mock">{bar}{body}</div>'
+    cap = f'<p class="mock-caption">{caption}</p>' if caption else ''
+    return f'<div class="mock-stage">{frame}{cap}</div>'
+
+
+def mock_phone(inner: str, caption: str = "") -> str:
+    cap = f'<p class="mock-caption">{caption}</p>' if caption else ''
+    return (f'<div class="mock-stage"><div class="mock-phone">'
+            f'<span class="mock-notch"></span>'
+            f'<div class="mock-screen">{inner}</div></div>{cap}</div>')
+
+
+# --- Inner UIs (one per feature) --------------------------------------------
+
+def ui_scheduler_board() -> str:
+    return """
+      <div class="ui-toolbar">
+        <span class="ui-search">Today · all jobs</span>
+        <span class="mchip is-open">Open 3</span>
+        <span class="mchip is-claimed">Claimed 5</span>
+        <span class="mchip is-confirmed">Confirmed 9</span>
+      </div>
+      <div class="ui-row">
+        <div class="ui-row-main"><span class="ui-row-title">Medical · ASL · 2:00 PM</span><span class="ui-row-sub">Frederick Health Cardiology · M.R.</span></div>
+        <span class="mchip is-open">Open</span>
+      </div>
+      <div class="ui-row is-highlight">
+        <div class="ui-row-main"><span class="ui-row-title">Legal · Spanish · 3:30 PM</span><span class="ui-row-sub">Filling now — offer out to 3 interpreters</span></div>
+        <span class="mchip is-offered">Offered</span>
+      </div>
+      <div class="ui-row">
+        <div class="ui-row-main"><span class="ui-row-title">School IEP · ASL · 4:00 PM</span><span class="ui-row-sub">Pat M. · confirmed, calendar invite sent</span></div>
+        <span class="mchip is-confirmed">Confirmed</span>
+      </div>"""
+
+
+def ui_smartfill() -> str:
+    return """
+      <div class="ui-row is-highlight">
+        <div class="ui-row-main"><span class="ui-row-title">Pat Morales, CDI</span><span class="ui-row-sub">Best match for this job</span></div>
+        <span class="ui-row-side">94</span>
+      </div>
+      <div class="ui-score"><span class="ui-score-lbl">Right credential</span><span class="ui-score-track"><span class="ui-score-fill" style="width:96%"></span></span><span class="ui-score-val">96</span></div>
+      <div class="ui-score"><span class="ui-score-lbl">Close by</span><span class="ui-score-track"><span class="ui-score-fill" style="width:88%"></span></span><span class="ui-score-val">88</span></div>
+      <div class="ui-score"><span class="ui-score-lbl">Asked for before</span><span class="ui-score-track"><span class="ui-score-fill" style="width:100%"></span></span><span class="ui-score-val">100</span></div>
+      <div class="ui-score"><span class="ui-score-lbl">Fair rotation</span><span class="ui-score-track"><span class="ui-score-fill" style="width:82%"></span></span><span class="ui-score-val">82</span></div>"""
+
+
+def ui_conflict_rules() -> str:
+    return """
+      <div class="ui-row"><div class="ui-row-main"><span class="ui-row-title">No double-booking</span><span class="ui-row-sub">Already on a 2:00 job — this one is blocked</span></div><span class="mchip is-warn">Blocked</span></div>
+      <div class="ui-row"><div class="ui-row-main"><span class="ui-row-title">Back-to-back, two counties</span><span class="ui-row-sub">38-minute drive between them — heads up</span></div><span class="mchip is-open">Warning</span></div>
+      <div class="ui-row"><div class="ui-row-main"><span class="ui-row-title">Asked for by this clinic</span><span class="ui-row-sub">Booked here 4× this quarter</span></div><span class="mchip is-confirmed">Good fit</span></div>"""
+
+
+def ui_interpreter_offer() -> str:
+    return """
+      <div class="tag" style="color:var(--1891int-bloom-deep)">TODAY · 2:00 PM</div>
+      <h3 class="mt-0" style="margin:6px 0 4px;font-size:21px">Medical · ASL</h3>
+      <p class="ink-soft" style="font-size:13.5px;margin-bottom:10px">Consumer J.M. · 90 min<br>Frederick Health, Room 412</p>
+      <div style="border-top:1px solid var(--1891int-line);padding-top:10px">
+        <div style="display:flex;justify-content:space-between;font-size:13.5px;padding:2px 0"><span>Hourly</span><strong>$95/hr</strong></div>
+        <div style="display:flex;justify-content:space-between;font-size:13.5px;padding:2px 0"><span>2-hour minimum</span><strong>$190.00</strong></div>
+        <div style="display:flex;justify-content:space-between;font-size:13.5px;padding:2px 0"><span>Mileage · 12 mi</span><strong>$8.04</strong></div>
+        <div class="ui-total" style="margin-top:8px;padding-top:8px"><span style="font-size:14px">You'll be paid</span><span class="ui-total-num" style="font-size:20px">$198.04</span></div>
+      </div>
+      <button class="btn btn-primary" style="width:100%;margin-top:12px" type="button">Claim</button>
+      <p class="tag" style="text-align:center;margin-top:8px">Two taps. No surprises.</p>"""
+
+
+def ui_closeout() -> str:
+    return """
+      <strong style="font-family:var(--1891int-display);font-size:17px">Close out — Medical · ASL</strong>
+      <div class="ui-field" style="margin-top:10px"><span class="ui-field-k">Scheduled</span><span class="ui-field-v">2:00 – 3:30 PM</span></div>
+      <div class="ui-field"><span class="ui-field-k">Actual</span><span class="ui-field-v">2:00 – 3:42 PM</span></div>
+      <div class="ui-row" style="margin-top:10px"><div class="ui-row-main"><span class="ui-row-title">Mileage · 12 mi</span><span class="ui-row-sub">Receipt attached</span></div><span class="ui-row-side">$8.04</span></div>
+      <div class="ui-row"><div class="ui-row-main"><span class="ui-row-title">Parking</span><span class="ui-row-sub">Receipt attached</span></div><span class="ui-row-side">$6.00</span></div>
+      <div style="display:flex;gap:6px;margin-top:10px;align-items:center;flex-wrap:wrap"><span class="mchip is-warn">Ran 12 min long — add a note</span></div>"""
+
+
+def ui_invoice() -> str:
+    return """
+      <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px">
+        <strong style="font-family:var(--1891int-display);font-size:18px">Invoice · 0042</strong>
+        <span class="mchip is-plain">Net 30</span>
+      </div>
+      <p class="ink-soft" style="font-size:12px;margin:0 0 12px">Frederick Health — one bill for every department</p>
+      <div class="ui-row"><div class="ui-row-main"><span class="ui-row-title">Cardiology · ASL · 2 hr</span><span class="ui-row-sub">Urbana Clinic · M.R.</span></div><span class="ui-row-side">$210.00</span></div>
+      <div class="ui-row"><div class="ui-row-main"><span class="ui-row-title">Emergency · Spanish · 1 hr</span><span class="ui-row-sub">FH Emergency · J.D.</span></div><span class="ui-row-side">$135.00</span></div>
+      <div class="ui-row"><div class="ui-row-main"><span class="ui-row-title">Pediatrics · ASL · 1.5 hr</span><span class="ui-row-sub">Mt Airy · L.P.</span></div><span class="ui-row-side">$172.50</span></div>
+      <div class="ui-total"><span>Total due</span><span class="ui-total-num">$517.50</span></div>"""
+
+
+def ui_reporting() -> str:
+    return """
+      <div class="ui-kpis">
+        <div class="ui-kpi"><div class="ui-kpi-num">94%</div><div class="ui-kpi-lbl">Jobs filled</div><div class="ui-kpi-trend">▲ 6 pts</div></div>
+        <div class="ui-kpi"><div class="ui-kpi-num">38m</div><div class="ui-kpi-lbl">Time to fill</div><div class="ui-kpi-trend">▲ faster</div></div>
+        <div class="ui-kpi"><div class="ui-kpi-num">$12k</div><div class="ui-kpi-lbl">Money owed</div><div class="ui-kpi-trend">on track</div></div>
+      </div>
+      <div class="ui-chart" aria-hidden="true">
+        <div class="ui-col"><i style="height:42%"></i><span>Mon</span></div>
+        <div class="ui-col"><i style="height:64%"></i><span>Tue</span></div>
+        <div class="ui-col"><i style="height:51%"></i><span>Wed</span></div>
+        <div class="ui-col"><i style="height:78%"></i><span>Thu</span></div>
+        <div class="ui-col"><i style="height:88%"></i><span>Fri</span></div>
+        <div class="ui-col"><i style="height:30%"></i><span>Sat</span></div>
+      </div>"""
+
+
+def ui_intake() -> str:
+    return """
+      <div class="ui-panes">
+        <div class="ui-pane">
+          <h5>The email that came in</h5>
+          “Hi — we need an ASL interpreter for a cardiology follow-up next Tuesday at 2pm, about 90 minutes, at the Urbana clinic. Patient is <span class="ui-redact">REDACTED</span>.”
+        </div>
+        <div class="ui-pane is-out">
+          <h5>A draft job, ready for you to check</h5>
+          <div class="ui-field"><span class="ui-field-k">Language</span><span class="ui-field-v">ASL</span></div>
+          <div class="ui-field"><span class="ui-field-k">Setting</span><span class="ui-field-v">Medical</span></div>
+          <div class="ui-field"><span class="ui-field-k">When</span><span class="ui-field-v">Tue · 2:00 PM</span></div>
+          <div class="ui-field"><span class="ui-field-k">Length</span><span class="ui-field-v">90 min</span></div>
+          <div class="ui-field"><span class="ui-field-k">Where</span><span class="ui-field-v">Urbana clinic</span></div>
+          <div class="ui-field"><span class="ui-field-k">Patient</span><span class="ui-token">kept private</span></div>
+        </div>
+      </div>"""
+
+
+def ui_vri() -> str:
+    return """
+      <div class="ui-stage">
+        <div class="ui-tile t-a"><span class="ui-tile-tag">Interpreter</span></div>
+        <div class="ui-tile t-b"><span class="ui-tile-tag">Provider &amp; patient</span></div>
+      </div>
+      <div class="ui-caption" style="margin-top:10px">
+        <p class="ui-cap-line"><span class="ui-cap-spk">Captions on</span> · recording only with consent</p>
+        <p class="ui-cap-line ui-cap-live">“Let's go over your results together”</p>
+      </div>"""
+
+
+def ui_captions() -> str:
+    return """
+      <div class="ui-caption">
+        <p class="ui-cap-line"><span class="ui-cap-spk">Chair:</span> Thank you all for coming this evening.</p>
+        <p class="ui-cap-line"><span class="ui-cap-spk">Member:</span> I move that we approve the budget as presented.</p>
+        <p class="ui-cap-line ui-cap-live">The motion is seconded and open for discussion</p>
+      </div>
+      <div style="display:flex;gap:6px;margin-top:10px;align-items:center;flex-wrap:wrap">
+        <span class="mchip is-confirmed">Captions on</span>
+        <span class="mchip is-plain">Transcript saved</span>
+      </div>"""
+
+
+def ui_translation() -> str:
+    return """
+      <div class="ui-panes">
+        <div class="ui-pane"><h5>Source · English</h5>Please arrive 15 minutes before your appointment and bring a photo ID and your insurance card.</div>
+        <div class="ui-pane is-out"><h5>Spanish · translator reviewing</h5>Por favor, llegue 15 minutos antes de su cita y traiga una identificación con foto y su tarjeta del seguro.</div>
+      </div>
+      <div style="display:flex;gap:6px;margin-top:10px;align-items:center;flex-wrap:wrap">
+        <span class="mchip is-claimed">A person reviews every page</span>
+        <span class="mchip is-warn">Never auto-filled on medical or legal</span>
+      </div>"""
+
+
+def ui_integrations() -> str:
+    return """
+      <div class="ui-integ">
+        <div class="ui-itile"><div class="ui-itile-ico">📒</div><span class="ui-itile-lbl">Accounting</span></div>
+        <div class="ui-itile"><div class="ui-itile-ico">💳</div><span class="ui-itile-lbl">Payouts</span></div>
+        <div class="ui-itile"><div class="ui-itile-ico">🧾</div><span class="ui-itile-lbl">1099 filing</span></div>
+        <div class="ui-itile"><div class="ui-itile-ico">👥</div><span class="ui-itile-lbl">Payroll hours</span></div>
+        <div class="ui-itile"><div class="ui-itile-ico">✉️</div><span class="ui-itile-lbl">Email &amp; text</span></div>
+        <div class="ui-itile"><div class="ui-itile-ico">🔐</div><span class="ui-itile-lbl">Single sign-on</span></div>
+      </div>"""
+
+
 def for_schedulers_body() -> str:
     return f"""
   {audience_switch("schedulers")}
   <section class="feature-hero">
     <div class="wrap">
-      <span class="eyebrow">For schedulers</span>
-      <h1>Six dashboards. One filter bar. Hit back, your filters survive.</h1>
-      <p class="lede">Jobs, Interpreters, Clients, Requestors, Invoices, Payouts — same search box, same status chips, same sort. State lives in the URL, so back-button, share-link, and tab-restore all just work.</p>
-      <div class="cluster" style="margin-top:var(--1891int-s-6)">
-        <a class="btn btn-primary btn-lg" href="{BASE_PATH}/get-a-demo">Watch the day-of demo</a>
-        <a class="btn btn-ghost btn-lg" href="{BASE_PATH}/features/scheduling">Feature detail</a>
+      <div class="hero-grid">
+        <div>
+          <span class="eyebrow">For schedulers</span>
+          <h1>The whole day on one board. No more swiveling between tabs.</h1>
+          <p class="lede">Jobs, interpreters, clients, invoices — one place, one search, one set of filters. Your view survives a refresh, a shared link, and the back button, so you never lose your spot.</p>
+          <div class="cluster" style="margin-top:var(--1891int-s-6)">
+            <a class="btn btn-primary btn-lg" href="{BASE_PATH}/get-a-demo">Watch the day-of demo</a>
+            <a class="btn btn-ghost btn-lg" href="{BASE_PATH}/features/scheduling">See the feature</a>
+          </div>
+        </div>
+        <div data-reveal data-delay="100">{mock_frame("Today's board · your agency", ui_scheduler_board(), href=f"{BASE_PATH}/get-a-demo", caption="Open, claimed, confirmed — at a glance. <strong>Click to walk through it.</strong>")}</div>
       </div>
     </div>
   </section>
@@ -715,23 +927,23 @@ def for_schedulers_body() -> str:
       <div class="grid grid-2" style="gap:var(--1891int-s-8); align-items:flex-start">
         <div>
           <h2>One board, every job in flight.</h2>
-          <p class="ink-soft">Today's roster, today's jobs, today's exceptions — all in your viewport. Click a row to expand; press <kbd>/</kbd> to filter; press <kbd>j</kbd> and <kbd>k</kbd> to move through the queue. Multi-monitor: drag the day-of board to a second screen, keep job detail on the primary.</p>
+          <p class="ink-soft">Today's roster, today's jobs, today's surprises — all on one screen. Filter by status, search anyone, sort by any column, and edit most fields right in place without opening a thing. Drag the board to a second monitor and keep the job you're working on the first.</p>
           <ul class="checks">
-            <li>Status-chip filters and search on every dashboard. Combine them; they survive a refresh.</li>
-            <li>Sort by any column — last click wins, persisted in the URL.</li>
-            <li>Inline edit on most fields without opening a modal.</li>
-            <li>Audit-log viewer at <code>/app/admin/audit</code> with date / user / action filters and CSV export.</li>
+            <li>Filters and search on every list. Stack them; they stick through a refresh.</li>
+            <li>Sort by any column with a click.</li>
+            <li>Edit most fields in place — no pop-up to wait on.</li>
+            <li>A full audit log, filterable by date, person, or action, exportable to a spreadsheet.</li>
           </ul>
         </div>
         <div class="card card-warm">
-          <h3 class="mt-0">Plain-English conflict rules</h3>
-          <p class="ink-soft">Every conflict rule has a one-sentence reason next to it, so you know why a warning fired — not just that it did.</p>
+          <h3 class="mt-0">Warnings that explain themselves</h3>
+          <p class="ink-soft">Every flag comes with a one-line reason, so you know why it fired — not just that it did.</p>
           <ul class="xs">
-            <li><strong>No double-booking, ever.</strong> Hard block. Override requires explicit reason.</li>
-            <li><strong>Back-to-back across counties.</strong> Soft warning with the drive-time estimate.</li>
-            <li><strong>Skill mismatch.</strong> Warns when an interpreter's certs don't match what the venue requires.</li>
-            <li><strong>Consumer-preference miss.</strong> Surfaces "this requestor has booked this interpreter 4× this quarter" before you send the offer.</li>
-            <li><strong>Team mismatch.</strong> Flags a CDI assignment with no voicer attached.</li>
+            <li><strong>No double-booking, ever.</strong> A hard stop; overriding asks you why.</li>
+            <li><strong>Back-to-back across town.</strong> A heads-up with the drive time.</li>
+            <li><strong>Wrong fit.</strong> Flags when an interpreter's credentials don't match what the job needs.</li>
+            <li><strong>A favorite is free.</strong> Tells you this clinic has booked this interpreter 4× this quarter — before you send the offer.</li>
+            <li><strong>Missing a teammate.</strong> Catches a team job that still needs its second interpreter.</li>
           </ul>
         </div>
       </div>
@@ -740,13 +952,17 @@ def for_schedulers_body() -> str:
 
   <section class="section">
     <div class="wrap">
-      <span class="eyebrow">Client hierarchy</span>
-      <h2>One Client. Many Requestors. Many Locations. Many Specialists. One bill.</h2>
-      <p class="lede">Frederick Health is one Client. Cardiology, ED, Peds, and Oncology are Requestors. Main Hospital, Urbana, Mt Airy, and Brunswick are Locations. The doctor on the chart is a Specialist. All roll to one billing office on one cycle — or split however the contract says.</p>
-      <div class="grid grid-3 mt-5">
-        <div class="card"><h3 class="mt-0">Five consolidation modes</h3><p class="ink-soft"><code>one_per_client</code>, <code>one_per_requestor</code>, <code>one_per_location</code>, <code>one_per_specialist</code>, <code>one_per_job</code>. Set per client; mix on the same Net-30 cycle.</p></div>
-        <div class="card"><h3 class="mt-0">Per-client document library</h3><p class="ink-soft">Contracts, BAAs, COIs, W-9s — uploaded once, surfaced on the Client view with expiry chips so nothing lapses on you.</p></div>
-        <div class="card"><h3 class="mt-0">Invoice line detail</h3><p class="ink-soft">Each line shows location + specialist + consumer initials + interpreter name (whichever the client requires). Invoice numbers are monotonic per tenant per year — <code>INV-2026-0001</code>.</p></div>
+      <div class="grid grid-2" style="gap:var(--1891int-s-8); align-items:center">
+        <div data-reveal>
+          <span class="eyebrow">One client, one bill</span>
+          <h2>However their departments are organized, it's one clean statement.</h2>
+          <p class="ink-soft">A hospital might be one client with four departments, half a dozen locations, and a dozen doctors. You choose how the bill comes together — all on one statement, by department, by location, or one per job — and you can do it differently for each client. <strong>Click the client to open it up →</strong></p>
+          <ul class="xs mt-4">
+            <li>A document shelf per client — contracts, agreements, certificates of insurance, W-9s — with reminders before anything lapses.</li>
+            <li>Every invoice line shows exactly what the client wants to see, and invoice numbers run in order with no gaps.</li>
+          </ul>
+        </div>
+        <div data-reveal data-delay="100"><div class="widget" data-widget="clients"></div></div>
       </div>
     </div>
   </section>
@@ -755,14 +971,14 @@ def for_schedulers_body() -> str:
     <div class="wrap">
       <div class="grid grid-2" style="gap:var(--1891int-s-8); align-items:flex-start">
         <div>
-          <span class="eyebrow">Cancellation modal</span>
-          <h2>Live tier preview before you confirm.</h2>
-          <p class="ink-soft">The cancel button doesn't fire-and-pray. The modal previews the exact charge against the client and the exact payout to each interpreter, per your tier rules, before you click confirm. <em>"Cancel now bills $X and pays $Y per interpreter."</em></p>
+          <span class="eyebrow">Before you cancel</span>
+          <h2>See what it costs — then confirm.</h2>
+          <p class="ink-soft">Canceling doesn't mean guessing. Before you confirm, you see exactly what the client is billed and what each interpreter still earns, under that client's own rules. No awkward call later. <em>“Cancel now bills $X and pays $Y per interpreter.”</em></p>
         </div>
         <div>
-          <span class="eyebrow">PII reveal-on-accept</span>
-          <h2>Redacted offer. Full detail unlocks on claim.</h2>
-          <p class="ink-soft">Interpreter browses the offer with consumer initials, generic venue, time, and rate. The moment they tap Accept, the full record opens — and the unlock is written to the audit log with their user ID and a timestamp.</p>
+          <span class="eyebrow">Private until claimed</span>
+          <h2>Just enough to decide. The rest opens on accept.</h2>
+          <p class="ink-soft">Interpreters browse offers with the kind of job, the time, the pay, and the consumer's initials. The moment they accept, the full details open — and that hand-off is written down with a name and a time.</p>
         </div>
       </div>
     </div>
@@ -770,53 +986,38 @@ def for_schedulers_body() -> str:
 
   <section class="section">
     <div class="wrap">
-      <div class="center-text" style="margin-bottom:var(--1891int-s-7)">
-        <span class="eyebrow">Smart-fill</span>
-        <h2>Ranked candidates with a score breakdown — never a black box.</h2>
-        <p class="lede" style="margin:0 auto">Five factors: certification fit, location proximity, requestor preference, workload balance, prior performance with this consumer. Hover any score, see the math.</p>
-      </div>
-      <div class="grid grid-3">
-        <div class="card">
-          <h3 class="mt-0">Transparent weights</h3>
-          <p class="ink-soft">Every weight is visible and tunable in <code>/app/settings</code>. Default weights are public.</p>
+      <div class="grid grid-2" style="gap:var(--1891int-s-8); align-items:center">
+        <div data-reveal>
+          <span class="eyebrow">Suggested for you</span>
+          <h2>The right interpreter, ranked — and it shows its work.</h2>
+          <p class="ink-soft">For every open job you get a short list of the best people for it, ranked by who has the right credential, who's nearby, who this clinic has asked for before, and whose turn it is. Each suggestion shows why it ranks where it does, so it's a head start — never a black box. When you send it out, the offer goes to the top three at once and whoever says yes first gets the job.</p>
         </div>
-        <div class="card">
-          <h3 class="mt-0">Cascade pattern</h3>
-          <p class="ink-soft">Parallel-3, first-claim-wins by default. Three top candidates get the offer simultaneously; whoever claims first locks the job.</p>
-        </div>
-        <div class="card">
-          <h3 class="mt-0">Open marketplace</h3>
-          <p class="ink-soft">If cascade exhausts, the job opens to any qualified interpreter in your roster. First-claim, written to the audit log.</p>
-        </div>
+        <div data-reveal data-delay="100">{mock_frame("Suggested for this job", ui_smartfill(), caption="The reasons behind every ranking, in plain sight.")}</div>
       </div>
     </div>
   </section>
 
   <section class="section section-warm">
     <div class="wrap">
-      <h2>Team invitations with a role-scoped allowlist.</h2>
-      <p class="lede">Open <code>/app/settings/team</code> and invite. Managers can invite schedulers, interpreters, and client / requestor / billing contacts — but never other managers (only an owner does that). Invitation tokens live 7 days, then expire.</p>
+      <h2>Your team, with the right doors open.</h2>
+      <p class="lede">Invite anyone in a couple of clicks. Each person sees only what their job needs — a scheduler's view isn't a billing contact's view — and invitations expire on their own if they're not used.</p>
       <div class="grid grid-3 mt-5">
-        <div class="card"><h3 class="mt-0">7-tier role hierarchy</h3><p class="ink-soft">platform_staff → owner → manager → scheduler, interpreter, client_contact, requestor_contact, billing_contact. The role on the invite scopes everything that user sees.</p></div>
-        <div class="card"><h3 class="mt-0">Magic-link sign-in</h3><p class="ink-soft">No passwords. Click the email link, you're in. Sessions are agency-scoped; multi-agency users pick which tenant on landing.</p></div>
-        <div class="card"><h3 class="mt-0">Agency health dashboard</h3><p class="ink-soft">Roster active, available right now, active clients, open jobs, fill rate, median time-to-fill, doc-compliant percent, top clients by volume, outstanding A/R rollup — one screen.</p></div>
+        <div class="card"><h3 class="mt-0">Roles that fit the work</h3><p class="ink-soft">Owners, managers, schedulers, interpreters, and client, requestor, and billing contacts — each with the right reach. Managers can invite their team; only owners add other managers.</p></div>
+        <div class="card"><h3 class="mt-0">No passwords to manage</h3><p class="ink-soft">Sign in with a link sent to your email — nothing to remember or reset. If you work with more than one agency, you pick which one when you land.</p></div>
+        <div class="card"><h3 class="mt-0">Your Monday-morning screen</h3><p class="ink-soft">Roster on hand, who's available right now, open jobs, fill rate, how fast you're filling, money owed — the numbers you actually check, all in one place.</p></div>
       </div>
     </div>
   </section>
 
   <section class="section">
-    <div class="wrap">
-      <h2>Keyboard shortcuts we got right.</h2>
-      <p class="lede">If you live on the board, your hands stay on the keys.</p>
-      <div class="grid grid-3 mt-5">
-        <div><h3>Navigation</h3><ul class="xs"><li><kbd>j</kbd> / <kbd>k</kbd> — next / previous job</li><li><kbd>/</kbd> — focus search</li><li><kbd>g</kbd> then <kbd>o</kbd> — go to open jobs</li><li><kbd>?</kbd> — show all shortcuts</li></ul></div>
-        <div><h3>Actions</h3><ul class="xs"><li><kbd>a</kbd> — assign interpreter</li><li><kbd>r</kbd> — request replacement</li><li><kbd>c</kbd> — mark confirmed</li><li><kbd>x</kbd> — cancel job (asks for reason)</li></ul></div>
-        <div><h3>Inspection</h3><ul class="xs"><li><kbd>e</kbd> — expand job detail</li><li><kbd>shift</kbd>+<kbd>e</kbd> — expand all today</li><li><kbd>?</kbd> over a score — explain the ranking</li><li><kbd>cmd</kbd>+<kbd>k</kbd> — command palette</li></ul></div>
-      </div>
+    <div class="wrap-narrow center-text">
+      <span class="eyebrow">Built for the keyboard</span>
+      <h2>If you live on the board, your hands stay on the keys.</h2>
+      <p class="lede" style="margin:0 auto">Move through the queue, jump to search, assign, confirm, or cancel — all without reaching for the mouse. Press <kbd>?</kbd> any time to see the full list. The shortcuts are there when you want them and out of the way when you don't.</p>
     </div>
   </section>
 
-  {cta_band("See the board in motion.", "Watch the day-of demo", f"{BASE_PATH}/get-a-demo", "Feature detail", f"{BASE_PATH}/features/scheduling")}
+  {cta_band("See the board in motion.", "Watch the day-of demo", f"{BASE_PATH}/get-a-demo", "See the feature", f"{BASE_PATH}/features/scheduling")}
 """
 
 
@@ -825,77 +1026,72 @@ def for_interpreters_body() -> str:
   {audience_switch("interpreters")}
   <section class="feature-hero">
     <div class="wrap">
-      <span class="eyebrow">For interpreters</span>
-      <h1>Two-tap claim. SMS YES/NO works too. See your pay before you accept.</h1>
-      <p class="lede">Phone-friendly portal. Reply to a job offer by text if your hands are full. Close out with actual times, expenses, and receipts. Approved expenses roll into your next payout automatically.</p>
-      <p class="ink-soft" style="margin-top:var(--1891int-s-3); font-size:15px"><strong>You're not the customer in the contract sense — agencies are.</strong> But you're the only reason the contract has any value, and the product treats you that way.</p>
+      <div class="hero-grid">
+        <div>
+          <span class="eyebrow">For interpreters</span>
+          <h1>Claim a job in two taps. Or just reply YES to a text.</h1>
+          <p class="lede">Phone-friendly, for wherever the job takes you. See exactly what you'll be paid before you accept, close out with your real times and expenses in one screen, and get paid the day you were promised.</p>
+          <p class="ink-soft" style="margin-top:var(--1891int-s-3); font-size:15px"><strong>The agency signs the contract — but you're the reason it's worth anything.</strong> The app is built like it.</p>
+          <div class="cluster" style="margin-top:var(--1891int-s-6)">
+            <a class="btn btn-primary btn-lg" href="{BASE_PATH}/features/interpreter-app">See the app</a>
+            <a class="btn btn-ghost btn-lg" href="{BASE_PATH}/get-a-demo">Get a demo</a>
+          </div>
+        </div>
+        <div data-reveal data-delay="100">{mock_phone(ui_interpreter_offer(), caption="The offer, the pay, and the Claim button — one tap from your texts.")}</div>
+      </div>
     </div>
   </section>
 
   <section class="section">
     <div class="wrap">
       <div class="grid grid-2" style="gap:var(--1891int-s-8); align-items:center">
-        <div>
-          <h2>The phone app, in plain terms.</h2>
-          <ul class="checks">
-            <li><strong>Two-tap claim.</strong> Offer shows the rate, initials of the consumer, generic venue, team — full record unlocks the moment you accept.</li>
-            <li><strong>SMS YES/NO works too.</strong> Reply <code>YES</code> to claim, <code>NO</code> to decline. Edge-verified inbound text; same audit trail as a tap.</li>
-            <li><strong>See your pay before you accept.</strong> Hourly, per-event, mileage, premium pay — itemized. Pay-side floor is 60% of the client charge; you see both numbers when your agency turns that on.</li>
-            <li><strong>Quiet by default.</strong> Per-event cadence per channel: immediate, daily 6am ET digest, weekly Monday 7am ET digest, or off. Email / SMS each independent. (Mobile push isn't ready yet — email and SMS are.)</li>
-            <li><strong>1099 year-to-date strip.</strong> Open the app, see your earnings in seconds. Multi-agency interpreters see each agency's slice.</li>
-            <li><strong>Get paid on the day the agency promised.</strong> Stripe Connect Express by default; manual ACH fallback. 1099-NEC issued via track1099 each January.</li>
+        <div data-reveal>
+          <h2>Or just reply YES to a text.</h2>
+          <p class="ink-soft">Hands full between assignments? Reply <strong>YES</strong> to claim or <strong>NO</strong> to pass — no app to open, no password to dig up. It counts exactly the same as tapping Claim. <strong>Try it on the right →</strong></p>
+          <ul class="checks mt-4">
+            <li><strong>See your pay before you say yes.</strong> Hourly, minimums, mileage, and any evening or weekend premium — added up to one number. When your agency turns on pay transparency, you see what the client is billed too.</li>
+            <li><strong>Quiet by default.</strong> Hear from us the moment a job posts, once a morning, once a week, or not at all — your call, per channel.</li>
+            <li><strong>Your earnings, always a tap away.</strong> Year-to-date totals in seconds, and a separate line for each agency if you work with more than one.</li>
           </ul>
         </div>
-        <div>
-          <div class="card card-warm" style="max-width:340px; margin:0 auto; padding:var(--1891int-s-5)">
-            <div style="background:var(--1891int-paper); border-radius:var(--1891int-radius-md); padding:var(--1891int-s-5); border:1px solid var(--1891int-line)">
-              <div class="tag" style="color:var(--1891int-bloom-deep)">TODAY · 2:00 PM</div>
-              <h3 class="mt-0" style="margin-top:6px; font-size:22px">Medical · ASL</h3>
-              <p class="ink-soft" style="font-size:14.5px; margin-bottom:6px">Consumer: J.M. · 90 min<br>Frederick Health Hospital, Room 412</p>
-              <div style="border-top:1px solid var(--1891int-line); margin:var(--1891int-s-4) 0; padding-top:var(--1891int-s-4)">
-                <div style="display:flex;justify-content:space-between;font-size:15px"><span>Hourly</span><strong>$95/hr</strong></div>
-                <div style="display:flex;justify-content:space-between;font-size:15px"><span>2-hr minimum</span><strong>$190</strong></div>
-                <div style="display:flex;justify-content:space-between;font-size:15px"><span>Mileage (12 mi)</span><strong>$8.04</strong></div>
-                <div style="display:flex;justify-content:space-between;font-size:17px;border-top:1px solid var(--1891int-line);padding-top:8px;margin-top:8px;font-weight:700"><span>You'll be paid</span><span style="color:var(--1891int-bloom-deep)">$198.04</span></div>
-              </div>
-              <button class="btn btn-primary" style="width:100%">Claim</button>
-              <p class="tag" style="text-align:center;margin-top:var(--1891int-s-3)">Two taps. No surprises.</p>
-            </div>
-          </div>
-        </div>
+        <div data-reveal data-delay="100"><div class="widget" data-widget="sms"></div></div>
       </div>
     </div>
   </section>
 
   <section class="section section-warm">
     <div class="wrap">
-      <span class="eyebrow">Close-out modal</span>
-      <h2>Actual times, expenses, receipts — one screen.</h2>
-      <p class="lede">After the job, open the close-out: enter actual start and end times, add any expense lines (mileage / parking / tolls / supplies / meal / other), attach a receipt if needed, leave a note.</p>
-      <div class="grid grid-3 mt-5">
-        <div class="card"><h3 class="mt-0">Live divergence preview</h3><p class="ink-soft">If your actual time diverges from the scheduled time by 25% or more, the modal flags it so you can add a sentence of context before submitting. The scheduler sees the same flag on their side.</p></div>
-        <div class="card"><h3 class="mt-0">Receipts up to 8 MB</h3><p class="ink-soft">Image or PDF, attached to the expense line. Stored in Drive in v1 (works for low/medium scale; R2 migration is on the roadmap). The receipt is attached to the expense — not to the client.</p></div>
-        <div class="card"><h3 class="mt-0">Approved expenses roll forward</h3><p class="ink-soft">Once the scheduler approves your expense lines, they roll into your next Payout PDF automatically — pay-side only. Expenses are <strong>never</strong> billed back to the client.</p></div>
+      <div class="grid grid-2" style="gap:var(--1891int-s-8); align-items:center">
+        <div data-reveal>
+          <span class="eyebrow">Close out</span>
+          <h2>Your real times and expenses — one screen.</h2>
+          <p class="ink-soft">After the job, enter your actual start and end times, add expenses like mileage or parking, snap a receipt, and you're done. If you ran long, it gently asks for a sentence of context. Receipts stay attached to the expense, never shown to the client.</p>
+          <ul class="xs mt-4">
+            <li>Approved expenses ride along on your next payment automatically.</li>
+            <li>Expenses are <strong>never</strong> billed back to the client — they're yours.</li>
+          </ul>
+        </div>
+        <div data-reveal data-delay="100">{mock_frame("Close out · Medical · ASL", ui_closeout(), caption="Real times and expenses, attached in seconds.")}</div>
       </div>
     </div>
   </section>
 
   <section class="section">
     <div class="wrap">
-      <span class="eyebrow">Payouts</span>
-      <h2>Labor and Expenses, side by side, on every Payout PDF.</h2>
+      <span class="eyebrow">Getting paid</span>
+      <h2>On time, with a stub you can actually read.</h2>
       <div class="grid grid-3 mt-5">
-        <div class="card"><h3 class="mt-0">Two tables, two subtotals</h3><p class="ink-soft">Labor lines (job, rate, hours) and Expense lines (category, receipt link) live in separate tables of the same PDF, each with its own subtotal. Grand total at the foot.</p></div>
-        <div class="card"><h3 class="mt-0">Stripe Connect Express</h3><p class="ink-soft">Direct deposit to the bank account on your Stripe Connect profile. Backend works today; the fully self-serve onboarding UI isn't finished yet — we walk new payees through the setup.</p></div>
-        <div class="card"><h3 class="mt-0">Aging visible to you</h3><p class="ink-soft">Open invoices the agency hasn't yet paid show their aging on your dashboard. No more guessing where your money is.</p></div>
+        <div class="card"><h3 class="mt-0">Work and expenses, separated</h3><p class="ink-soft">Your stub lists your jobs and your expenses on their own lines, each with a subtotal and a grand total at the bottom. Nothing to decode.</p></div>
+        <div class="card"><h3 class="mt-0">Straight to your account</h3><p class="ink-soft">Direct deposit to your bank, on the day the agency promised. New to the platform? We walk you through setting it up.</p></div>
+        <div class="card"><h3 class="mt-0">See where your money is</h3><p class="ink-soft">If the agency hasn't paid an invoice yet, you can see it and how long it's been waiting. No more guessing.</p></div>
       </div>
     </div>
   </section>
 
   <section class="section section-warm">
     <div class="wrap-narrow">
-      <h2>Fairness dashboard.</h2>
-      <p class="lede">You see your own data — how often you've been offered jobs, claim rate, fill rate, average rating, rotation position. This is yours to read; we don't gate it.</p>
+      <h2>A fair look at your own work.</h2>
+      <p class="lede">You can see your own numbers — how often you're offered jobs, how often you claim, your average rating, and where you sit in the rotation. It's yours to read. We don't hide it from you.</p>
       <p style="margin-top:var(--1891int-s-5)"><a class="btn btn-ghost" href="{BASE_PATH}/about">Why this matters to us</a></p>
     </div>
   </section>
@@ -920,11 +1116,11 @@ def for_requestors_body() -> str:
       <span class="eyebrow">Three ways</span>
       <h2>Pick the one that fits your day.</h2>
       <div class="grid grid-3 mt-5">
-        <div class="card"><h3 class="mt-0">Reply to email</h3><p class="ink-soft">Replying to one of your agency's job confirmations with a new request kicks off an intake. The parser pulls language, date, location, and modality into a draft job. A scheduler reviews and confirms — usually within the hour during business hours.</p></div>
-        <div class="card"><h3 class="mt-0">Short web form</h3><p class="ink-soft">Below. No login. No phone tree. The scheduler picks up the request and replies with options.</p></div>
-        <div class="card"><h3 class="mt-0">Call the agency's number</h3><p class="ink-soft">Studio and Network agencies have a per-location phone number. Voicemail intake is parsed and routed; you get a confirmation back the same day. (Studio adds custom domain + SSO; Network adds white-label and SIEM.)</p></div>
+        <div class="card"><h3 class="mt-0">Reply to an email</h3><p class="ink-soft">Just reply to one of your agency's confirmations with a new request. The details — language, date, place — are pulled into a draft, and a scheduler confirms it, usually within the hour during business hours.</p></div>
+        <div class="card"><h3 class="mt-0">A short web form</h3><p class="ink-soft">Right below. No login, no phone tree. The scheduler picks it up and replies with options.</p></div>
+        <div class="card"><h3 class="mt-0">Call the agency</h3><p class="ink-soft">Leave a voicemail and it's turned into a request and routed to a scheduler — you get a confirmation back the same day.</p></div>
       </div>
-      <p class="tag" style="margin-top:var(--1891int-s-3)">Drafts are always reviewed by a human before they reach an interpreter. Auto-confirmation on clinical or legal work is hard-gated off.</p>
+      <p class="tag" style="margin-top:var(--1891int-s-3)">A person always reviews a request before it reaches an interpreter. A clinical or legal job is never booked automatically — a scheduler confirms it first.</p>
     </div>
   </section>
 
@@ -994,9 +1190,9 @@ def for_payers_body() -> str:
   {audience_switch("payers")}
   <section class="feature-hero">
     <div class="wrap">
-      <span class="eyebrow">For Billing, AP, and CFOs</span>
-      <h1>Net-30. Five consolidation modes per client. GL-coded on day one.</h1>
-      <p class="lede">PHI redacted from invoices by default. Each line shows location + specialist + consumer initials + interpreter name (whichever the client requires). Invoice numbers are monotonic per tenant per year (<code>INV-2026-0001</code>). Sample-invoice anatomy below — no real data, all the structure.</p>
+      <span class="eyebrow">For billing, AP, and finance</span>
+      <h1>Net-30, GL-coded, and one clean bill per client.</h1>
+      <p class="lede">Patient details kept off every invoice by default. Each line shows exactly what your client asked to see — location, provider, consumer initials, interpreter — and invoice numbers run in order with no gaps. Here's what one actually looks like.</p>
     </div>
   </section>
 
@@ -1044,27 +1240,26 @@ def for_payers_body() -> str:
     <div class="wrap">
       <div class="grid grid-2" style="gap:var(--1891int-s-8); align-items:flex-start">
         <div>
-          <h2>Five consolidation modes, set per client.</h2>
+          <h2>Five ways to group the bill, set per client.</h2>
           <ul class="checks">
-            <li><code>one_per_client</code> — one invoice covers everything for the calendar month.</li>
-            <li><code>one_per_requestor</code> — one per department (Cardiology, ED, Peds, Oncology) on the same cycle.</li>
-            <li><code>one_per_location</code> — one per site (Main Hospital, Urbana, Mt Airy, Brunswick).</li>
-            <li><code>one_per_specialist</code> — one per doctor on the chart, when each provider gets billed separately.</li>
-            <li><code>one_per_job</code> — one invoice per event (conferences, single-shot legal engagements).</li>
+            <li><strong>One per client</strong> — a single invoice covers everything for the month.</li>
+            <li><strong>One per department</strong> — Cardiology, ED, Peds, and Oncology each get their own, on the same cycle.</li>
+            <li><strong>One per location</strong> — a bill per site (Main Hospital, Urbana, Mt Airy, Brunswick).</li>
+            <li><strong>One per provider</strong> — a bill per doctor, when each is paid separately.</li>
+            <li><strong>One per job</strong> — a bill per event, for conferences or one-off legal work.</li>
           </ul>
-          <p class="ink-soft">Set the mode per client; mix freely on the same Net-30 cycle.</p>
+          <p class="ink-soft">Pick the grouping per client; mix them freely on the same Net-30 cycle.</p>
         </div>
         <div>
-          <h2>Exports + payouts.</h2>
+          <h2>Exports and payouts.</h2>
           <ul class="checks">
-            <li>QuickBooks Online — direct OAuth export.</li>
-            <li>Xero — direct OAuth export.</li>
-            <li>NetSuite — SuiteApp connector, custom field mapping.</li>
-            <li>Bill.com — vendor-bill push.</li>
-            <li>Plain CSV / JSON — for everything else.</li>
-            <li>1099-NEC and 1042-S issuance via track1099.</li>
-            <li>Payout PDF: separate Labor + Expenses tables with subtotals.</li>
-            <li>Invoice numbers monotonic per tenant per year — <code>INV-2026-0001</code>.</li>
+            <li>Sends straight to QuickBooks Online and Xero.</li>
+            <li>Connects to NetSuite, with your fields mapped your way.</li>
+            <li>Pushes bills to Bill.com.</li>
+            <li>Plain spreadsheet or data file for everything else.</li>
+            <li>1099 filing handled for you.</li>
+            <li>Payment stubs that separate the work from the expenses, each with its own total.</li>
+            <li>Invoice numbers that run in order, with no gaps to chase.</li>
           </ul>
         </div>
       </div>
@@ -1091,7 +1286,7 @@ def pricing_body() -> str:
          ["1 user",
           "200 jobs/year",
           "1099 + invoicing",
-          "Stripe Connect payouts",
+          "Direct-deposit payouts",
           "BAA available on request"],
          None, None, False, "solo"),
         ("Practice", "$249", "/mo (annual)", "Small agencies, up to 25 active interpreters.",
@@ -1104,17 +1299,17 @@ def pricing_body() -> str:
          None, None, False, "practice"),
         ("Studio", "$749", "/mo (annual)", "Mid agencies, up to 100 active interpreters.",
          ["Everything in Practice",
-          "SSO / SAML",
-          "Custom domain (yourname.1891interpreter.app)",
+          "Single sign-on",
+          "Your own web address (yourname.1891interpreter.app)",
           "Per-location phone numbers",
           "Advanced reporting",
           "NetSuite + Bill.com connectors"],
          None, None, False, "studio"),
         ("Network", "from $2,400", "/mo (annual)", "Large agencies (100+ interpreters), multi-state.",
          ["Everything in Studio",
-          "White-label tenant",
-          "SIEM export of audit log",
-          "Dedicated SLA + named CSM",
+          "Your own branding (white-label)",
+          "Security-log export",
+          "Dedicated support agreement + a named contact",
           "Custom integrations",
           "Multi-region option"],
          "Talk to us", "/contact", False, None),
@@ -1170,7 +1365,7 @@ def pricing_body() -> str:
         </div>
         <div>
           <h3>Studio at $749</h3>
-          <p class="ink-soft">Where a 50-person agency that needs SSO and reporting lands. Still cheaper than per-seat at that headcount, with the features procurement actually asks for.</p>
+          <p class="ink-soft">Where a 50-person agency that needs single sign-on and deeper reporting lands. Still cheaper than per-seat at that size, with the things procurement actually asks for.</p>
           <h3>Network from $2,400</h3>
           <p class="ink-soft">We publish the floor. We don't do "talk to us" pricing — that's a trust cost we're not willing to spend. Above the floor, custom integrations and multi-region are itemized in the contract, not in a sales magic number.</p>
         </div>
@@ -1560,64 +1755,112 @@ def sign_in_body() -> str:
 
 
 def features_index_body() -> str:
+    # (slug, title, plain-language one-liner) — friendly, no jargon.
     feats = [
-        ("scheduling.html",     "Scheduling",          "Six dashboards, one filter bar. URL-persisted state. Smart-fill with score breakdown. Cancellation modal with live tier preview."),
-        ("interpreter-app.html","Interpreter app",     "Two-tap claim or SMS YES/NO. See-your-pay-first. Close-out modal with actual times, expenses, and receipts."),
-        ("billing.html",        "Billing",             "Five consolidation modes per client. Monotonic invoice numbers. Payout PDF with Labor + Expenses tables. QuickBooks, Xero, NetSuite, Bill.com."),
-        ("translation.html",    "Document translation","Human-in-the-loop. DeepL Pro where it supports the pair; Claude elsewhere. No pre-fill on medical or legal."),
-        ("ai-intake.html",      "AI intake",           "Natural-language intake parses email/voicemail to a draft job — every parse reviewable, never auto-confirmed for clinical work. PHI redacted before any model call."),
-        ("vri-opi.html",        "VRI &amp; OPI",       "Built-in WebRTC video client; OPI bridged through a HIPAA-eligible carrier. Per-minute infrastructure passed through at vendor cost."),
-        ("cart.html",           "CART",                "NCRA-CRC realtime captioning, in the same scheduling queue. Vendor-abstracted live-STT."),
-        ("reporting.html",      "Reporting",           "Read-only natural-language reporting. Pre-built KPIs (fill rate, time-to-fill, A/R aging). Export to CSV, PDF, or the audit trail."),
-        ("integrations.html",   "Integrations",        "QuickBooks, Xero, NetSuite, Bill.com, ADP, Gusto, Paychex, Rippling, track1099, Plaid, Stripe Connect, transactional email, transactional SMS."),
+        ("scheduling.html",     "Scheduling",           "Every job for the day on one board. The right interpreter, suggested for you. See what a cancellation costs before you confirm it."),
+        ("interpreter-app.html","Interpreter app",      "Claim a job in two taps — or just reply YES to a text. See exactly what you'll be paid before you accept."),
+        ("billing.html",        "Billing &amp; payouts","Your rates, your invoices. One client, one bill — however their departments are organized. Interpreters paid on time."),
+        ("translation.html",    "Document translation", "Translate forms and letters with a real translator checking every page. Never auto-filled on anything medical or legal."),
+        ("ai-intake.html",      "Smart intake",         "An email or voicemail becomes a tidy draft job in seconds. You review every one before it's booked. Patient details stay private."),
+        ("vri-opi.html",        "Video &amp; phone",    "Bring an interpreter on screen or on the line, right inside the same schedule. Captions on, recording only with consent."),
+        ("cart.html",           "Live captions (CART)", "Real-time captioning booked alongside your sign and spoken-language jobs — same rates, same invoice."),
+        ("reporting.html",      "Reports",              "Plain-English answers about your agency: jobs filled, time to fill, money owed. Ask a question, get a number you can export."),
+        ("integrations.html",   "Connections",         "Plays nicely with the accounting, payroll, and payout tools you already use. Nothing to re-key."),
     ]
-    # Strip trailing .html for clean URLs in nav cards.
     def _clean(slug: str) -> str:
         return slug[:-len(".html")] if slug.endswith(".html") else slug
     cards = "".join(f"""
-        <a class="card card-hoverable" href="{BASE_PATH}/features/{_clean(p)}">
+        <a class="card card-hoverable feat-card" href="{BASE_PATH}/features/{_clean(p)}" data-reveal>
           <h3 class="mt-0">{t}</h3>
           <p class="ink-soft">{d}</p>
-          <p class="text-bloom" style="font-weight:600">Read more →</p>
+          <p class="text-bloom" style="font-weight:600">See how it works <span class="arrow" aria-hidden="true">→</span></p>
         </a>""" for p, t, d in feats)
+    hero_media = mock_frame(
+        "Today's board · your agency",
+        ui_scheduler_board(),
+        href=f"{BASE_PATH}/get-a-demo",
+        caption="A real day on the board. <strong>Click to walk through it with us.</strong>",
+    )
     return f"""
   <section class="feature-hero">
     <div class="wrap">
-      <span class="eyebrow">Features</span>
-      <h1>Every modality, every party, every billing model. One tool.</h1>
-      <p class="lede">Nine feature areas, each with a one-screenshot summary and a "how it works" walkthrough. ASL videos coming online with the design-partner cohort in Phase 0.</p>
+      <div class="hero-grid">
+        <div>
+          <span class="eyebrow">Features</span>
+          <h1>Sign, spoken, captioned, translated. One tool for the whole job.</h1>
+          <p class="lede">Nine things the platform does — scheduling, the interpreter app, billing, translation, video and phone, live captions, reports, and the connections to the tools you already run. Each one has its own walkthrough below.</p>
+          <div class="cluster" style="margin-top:var(--1891int-s-6)">
+            <a class="btn btn-primary btn-lg" href="{BASE_PATH}/get-a-demo">Get a demo</a>
+            <a class="btn btn-ghost btn-lg" href="{BASE_PATH}/pricing">See pricing</a>
+          </div>
+        </div>
+        <div data-reveal data-delay="100">{hero_media}</div>
+      </div>
     </div>
   </section>
   <section class="section">
     <div class="wrap">
+      <div class="center-text" style="margin-bottom:var(--1891int-s-7)">
+        <span class="eyebrow">Pick a screen</span>
+        <h2 data-reveal>Open any one and see it in action.</h2>
+      </div>
       <div class="grid grid-3">{cards}</div>
     </div>
   </section>
-  {cta_band("Try it in a demo.", "Get a demo", f"{BASE_PATH}/get-a-demo", "See pricing", f"{BASE_PATH}/pricing")}
+  {cta_band("Want the guided tour?", "Get a demo", f"{BASE_PATH}/get-a-demo", "See pricing", f"{BASE_PATH}/pricing")}
 """
 
 
-def feature_page_body(slug: str, title: str, eyebrow: str, lede: str, sections: list[tuple[str, str]]) -> str:
-    body = [f"""
+def feature_page_body(label: str, eyebrow: str, lede: str,
+                      hero_media: str, rows: list[dict], demo_href: str = "") -> str:
+    """Feature page: a hero with a clickable screenshot, then alternating
+    picture + plain-language rows. `rows` is a list of dicts with keys
+    h (heading), body (html), and optional media (html)."""
+    demo_href = demo_href or f"{BASE_PATH}/get-a-demo"
+    out = [f"""
   <section class="feature-hero">
     <div class="wrap">
-      <span class="eyebrow">{eyebrow}</span>
-      <h1>{title}</h1>
-      <p class="lede">{lede}</p>
+      <div class="hero-grid">
+        <div>
+          <span class="eyebrow">{eyebrow}</span>
+          <h1>{label}</h1>
+          <p class="lede">{lede}</p>
+          <div class="cluster" style="margin-top:var(--1891int-s-6)">
+            <a class="btn btn-primary btn-lg" href="{demo_href}">See it in a demo</a>
+            <a class="btn btn-ghost btn-lg" href="{BASE_PATH}/features/">All features</a>
+          </div>
+        </div>
+        <div data-reveal data-delay="100">{hero_media}</div>
+      </div>
     </div>
   </section>
-"""]
-    for heading, content in sections:
-        body.append(f"""
   <section class="section">
-    <div class="wrap">
-      <h2>{heading}</h2>
-      {content}
+    <div class="wrap">"""]
+    for r in rows:
+        media = r.get("media")
+        if media:
+            out.append(f"""
+      <div class="feature-row" data-reveal>
+        <div class="fr-prose">
+          <h2>{r['h']}</h2>
+          {r['body']}
+        </div>
+        <div class="fr-media">{media}</div>
+      </div>""")
+        else:
+            out.append(f"""
+      <div class="feature-row" data-reveal style="grid-template-columns:1fr">
+        <div class="fr-prose" style="max-width:74ch">
+          <h2>{r['h']}</h2>
+          {r['body']}
+        </div>
+      </div>""")
+    out.append("""
     </div>
-  </section>
-""")
-    body.append(cta_band(f"See {eyebrow.lower()} in motion.", "Get a demo", f"{BASE_PATH}/get-a-demo", "Back to all features", f"{BASE_PATH}/features/"))
-    return "".join(body)
+  </section>""")
+    out.append(cta_band(f"See {eyebrow.split('·')[-1].strip().lower()} for yourself.",
+                        "Get a demo", demo_href, "Back to all features", f"{BASE_PATH}/features/"))
+    return "".join(out)
 
 
 def about_body() -> str:
@@ -2004,7 +2247,7 @@ def build_pages() -> list[Page]:
     pages.append(Page(
         path="index.html",
         title="1891 Interpreter — The interpreting agency platform built by the community it serves",
-        description="Scheduling, interpreter app, billing, translation, and live captions in one tool. Six-dashboard board with URL-persisted filters. SMS YES/NO claim. Close-out modal with expenses. Five consolidation modes per client. Hash-chained audit log. Free forever for verified Deaf-owned agencies.",
+        description="Scheduling, the interpreter app, billing, translation, and live captions in one tool. The whole day on one board. Claim a job by text. Close out with expenses in one screen. One clean bill per client. Free forever for verified Deaf-owned agencies.",
         nav_active="",
         body=home_body(),
         og_title="1891 Interpreter — built by the community it serves",
@@ -2013,7 +2256,7 @@ def build_pages() -> list[Page]:
     pages.append(Page(
         path="for-agencies.html",
         title="For agency owners — 1891 Interpreter",
-        description="Flat per agency. No per-seat tax, no per-job fee. Real Client → Requestor → Location → Specialist hierarchy. Hash-chained audit log. Health dashboard at a glance. Export everything, one click.",
+        description="Flat per agency — no per-seat tax, no per-job fee. One clean bill per client, however their departments are organized. A tamper-evident audit log, the numbers you check every morning, and your data exportable any day with one click.",
         nav_active="agencies",
         breadcrumb_html=breadcrumb(("Home", f"{BASE_PATH}/"), ("For agencies", "")),
         body=for_agencies_body(),
@@ -2021,7 +2264,7 @@ def build_pages() -> list[Page]:
     pages.append(Page(
         path="for-schedulers.html",
         title="For schedulers — 1891 Interpreter",
-        description="Six dashboards, one filter bar. Status-chip filters and URL-persisted state. Smart-fill with score breakdown. Cancellation modal with live tier preview. Audit log viewer at /app/admin/audit.",
+        description="The whole day on one board — open, claimed, confirmed. The right interpreter suggested for you, warnings that explain themselves, and a clear preview of what a cancellation costs before you confirm it.",
         nav_active="schedulers",
         breadcrumb_html=breadcrumb(("Home", f"{BASE_PATH}/"), ("For schedulers", "")),
         body=for_schedulers_body(),
@@ -2045,7 +2288,7 @@ def build_pages() -> list[Page]:
     pages.append(Page(
         path="for-payers.html",
         title="For billing, AP, and CFOs — 1891 Interpreter",
-        description="Net-30. Five consolidation modes per client. Monotonic invoice numbers (INV-2026-0001). Per-line location + specialist + interpreter detail. PHI redacted by default. QuickBooks, Xero, NetSuite, Bill.com.",
+        description="One clean bill per client, however their departments and locations are organized. Invoice lines with exactly the detail your client needs, patient details kept private by default, and a tidy hand-off to QuickBooks, Xero, NetSuite, and Bill.com.",
         nav_active="",
         breadcrumb_html=breadcrumb(("Home", f"{BASE_PATH}/"), ("Billing & AP", "")),
         body=for_payers_body(),
@@ -2109,81 +2352,192 @@ def build_pages() -> list[Page]:
         body=features_index_body(),
     ))
 
+    _demo = f"{BASE_PATH}/get-a-demo"
     feature_specs = [
-        ("scheduling.html", "Scheduling", "Feature · Scheduling",
-         "Six dashboards, one filter bar. URL-persisted state. Smart-fill with a five-factor score breakdown. Cancellation modal with live tier preview. Plain-English conflict rules.",
-         [("Six dashboards, one filter bar", "<p>Jobs, Interpreters, Clients, Requestors, Invoices, Payouts — same search box, same status chips, same column sort. Combine filters; they live in the URL, so back-button, share-link, and tab-restore all just work. Keyboard-first navigation: <kbd>j</kbd>/<kbd>k</kbd>/<kbd>/</kbd>/<kbd>?</kbd>. Drag the board to a second monitor.</p>"),
-          ("Smart-fill with transparent ranking", "<p>Five-factor weighted score: certification fit, location proximity, requestor preference, workload balance, prior performance with this consumer. Every weight is visible and tunable in <code>/app/settings</code>. Hover any score and see the components. No black box.</p>"),
-          ("Cascade pattern", "<p>Parallel-3, first-claim-wins by default. Three top candidates get the offer simultaneously; whoever claims first locks the job. Configurable per agency.</p>"),
-          ("Cancellation modal with tier preview", "<p>Before you confirm a cancel, the modal previews the exact charge against the client and the exact payout to each interpreter, per your tier rules. <em>\"Cancel now bills $X and pays $Y per interpreter.\"</em> No fire-and-pray.</p>"),
-          ("PII reveal-on-accept", "<p>Interpreters see a redacted offer — consumer initials, generic venue, time, rate. The moment they accept, the full record opens and the unlock is written to the audit log with user ID and timestamp.</p>"),
-          ("Conflict rules in plain English", "<p>Every rule has a one-sentence reason next to it. No double-booking, ever. Back-to-back across counties warns with the drive-time estimate. Skill mismatch flags missing certs. Consumer-preference miss surfaces prior bookings. CDI assignment without a voicer flags the gap.</p>")]),
-
-        ("interpreter-app.html", "Interpreter app", "Feature · Interpreter app",
-         "Phone-friendly portal. Two-tap claim, or reply SMS YES/NO. See your pay first. Close out with actual times, expenses, and receipts.",
-         [("Two-tap claim", "<p>Tap the offer. See the rate, the consumer's initials, the venue, the team. Tap 'Claim.' Done. Same flow for ASL, spoken-language, CART, and document-translation jobs.</p>"),
-          ("SMS YES/NO", "<p>Reply <code>YES</code> to claim, <code>NO</code> to decline. Edge-verified inbound text; same audit trail as a tap. Useful when your hands are full or you're between assignments.</p>"),
-          ("See-your-pay-first", "<p>Hourly, per-event, mileage, premium pay — itemized before you accept. Pay-side floor is 60% of the client charge when your agency enables transparency; you see both numbers.</p>"),
-          ("Close-out modal", "<p>After the job: actual start and end times, expense lines (mileage / parking / tolls / supplies / meal / other), optional receipt upload (≤ 8 MB image or PDF), notes. Live divergence preview warns at ≥ 25% from scheduled. Approved expenses roll into the next Payout PDF automatically.</p>"),
-          ("Quiet by default", "<p>Per-event cadence per channel: immediate, daily 6am ET digest, weekly Monday 7am ET digest, or off. Email and SMS each independent. Mobile push isn't ready yet — email and SMS are.</p>"),
-          ("1099 strip", "<p>Year-to-date 1099 totals visible in the app. 1099-NEC issued each January via track1099. Multi-agency interpreters see each agency's slice.</p>")]),
-
-        ("billing.html", "Billing", "Feature · Billing",
-         "Rate cards. Five consolidation modes. Monotonic invoice numbers. Payout PDFs with separate Labor + Expenses tables. PHI redacted by default.",
-         [("Rate cards", "<p>Each agency configures rate cards by setting (medical, legal, K-12, conference) × modality (ASL, Spanish, etc.) × team config (solo, CDI+voicer, relief). Rate cards are versioned; old invoices retain the rate card that priced them.</p>"),
-          ("Five consolidation modes", "<p>Per client: <code>one_per_client</code>, <code>one_per_requestor</code>, <code>one_per_location</code>, <code>one_per_specialist</code>, <code>one_per_job</code>. Mix freely on the same Net-30 cycle. Sample-invoice anatomy is on the <a href=\"" + BASE_PATH + "/for-payers\">Billing & AP page</a>.</p>"),
-          ("Invoice numbering", "<p>Monotonic per tenant per year — <code>INV-2026-0001</code>, <code>INV-2026-0002</code>, never skipping. AP teams that audit by sequence don't have to chase gaps.</p>"),
-          ("Per-line detail", "<p>Each line shows location + specialist + consumer initials + interpreter name (whichever the client requires). PHI is redacted by default; consumer identifiers are opaque tokens unless the client contract requires otherwise.</p>"),
-          ("Payouts", "<p>Stripe Connect Express for 1099 contractors. Payout PDF has separate Labor and Expenses tables with their own subtotals and a grand total. Self-serve onboarding UI isn't finished yet (backend works); new payees get walked through setup.</p>"),
-          ("Tax + payroll", "<p>W-2 hours export to ADP, Gusto, Paychex, Rippling. 1099-NEC and 1042-S issuance via track1099.</p>")]),
-
-        ("translation.html", "Document translation", "Feature · Document translation",
-         "Human-in-the-loop. Translation memory. No pre-fill on medical or legal without review.",
-         [("Workflow", "<p>Customer uploads source document. Translator (in your roster or open marketplace) claims the job. Machine-translation pre-fill is available for general documents using DeepL Pro where the language pair is supported, Claude elsewhere. Pre-fill is <strong>hard-gated off</strong> for medical consent forms, legal contracts, court filings, and educational IEPs.</p>"),
-          ("Translation memory", "<p>Per-tenant translation memory accumulates over time. Repeat strings auto-suggest from prior approved translations. TM is tenant-isolated; we never cross TMs across customers.</p>"),
-          ("Deliverables", "<p>PDF, Word, or HTML output, preserving source formatting where possible. Sworn translations (where required) include the translator's certification and signature page.</p>")]),
-
-        ("ai-intake.html", "AI intake", "Feature · AI intake",
-         "Natural-language intake parses email, voicemail, and forms into a draft job. Every parse reviewable. PHI redacted before the model sees it.",
-         [("How it works", "<p>Requestor sends an email or leaves a voicemail. The intake parser extracts: language, date, time, duration, location, modality, special requirements. Output is a <em>draft</em> job, never auto-confirmed for clinical or legal work. A scheduler reviews and accepts.</p>"),
-          ("PHI never reaches the model raw", "<p>Email subject and body are redacted by <code>lib/redact.ts</code> before any model call. Names → initials. Phone, MRN, DOB → tokens. Free-text clinical detail is scrubbed by regex + NER. The model sees a structured projection only. Every call writes an AI_Audit row with input and output hashes.</p>"),
-          ("Reviewable, never auto-confirmed", "<p>Voicemail intake always routes to a scheduler for review. The parser's confidence is visible per field; low-confidence fields are highlighted in the scheduler's UI.</p>"),
-          ("Honest about state", "<p>The intake state machine and review surfaces are in production. Some downstream AI-assist calls (translation review, term polish) are wired but the model calls themselves may be stubbed in v1 — they return a fixed structure so the workflow tests end-to-end. We'll mark those clearly in the changelog as they land.</p>")]),
-
-        ("vri-opi.html", "VRI &amp; OPI", "Feature · VRI &amp; OPI",
-         "Video Remote Interpreting and Over-the-Phone Interpreting. Built-in WebRTC video client; OPI bridged through a HIPAA-eligible carrier.",
-         [("VRI", "<p>WebRTC video client with captions, interpreter switching, and a 'tap to bring on a CDI' team flow. Records on consent only. Records to the audit log always. Fallover-retainer pay for interpreters when calls fail through no fault of theirs (per PRD C10 #9).</p>"),
-          ("OPI", "<p>Per PRD A9 #12, OPI is deferred in v1 to a documented bridge through a HIPAA-eligible voice carrier, behind the same scheduling queue. Per-minute call infrastructure is passed through at vendor cost, itemized on the invoice.</p>"),
-          ("Not VRS", "<p>We do VRI, not VRS. VRS (Video Relay Service) is a federally-funded Deaf-to-hearing phone relay regulated by the FCC. We are not a VRS provider — that's a different regulated business.</p>")]),
-
-        ("cart.html", "CART", "Feature · CART",
-         "NCRA-CRC realtime captioning, in the same scheduling queue. Vendor-abstracted live-STT integration.",
-         [("CRC integration", "<p>NCRA-CRC realtime captioning jobs schedule alongside ASL and spoken-language jobs. Same rate cards, same payouts, same invoicing.</p>"),
-          ("Live STT for everything else", "<p>For sessions where a CRC isn't booked but live captions are needed (meetings, training, internal events), the platform calls a streaming STT vendor through the <code>StreamingStt</code> interface — vendor-abstracted, with failover across providers; you can swap vendors without touching workflows.</p>"),
-          ("Consent and retention", "<p>Two-party consent baked in. RECORDING indicator on every shared screen. PAUSE for executive session. Raw audio 30 days, transcripts 1 year, approved minutes permanent. See the <a href=\"" + BASE_PATH + "/security\">security page</a> for the full table.</p>")]),
-
-        ("reporting.html", "Reporting", "Feature · Reporting",
-         "Read-only natural-language reporting DSL. Pre-built KPIs. Export to CSV, PDF, or the audit trail.",
-         [("Pre-built KPIs", "<p>Fill rate, time-to-fill, cancellation rate, interpreter rotation, requestor satisfaction, revenue per modality, average days outstanding, 1099 vs W-2 hours mix. All exportable.</p>"),
-          ("Natural-language reporting (read-only)", "<p>Ask: 'How many ASL medical jobs did we cancel late last month, and which interpreters were on them?' Get a structured answer with a SQL-style trace. Per PRD D7 #10, NL reporting is read-only — no writes via natural language.</p>"),
-          ("Custom dashboards", "<p>Build dashboards from saved queries. Pin to your home view. Schedule a weekly email digest (or skip — most people don't want one).</p>")]),
-
-        ("integrations.html", "Integrations", "Feature · Integrations",
-         "Accounting, payroll, payouts, comms, identity. All standard, all documented.",
-         [("Accounting", "<p>QuickBooks Online, Xero, NetSuite, Bill.com. Direct OAuth where possible; CSV/JSON for the rest.</p>"),
-          ("Payroll &amp; tax", "<p>ADP, Gusto, Paychex, Rippling for W-2 hours. track1099 for 1099-NEC and 1042-S. Plaid for ACH verification.</p>"),
-          ("Payouts", "<p>Stripe Connect Express (default). Manual ACH fallback for long-tenured interpreters who decline Connect onboarding.</p>"),
-          ("Comms", "<p>Transactional email through a HIPAA-eligible provider (BAA). Phone verification and transactional SMS through a HIPAA-eligible provider (HIPAA-eligible products only).</p>"),
-          ("Identity", "<p>SSO via SAML on Studio and Network. WebAuthn passkeys available on every tier; required on Pro and above per PRD A9 #10.</p>")]),
+        {
+            "slug": "scheduling.html", "label": "Scheduling", "eyebrow": "Feature · Scheduling",
+            "lede": "Every job for the day on one board — open, claimed, confirmed, and the few that still need a hand. The right interpreter is suggested for you, and you always see what a change costs before you make it.",
+            "description": "One board for the whole day. The right interpreter suggested for you, warnings that explain themselves, and a clear preview of what a cancellation costs before you confirm it.",
+            "hero": mock_frame("Today's board · your agency", ui_scheduler_board(), href=_demo,
+                               caption="A real day on the board. <strong>Click to walk through it with us.</strong>"),
+            "rows": [
+                {"h": "The right interpreter, suggested for you",
+                 "body": "<p class=\"ink-soft\">For every open job, you get a short list of the best people for it — ranked by who has the right credential, who's nearby, who this clinic has asked for before, and whose turn it is. Each suggestion shows <em>why</em> it's a match, so it's a head start, never a black box.</p>",
+                 "media": mock_frame("Suggested for this job", ui_smartfill(),
+                                     caption="Why each interpreter ranks where they do — in plain sight.")},
+                {"h": "See what a cancellation costs — before you confirm",
+                 "body": "<p class=\"ink-soft\">Slide to the time the job is canceling and the screen shows exactly what the client is billed and what each interpreter still earns, under that client's own rules. No fire-and-pray, no awkward call later. <strong>Try the slider →</strong></p>",
+                 "media": '<div class="widget" data-widget="cancel" data-reveal></div>'},
+                {"h": "Warnings that explain themselves",
+                 "body": "<p class=\"ink-soft\">Every flag comes with a one-line reason, so you know why it fired — not just that it did. No double-booking, ever. A heads-up when two jobs are back-to-back across town. A nudge when this clinic has a favorite interpreter who's free.</p>",
+                 "media": mock_frame("Before you send the offer", ui_conflict_rules(),
+                                     caption="Plain-English reasons next to every warning.")},
+                {"h": "Private until it's claimed",
+                 "body": "<p class=\"ink-soft\">Interpreters see just enough to decide — the kind of job, the time, the pay, and the consumer's initials. The full details open the moment they accept, and that hand-off is written down with a name and a time. Nobody browses patient details they haven't picked up.</p>",
+                 "media": None},
+            ],
+        },
+        {
+            "slug": "interpreter-app.html", "label": "The interpreter app", "eyebrow": "Feature · The interpreter app",
+            "lede": "Built for a phone in one hand. Claim a job in two taps — or just reply YES to a text. See exactly what you'll be paid before you accept, and close out with your real times and expenses in one screen.",
+            "description": "Claim a job in two taps or reply YES to a text. See your pay before you accept. Close out with your actual times, expenses, and receipts in one screen — and get paid on the day you were promised.",
+            "hero": mock_phone(ui_interpreter_offer(),
+                               caption="The offer, the pay, and the Claim button — one tap from your text messages."),
+            "rows": [
+                {"h": "Or just reply YES to a text",
+                 "body": "<p class=\"ink-soft\">Hands full between assignments? Reply <strong>YES</strong> to claim a job or <strong>NO</strong> to pass — no app to open, no password to remember. It counts exactly the same as tapping Claim in the app. <strong>Try it on the right →</strong></p>",
+                 "media": '<div class="widget" data-widget="sms" data-reveal></div>'},
+                {"h": "See your pay before you say yes",
+                 "body": "<p class=\"ink-soft\">Every offer shows the full math up front — hourly, minimums, mileage, and any evening or weekend premium — added up to one number. When your agency turns on pay transparency, you see what the client is billed too. No surprises at payout time.</p>",
+                 "media": None},
+                {"h": "Close out in one screen",
+                 "body": "<p class=\"ink-soft\">After the job, enter your real start and end times, add expenses like mileage or parking, snap a receipt, and you're done. If you ran long, it gently asks for a sentence of context. Approved expenses ride along on your next payment automatically — and they're never billed back to the client.</p>",
+                 "media": mock_frame("Close out · Medical · ASL", ui_closeout(),
+                                     caption="Real times and expenses, attached to the job in seconds.")},
+                {"h": "Get paid on the day you were promised",
+                 "body": "<p class=\"ink-soft\">Direct deposit to your account, with a clear stub that lists your work and your expenses on separate lines. Your year-to-date earnings are always a tap away, and if you work for more than one agency on the platform, you see each one's share. Your 1099 shows up every January.</p>",
+                 "media": None},
+                {"h": "Quiet by default",
+                 "body": "<p class=\"ink-soft\">You decide how often you hear from us — the moment a job posts, a once-a-day morning digest, a weekly roundup, or nothing at all. Set it per channel. We'd rather be useful than noisy.</p>",
+                 "media": None},
+            ],
+        },
+        {
+            "slug": "billing.html", "label": "Billing &amp; payouts", "eyebrow": "Feature · Billing",
+            "lede": "Your rates, your invoices. One client gets one bill — no matter how many departments and locations sit underneath them. And your interpreters get paid on time, with a stub they can actually read.",
+            "description": "Set your own rates. Send one clean bill per client, however their departments and locations are organized. Pay interpreters on time with a clear stub. Sends to the accounting and payroll tools you already use.",
+            "hero": mock_frame("Invoice · Frederick Health", ui_invoice(), href=_demo,
+                               caption="One bill for a client with four departments. <strong>Click to see the live demo.</strong>"),
+            "rows": [
+                {"h": "One client, one bill — however they're organized",
+                 "body": "<p class=\"ink-soft\">A hospital might be one client with four departments, six locations, and a dozen doctors. You decide how the bill comes together — all on one statement, split by department, split by location, or one per job — and you can do it differently for each client on the same monthly cycle. <strong>Open the client on the right →</strong></p>",
+                 "media": '<div class="widget" data-widget="clients" data-reveal></div>'},
+                {"h": "Your rates, your way",
+                 "body": "<p class=\"ink-soft\">Set rates by the kind of work, the language, the time of day, and the team — and the evening, weekend, and short-notice premiums add themselves. When you raise a rate, old invoices keep the price they were billed at. <strong>Play with the rate engine on the right →</strong></p>",
+                 "media": '<div class="widget" data-widget="rates" data-reveal></div>'},
+                {"h": "Interpreters paid on time, with a clear stub",
+                 "body": "<p class=\"ink-soft\">Each payment stub lists the work and the expenses on separate lines, each with its own subtotal and a grand total at the bottom. Patient details are kept private on every bill and stub by default. The day you promised is the day they're paid.</p>",
+                 "media": None},
+                {"h": "Sends to the books you already keep",
+                 "body": "<p class=\"ink-soft\">Hours and invoices hand off cleanly to the accounting and payroll tools you already run — QuickBooks, Xero, NetSuite, ADP, Gusto, and the rest — and your 1099 filings go out automatically. Nothing to re-key, no copy-paste at month end.</p>",
+                 "media": None},
+            ],
+        },
+        {
+            "slug": "translation.html", "label": "Document translation", "eyebrow": "Feature · Document translation",
+            "lede": "Turn forms, letters, and consents into another language with a real translator checking every page. Nothing medical or legal is ever auto-filled — a person reviews it, every time.",
+            "description": "Translate documents with a real translator checking every page. Nothing medical or legal is ever auto-filled. It remembers what it's translated before, and gives the file back the way you need it.",
+            "hero": mock_frame("Translate · intake form", ui_translation(), href=_demo,
+                               caption="Side by side, with a translator reviewing. <strong>Click for the live demo.</strong>"),
+            "rows": [
+                {"h": "A real person on every page",
+                 "body": "<p class=\"ink-soft\">A translator from your roster (or the open pool, your choice) handles every document. For ordinary material they can start from a machine draft to save time — but for anything medical or legal, consent forms, court filings, or a student's IEP, that shortcut is switched off entirely. A person translates it, full stop.</p>",
+                 "media": None},
+                {"h": "It remembers what it's translated before",
+                 "body": "<p class=\"ink-soft\">The same phrases come up again and again — appointment reminders, standard instructions, common consents. Once your translator approves a phrasing, it's suggested next time, so your wording stays consistent and the work goes faster. Your library is yours alone; it's never shared with another agency.</p>",
+                 "media": None},
+                {"h": "Back the way you need it",
+                 "body": "<p class=\"ink-soft\">You get a clean file that keeps the look of the original wherever possible. When a certified or sworn translation is required, it comes with the translator's certification and signature page attached.</p>",
+                 "media": None},
+            ],
+        },
+        {
+            "slug": "ai-intake.html", "label": "Smart intake", "eyebrow": "Feature · Smart intake",
+            "lede": "An email or a voicemail becomes a tidy draft job in seconds — language, time, place, length, all filled in for you. You check every one before it's booked, and the patient's details never leave your agency.",
+            "description": "An email or voicemail becomes a tidy draft job in seconds — language, time, place, and length filled in. You review every one before it's booked, and patient details stay private.",
+            "hero": mock_frame("Intake · new request", ui_intake(), href=_demo,
+                               caption="A request comes in; a draft job comes out. <strong>Click to see it live.</strong>"),
+            "rows": [
+                {"h": "You're always the one who hits ‘book’",
+                 "body": "<p class=\"ink-soft\">When a request arrives by email or voicemail, the platform pulls out the details and lays them out as a draft — never a confirmed job. A scheduler looks it over and accepts. Anything it wasn't sure about is highlighted, so your eyes go straight to it.</p>",
+                 "media": None},
+                {"h": "Private details stay private",
+                 "body": "<p class=\"ink-soft\">Before any of this happens, names and personal details — phone numbers, dates of birth, anything clinical in the message — are stripped out and kept on your side. The part that does the reading only ever sees a tidied-up version with the sensitive bits removed, and every step is logged.</p>",
+                 "media": None},
+                {"h": "Honest about what's ready",
+                 "body": "<p class=\"ink-soft\">The intake and review screens are live and in daily use. A couple of the deeper AI assists are still being switched on, and we mark exactly what's live and what's coming on the <a href=\"" + BASE_PATH + "/changelog\">changelog</a>. We'd rather under-promise.</p>",
+                 "media": None},
+            ],
+        },
+        {
+            "slug": "vri-opi.html", "label": "Video &amp; phone interpreting", "eyebrow": "Feature · Video &amp; phone",
+            "lede": "Bring an interpreter onto a screen or onto the line, right inside the same schedule you already use. Captions on, and recording only when everyone agrees to it.",
+            "description": "Video Remote and Over-the-Phone interpreting, booked in the same schedule as your on-site jobs. Captions on by default, recording only with consent. This is VRI/OPI — not the federally-funded VRS relay.",
+            "hero": mock_frame("Live session · VRI", ui_vri(), href=_demo,
+                               caption="An interpreter on screen, captions on. <strong>Click for the live demo.</strong>"),
+            "rows": [
+                {"h": "On screen, in the same schedule",
+                 "body": "<p class=\"ink-soft\">Video appointments live right alongside your on-site jobs — same board, same rates, same invoice. The session opens in the browser with captions on, you can bring a second interpreter on with a tap, and nothing is ever recorded unless everyone on the call agrees to it.</p>",
+                 "media": None},
+                {"h": "By phone when that's simpler",
+                 "body": "<p class=\"ink-soft\">Some calls just need a voice on the line. Over-the-phone interpreting is booked the same way, through the same queue. You only pay for the minutes used, passed along at cost and itemized on the invoice — never marked up.</p>",
+                 "media": None},
+                {"h": "This isn't VRS",
+                 "body": "<p class=\"ink-soft\">Quick clarification, because the names sound alike: this is video and phone interpreting that an agency books and pays for. It is <strong>not</strong> VRS — the free, federally-funded Deaf-to-hearing phone relay. Different service, different rules. We don't do VRS.</p>",
+                 "media": None},
+            ],
+        },
+        {
+            "slug": "cart.html", "label": "Live captions (CART)", "eyebrow": "Feature · Live captions",
+            "lede": "Real-time captioning, booked right alongside your sign- and spoken-language jobs — same rates, same invoice. And plain live captions for the meetings in between.",
+            "description": "Real-time CART captioning scheduled alongside your other jobs, same rates and invoice. Plus plain live captions for everyday meetings — consent first, with retention you control.",
+            "hero": mock_frame("Live captions · board meeting", ui_captions(), href=_demo,
+                               caption="Words on the screen as they're spoken. <strong>Click for the live demo.</strong>"),
+            "rows": [
+                {"h": "Booked like any other job",
+                 "body": "<p class=\"ink-soft\">A certified captioner's work schedules right next to your sign- and spoken-language jobs, on the same rates and the same invoice. One roster, one board, one bill — captioning isn't a separate system bolted on the side.</p>",
+                 "media": None},
+                {"h": "Captions for the in-between moments",
+                 "body": "<p class=\"ink-soft\">For the everyday meetings, trainings, and calls where a captioner isn't booked but people still need the words on screen, the platform can caption live speech on its own. It's clearly labeled as automatic captioning — and we never auto-caption sign language, because that's not something to fake.</p>",
+                 "media": None},
+                {"h": "Consent first, always",
+                 "body": "<p class=\"ink-soft\">Everyone is asked before anything is captured, a clear recording indicator shows on every shared screen, and the chair can pause for a private moment. You decide how long transcripts are kept. The full retention table is on the <a href=\"" + BASE_PATH + "/security\">security page</a>.</p>",
+                 "media": None},
+            ],
+        },
+        {
+            "slug": "reporting.html", "label": "Reports", "eyebrow": "Feature · Reports",
+            "lede": "Plain-English answers about your agency: how many jobs you filled, how fast you filled them, and how much money is owed. Ask a question, get a number you can export.",
+            "description": "The numbers you actually check — jobs filled, time to fill, money owed — on one screen. Ask a question in plain English and get an answer you can export to a spreadsheet or PDF.",
+            "hero": mock_frame("Reports · this week", ui_reporting(), href=_demo,
+                               caption="The Monday-morning numbers, at a glance. <strong>Click to explore the demo.</strong>"),
+            "rows": [
+                {"h": "Ask in plain English",
+                 "body": "<p class=\"ink-soft\">Type a question the way you'd say it out loud — <em>“How many ASL medical jobs did we cancel late last month, and who was on them?”</em> — and get a straight answer with the jobs behind it. It only ever reads your data to answer; it can't change anything.</p>",
+                 "media": mock_frame("Ask anything", '<div class="ui-pane" style="background:var(--1891int-bloom-tint);border-color:var(--1891int-bloom-soft);color:var(--1891int-bloom-deep)">“How many ASL medical jobs did we cancel late last month?”</div><div class="ui-row" style="margin-top:10px"><div class="ui-row-main"><span class="ui-row-title">3 late cancellations</span><span class="ui-row-sub">2 interpreters affected · Apr 1–30</span></div><span class="mchip is-confirmed">Export</span></div>',
+                                     caption="Plain question in, clear answer out.")},
+                {"h": "The numbers you actually check",
+                 "body": "<p class=\"ink-soft\">Fill rate, time to fill, late-cancellation rate, who's getting their fair share of work, money owed and how long it's been outstanding — all ready out of the box. Pin the ones you care about to your home screen so they're there every morning.</p>",
+                 "media": None},
+                {"h": "Export anything, anytime",
+                 "body": "<p class=\"ink-soft\">Every number drops straight into a spreadsheet or a PDF for the board packet. Want a weekly email roundup? Turn it on. Don't want one? Leave it off — most people do.</p>",
+                 "media": None},
+            ],
+        },
+        {
+            "slug": "integrations.html", "label": "Connections", "eyebrow": "Feature · Connections",
+            "lede": "Plays nicely with the accounting, payroll, payout, and sign-in tools you already run. Hours and invoices flow where they need to go — nothing to re-key.",
+            "description": "Connects to the accounting, payroll, payout, and identity tools you already use — QuickBooks, Xero, NetSuite, ADP, Gusto, and more. Hours and invoices flow automatically, with nothing to re-key.",
+            "hero": mock_frame("Connections", ui_integrations(), href=_demo,
+                               caption="The tools you already run, wired in. <strong>Click for the live demo.</strong>"),
+            "rows": [
+                {"h": "The tools you already run",
+                 "body": "<p class=\"ink-soft\">Send invoices and hours to your accounting books (QuickBooks, Xero, NetSuite, Bill.com), push payroll hours to ADP, Gusto, Paychex, or Rippling, pay interpreters by direct deposit, and file 1099s automatically. Sign-in works with single sign-on for the bigger plans, and passkeys for everyone.</p>",
+                 "media": None},
+                {"h": "Nothing to re-key",
+                 "body": "<p class=\"ink-soft\">The point of every connection is to save you the copy-paste. Numbers move on their own, on a schedule, so month-end close stops being an evening of retyping. Where a direct connection isn't available, a clean spreadsheet export is always one click away.</p>",
+                 "media": None},
+            ],
+        },
     ]
-    for slug, label, eyebrow, lede, sections in feature_specs:
+    for spec in feature_specs:
         pages.append(Page(
-            path=f"features/{slug}",
-            title=f"{label} — 1891 Interpreter",
-            description=lede,
+            path=f"features/{spec['slug']}",
+            title=f"{spec['label']} — 1891 Interpreter",
+            description=spec["description"],
             nav_active="features",
-            breadcrumb_html=breadcrumb(("Home", f"{BASE_PATH}/"), ("Features", f"{BASE_PATH}/features/"), (label, "")),
-            body=feature_page_body(slug, label, eyebrow, lede, sections),
+            breadcrumb_html=breadcrumb(("Home", f"{BASE_PATH}/"), ("Features", f"{BASE_PATH}/features/"), (spec["label"], "")),
+            body=feature_page_body(spec["label"], spec["eyebrow"], spec["lede"], spec["hero"], spec["rows"], _demo),
         ))
 
     pages.append(Page(
