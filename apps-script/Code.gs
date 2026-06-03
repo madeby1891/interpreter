@@ -113,6 +113,9 @@ function doGet(e) {
       case 'get_job':            return apiGetJob(e);
       case 'whoami':             return apiWhoami(e);
       case 'auth_verify':        return apiAuthVerify(e);   // JSONP-friendly
+      // SSO (OIDC) — alongside magic-link
+      case 'sso_start':          return _safeCall('apiSsoStart', e);
+      case 'sso_config_get':     return _safeCall('apiSsoConfigGet', e);
       case 'smart_fill':         return apiSmartFill(e);
       case 'list_interpreters':  return apiListInterpreters(e);
       case 'list_requestors':    return apiListRequestors(e);
@@ -137,6 +140,7 @@ function doGet(e) {
       case 'list_documents':     return _safeCall('apiListDocuments', e);
       case 'get_document':       return _safeCall('apiGetDocument', e);
       case 'download_translation': return _safeCall('apiDownloadTranslation', e);
+      case 'get_translation_source': return _safeCall('apiGetTranslationSource', e);
       // Payments
       case 'list_stripe_accounts': return _safeCall('apiListStripeAccounts', e);
       case 'list_1099_forms':    return _safeCall('apiList1099Forms', e);
@@ -161,8 +165,11 @@ function doGet(e) {
       case 'list_notification_prefs': return _safeCall('apiListNotificationPrefs', e);
       // Metrics
       case 'agency_health':      return _safeCall('apiAgencyHealth', e);
-      // Admin — audit log read-back
+      // Admin — audit log read-back + tamper-evident chain check
       case 'list_audit_log':     return _safeCall('apiListAuditLog', e);
+      case 'verify_audit_chain': return _safeCall('apiVerifyAuditChain', e);
+      // Tenant data export (CSV/JSON of everything)
+      case 'export_tenant':      return _safeCall('apiExportTenant', e);
       // Clients
       case 'list_clients':       return _safeCall('apiListClients', e);
       case 'get_client':         return _safeCall('apiGetClient', e);
@@ -206,6 +213,11 @@ function doPost(e) {
     switch (action) {
       case 'auth_request':       return apiAuthRequest(e);
       case 'auth_verify':        return apiAuthVerify(e);
+      // SSO (OIDC)
+      case 'sso_config_set':     return _safeCall('apiSsoConfigSet', e);
+      case 'sso_callback':       return _safeCall('apiSsoCallback', e);
+      // Inbound email → draft request (Code_EmailIntake.gs)
+      case '_install_inbound_email': return _safeCall('apiInstallInboundEmailTrigger', e);
       // Job state mutations route through the live-board dispatcher so the
       // Cloudflare Worker fan-outs to every connected subscriber on success.
       // The wrapper never blocks the response — notify failures are swallowed.
@@ -239,6 +251,7 @@ function doPost(e) {
       case 'add_tenant_owner':   return _safeCall('apiAddTenantOwner', e);
       // Translation
       case 'create_translation_job':    return _safeCall('apiCreateTranslationJob', e);
+      case 'upload_translation_source': return _safeCall('apiUploadTranslationSource', e);
       case 'start_translation':         return _safeCall('apiStartTranslation', e);
       case 'submit_translation_review': return _safeCall('apiSubmitTranslationReview', e);
       case 'approve_translation':       return _safeCall('apiApproveTranslation', e);
@@ -1811,17 +1824,49 @@ function apiOfferJob(e) {
     'Open the app to claim: ' + SITE_BASE + '/app/claim/\n\n' +
     'The first qualified interpreter to claim locks the job. Reply (or claim in the app) in the next 15 minutes for best chance.\n\n' +
     '— 1891 Interpreter';
-  var interpEmail = _resolveInterpreterEmail(ss, interp);
-  if (interpEmail) {
-    _logCommunication(ss, s.payload.tid, 'email', 'out', 'job_offer_v1', interp.user_id || '', interpEmail, 'sent', 'mailapp', p.job_id);
-    try { MailApp.sendEmail({ to: interpEmail, subject: subj, body: body }); }
-    catch (err) {
-      _logCommunication(ss, s.payload.tid, 'email', 'out', 'job_offer_v1', interp.user_id || '', interpEmail, 'failed', 'mailapp', p.job_id);
+  // A PHI-free SMS — kind of work, time, modality, language, rate. Never the
+  // consumer or any clinical detail. The interpreter replies YES to claim / NO
+  // to pass; Code_Sms resolves the reply to this offer.
+  var smsBody =
+    '1891 offer: ' + (job.service_type || 'job').replace(/-/g, ' ') +
+    ' · ' + when +
+    ' · ' + (job.modality || 'on-site') +
+    ' · ' + (job.target_language_id || '') +
+    ' · $' + rate.toFixed(0) + '/hr. Reply YES to claim, NO to pass.';
+
+  // Route through the notification rail: SMS (if the interpreter opted in / has a
+  // phone) + email, each respecting their per-event preferences and all logged.
+  var notif = { email: 'none', sms: 'none', push: 'none' };
+  var interpUser = interp.user_id ? _lookupUserById(ss, interp.user_id) : null;
+  if (interp.user_id) {
+    notif = notifyEvent_(ss, s.payload.tid, 'job_offer', interp.user_id, subj, body, smsBody, {
+      job_id: p.job_id,
+      fallback_phone: (interpUser && interpUser.phone_e164) || ''
+    });
+  }
+
+  // Email fallback for interpreters without a linked user account (or if the
+  // rail didn't send/queue an email above).
+  var emailedDirect = false;
+  if (notif.email === 'none' || notif.email === 'failed') {
+    var interpEmail = _resolveInterpreterEmail(ss, interp);
+    if (interpEmail) {
+      try {
+        MailApp.sendEmail({ to: interpEmail, subject: subj, body: body });
+        _logCommunication(ss, s.payload.tid, 'email', 'out', 'job_offer_v1', interp.user_id || '', interpEmail, 'sent', 'mailapp', p.job_id);
+        emailedDirect = true;
+      } catch (err) {
+        _logCommunication(ss, s.payload.tid, 'email', 'out', 'job_offer_v1', interp.user_id || '', interpEmail, 'failed', 'mailapp', p.job_id);
+      }
     }
   }
 
   _logAudit('job.offer', s.payload.tid, s.payload.uid, p.job_id + ' → ' + p.interpreter_id);
-  return _json({ ok:true, assignment_id:assignmentId, emailed: !!interpEmail });
+  return _json({
+    ok: true,
+    assignment_id: assignmentId,
+    notified: { email: emailedDirect ? 'sent' : notif.email, sms: notif.sms }
+  });
 }
 
 function apiConfirmJob(e) {
@@ -2120,12 +2165,31 @@ function apiAiIntake(e) {
     }, 429);
   }
 
+  var r = _aiIntakeParse_(s.payload.tid, raw);
+  if (!r.ok) {
+    _logAudit('ai_intake_error', s.payload.tid, s.payload.uid, r.status ? ('status=' + r.status) : String(r.error));
+    return _json({ ok:false, error: r.error, raw: r.raw, body: r.body }, r.status === 429 ? 429 : 200);
+  }
+  // Audit (hashes only — no PHI in the audit body)
+  _logAudit('ai_intake', s.payload.tid, s.payload.uid, 'in=' + r.inHash + ' out=' + r.outHash + ' redacted=' + r.redaction.replacements);
+  return _json({
+    ok: true,
+    parsed: r.parsed,
+    redaction_summary: r.redaction,
+    input_hash: r.inHash,
+    output_hash: r.outHash
+  });
+}
+
+// Shared intake parse core — used by apiAiIntake (the app's paste box) AND the
+// inbound-email processor (Code_EmailIntake.gs). Redacts PHI, calls the model,
+// returns the structured draft. No session / audit / rate-limit here — callers
+// own those (the email processor has no session).
+function _aiIntakeParse_(tenantId, raw) {
   var key = _anthropicKey();
-  if (!key) return _json({ ok:false, error:'No Anthropic API key configured. Set anthropic.api_key on the Settings page.' });
+  if (!key) return { ok:false, error:'No Anthropic API key configured.' };
 
-  // PHI redaction — apply before model call.
   var redacted = _redactForModel(raw);
-
   var sys = [
     'You are a structured-data extractor for an interpreting agency.',
     'Given a free-text request from a requestor (front-desk staff, 504 coordinator, court clerk, etc.),',
@@ -2155,14 +2219,11 @@ function apiAiIntake(e) {
       method: 'post',
       contentType: 'application/json',
       muteHttpExceptions: true,
-      headers: {
-        'x-api-key': key,
-        'anthropic-version': '2023-06-01'
-      },
+      headers: { 'x-api-key': key, 'anthropic-version': '2023-06-01' },
       payload: JSON.stringify({
         model: 'claude-sonnet-4-5',
         max_tokens: 1024,
-        system: 'tenant_id: ' + s.payload.tid + '\n\n' + sys,
+        system: 'tenant_id: ' + tenantId + '\n\n' + sys,
         messages: [{ role: 'user', content: redacted.text }]
       })
     };
@@ -2174,33 +2235,24 @@ function apiAiIntake(e) {
       code = res.getResponseCode();
     }
     var bodyTxt = res.getContentText();
-    if (code !== 200) {
-      _logAudit('ai_intake_error', s.payload.tid, s.payload.uid, 'status=' + code);
-      return _json({ ok:false, error:'Anthropic returned ' + code, body: bodyTxt.slice(0, 400) });
-    }
+    if (code !== 200) return { ok:false, error:'Anthropic returned ' + code, status: code, body: bodyTxt.slice(0, 400) };
+
     var resp = JSON.parse(bodyTxt);
     var content = (resp.content && resp.content[0] && resp.content[0].text) || '{}';
-    // Strip code fences if present
     content = content.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/, '');
-    var parsed = {};
+    var parsed;
     try { parsed = JSON.parse(content); }
-    catch (_) { return _json({ ok:false, error:'Model returned unparseable JSON', raw: content.slice(0, 600) }); }
+    catch (_) { return { ok:false, error:'Model returned unparseable JSON', raw: content.slice(0, 600) }; }
 
-    // Audit (hashes only — no PHI in the audit body)
-    var inHash = _sha256Hex(raw).slice(0, 16);
-    var outHash = _sha256Hex(content).slice(0, 16);
-    _logAudit('ai_intake', s.payload.tid, s.payload.uid, 'in=' + inHash + ' out=' + outHash + ' redacted=' + redacted.replacements);
-
-    return _json({
+    return {
       ok: true,
       parsed: parsed,
-      redaction_summary: { replacements: redacted.replacements, kinds: redacted.kinds },
-      input_hash: inHash,
-      output_hash: outHash
-    });
+      redaction: { replacements: redacted.replacements, kinds: redacted.kinds },
+      inHash: _sha256Hex(raw).slice(0, 16),
+      outHash: _sha256Hex(content).slice(0, 16)
+    };
   } catch (err) {
-    _logAudit('ai_intake_exception', s.payload.tid, s.payload.uid, String(err));
-    return _json({ ok:false, error:String(err) });
+    return { ok:false, error:String(err) };
   }
 }
 
@@ -2444,7 +2496,7 @@ function _tenantSchema() {
     Payouts: ['payout_id','tenant_id','interpreter_id','period_start','period_end','issued_at','total_cents','status','stripe_transfer_id','_created_at','_updated_at'],
     Documents: ['document_id','tenant_id','kind','r2_key','mime','sha256','size_bytes','linked_job_id','linked_interpreter_id','linked_consumer_id','uploaded_by_user_id','signed_url_expiry_default','retention_class','_created_at','_updated_at'],
     Settings: ['key','value','category','updated_by_user_id','updated_at','_created_at','_updated_at'],
-    Audit_Log: ['audit_id','tenant_id','ts','user_id','ip','user_agent','action','record_type','record_id','purpose_of_use','result','jti']
+    Audit_Log: ['audit_id','tenant_id','ts','user_id','ip','user_agent','action','record_type','record_id','purpose_of_use','result','jti','prev_seal','seal']
   };
 }
 
@@ -2482,26 +2534,103 @@ function _ulid(prefix) {
   return (prefix || '') + '_' + ts.toUpperCase() + rand;
 }
 
+// ----------------------------------------------------------------------------
+// Tamper-evident audit chain.
+//
+// Each Audit_Log row is sealed to the one physically before it: its `seal` is a
+// keyed HMAC over (the prior row's seal) + (this row's content columns). Edit,
+// delete, or reorder any sealed row and every recomputed seal from that point
+// on diverges — apiVerifyAuditChain catches the first break. The seal key is the
+// server-held HMAC_SECRET, so a seal can't be forged without script access. This
+// is what backs the security-page "sealed to the one before it" claim; the chain
+// is global over the physical append order (strongest deletion-detection), and
+// verification runs server-side with full-sheet access.
+//
+// `ts` and the two seal columns are forced to plain-text number-format so the
+// Sheet never coerces the ISO string into a Date (which would lose sub-second
+// precision and silently break the chain on read-back).
+// ----------------------------------------------------------------------------
+
+var _AUDIT_SEAL_SEP = '';  // unit separator — can't appear in our values
+
+function _auditTs_(v) {
+  // Normalize a ts cell to the exact ISO string that was sealed, whether the
+  // Sheet handed it back as a String or coerced it to a Date.
+  if (Object.prototype.toString.call(v) === '[object Date]') return v.toISOString();
+  return v == null ? '' : String(v);
+}
+
+function _auditCanonical_(row) {
+  // The 12 content columns, in schema order. Excludes prev_seal/seal.
+  return [
+    row.audit_id, row.tenant_id, _auditTs_(row.ts), row.user_id,
+    row.ip, row.user_agent, row.action, row.record_type,
+    row.record_id, row.purpose_of_use, row.result, row.jti
+  ].map(function (x) { return x == null ? '' : String(x); }).join(_AUDIT_SEAL_SEP);
+}
+
+function _auditSeal_(prevSeal, row) {
+  return _hmacB64Url(String(prevSeal || '') + _AUDIT_SEAL_SEP + _auditCanonical_(row));
+}
+
+function _ensureAuditColumns_(sheet, headers) {
+  // Add any newly-introduced header cells (e.g. prev_seal/seal) to an existing
+  // tab, and pin ts + seal columns to plain text so values round-trip exactly.
+  var lastCol = sheet.getLastColumn();
+  if (lastCol < headers.length) {
+    sheet.getRange(1, lastCol + 1, 1, headers.length - lastCol)
+         .setValues([headers.slice(lastCol)])
+         .setFontWeight('bold');
+  }
+  var maxRows = sheet.getMaxRows();
+  ['ts', 'prev_seal', 'seal'].forEach(function (name) {
+    var c = headers.indexOf(name);
+    if (c >= 0) sheet.getRange(1, c + 1, maxRows, 1).setNumberFormat('@');
+  });
+}
+
+function _lastAuditSeal_(sheet, headers) {
+  var last = sheet.getLastRow();
+  if (last < 2) return '';  // header only
+  var sealCol = headers.indexOf('seal') + 1;
+  if (sealCol < 1) return '';
+  var v = sheet.getRange(last, sealCol).getValue();
+  return v ? String(v) : '';
+}
+
 function _logAudit(action, tenantId, userId, detail) {
+  var lock = LockService.getScriptLock();
+  var haveLock = false;
+  try { haveLock = lock.tryLock(8000); } catch (_) { /* proceed best-effort */ }
   try {
     var ss = SpreadsheetApp.openById(SHEET_ID);
     var headers = _tenantSchema().Audit_Log;
     var sheet = _getOrCreateSheet(ss, T.Audit_Log, headers);
+    _ensureAuditColumns_(sheet, headers);
+    var prevSeal = _lastAuditSeal_(sheet, headers);
+    var row = {
+      audit_id: _ulid('au'),
+      tenant_id: tenantId || '',
+      ts: new Date().toISOString(),
+      user_id: userId || '',
+      ip: '',
+      user_agent: '',
+      action: action,
+      record_type: '',
+      record_id: detail || '',
+      purpose_of_use: '',
+      result: 'allow',
+      jti: ''
+    };
+    var seal = _auditSeal_(prevSeal, row);
     sheet.appendRow([
-      _ulid('au'),
-      tenantId || '',
-      new Date().toISOString(),
-      userId || '',
-      '',  // ip
-      '',  // user_agent
-      action,
-      '',  // record_type
-      detail || '',
-      '',  // purpose_of_use
-      'allow',
-      ''   // jti
+      row.audit_id, row.tenant_id, row.ts, row.user_id,
+      row.ip, row.user_agent, row.action, row.record_type,
+      row.record_id, row.purpose_of_use, row.result, row.jti,
+      prevSeal, seal
     ]);
   } catch (_) { /* non-fatal */ }
+  finally { if (haveLock) { try { lock.releaseLock(); } catch (_) {} } }
 }
 
 function _json(obj, status) {

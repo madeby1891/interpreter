@@ -170,6 +170,88 @@ function apiListAuditLog(e) {
   });
 }
 
+/**
+ * Walk the Audit_Log hash chain and report whether it's intact.
+ *
+ *   GET ?action=verify_audit_chain
+ *
+ * Same role gate as the read-back. Recomputes each sealed row's seal from the
+ * prior row's seal + this row's content (server-side, full-sheet access) and
+ * confirms the stored prev_seal links to the previous seal. The first row whose
+ * seal doesn't recompute, or whose link is broken, or any unsealed row that
+ * appears AFTER sealing began (a deletion/insertion), is reported as the break.
+ * Rows written before the chain feature shipped are counted as `legacy` and are
+ * allowed only before the first sealed row.
+ *
+ * Returns { ok, verified, checked, sealed, legacy, first_break, tenant_scope }.
+ * This is the "next check catches it" the security page promises.
+ */
+function apiVerifyAuditChain(e) {
+  var s = _requireSession(e);
+  if (!s.ok) return _json({ ok:false, error:s.error }, 401);
+  if (!_AUDIT_ALLOWED_ROLES[s.payload.role]) {
+    return _json({ ok:false, error:'Owner, manager, auditor, or platform-staff role required' }, 403);
+  }
+
+  var ss = SpreadsheetApp.openById(SHEET_ID);
+  var sh = ss.getSheetByName(T.Audit_Log);
+  var scope = (s.payload.role === 'role_platform_staff') ? '*' : s.payload.tid;
+  if (!sh || sh.getLastRow() < 2) {
+    return _json({ ok:true, verified:true, checked:0, sealed:0, legacy:0, first_break:null, tenant_scope:scope });
+  }
+
+  var data = sh.getDataRange().getValues();
+  var hdr = data[0];
+  if (hdr.indexOf('seal') < 0) {
+    return _json({ ok:true, verified:false, error:'chain not initialized', checked:0, sealed:0, legacy:data.length - 1, first_break:null, tenant_scope:scope });
+  }
+
+  var prevSealExpected = '';
+  var started = false;
+  var sealed = 0, legacy = 0, checked = 0;
+  var firstBreak = null;
+
+  for (var i = 1; i < data.length; i++) {
+    var row = _rowToObj(hdr, data[i]);
+    var storedSeal = row.seal ? String(row.seal) : '';
+
+    if (!storedSeal) {
+      if (started) {
+        firstBreak = { row_number: i + 1, audit_id: row.audit_id || '', reason: 'unsealed row after chain start (insertion or blanked seal)' };
+        break;
+      }
+      legacy++;
+      continue;
+    }
+
+    if (!started) { started = true; prevSealExpected = ''; }
+    var storedPrev = row.prev_seal ? String(row.prev_seal) : '';
+    var recomputed = _auditSeal_(storedPrev, row);
+    checked++;
+
+    if (storedPrev !== prevSealExpected) {
+      firstBreak = { row_number: i + 1, audit_id: row.audit_id || '', ts: row.ts || '', reason: 'broken link (prev_seal does not match the previous row)' };
+      break;
+    }
+    if (recomputed !== storedSeal) {
+      firstBreak = { row_number: i + 1, audit_id: row.audit_id || '', ts: row.ts || '', reason: 'seal mismatch (row content was altered)' };
+      break;
+    }
+    sealed++;
+    prevSealExpected = storedSeal;
+  }
+
+  return _json({
+    ok: true,
+    verified: firstBreak === null,
+    checked: checked,
+    sealed: sealed,
+    legacy: legacy,
+    first_break: firstBreak,
+    tenant_scope: scope
+  });
+}
+
 // ----------------------------------------------------------------------------
 // Helpers — bulk lookup maps.
 // ----------------------------------------------------------------------------

@@ -147,7 +147,13 @@ function apiCreateTranslationJob(e) {
   var targetLang = String(p.target_language_id || '');
   var serviceType = String(p.service_type || '');
   var requestorId = String(p.requestor_id || '');
-  if (!sourceText.trim()) return _json({ ok:false, error:'source_text required' });
+  // Source may be pasted text OR an uploaded file (apiUploadTranslationSource
+  // returns the drive_id passed here). A binary upload carries no inline text;
+  // the human translator opens the file via get_translation_source.
+  var sourceDriveId = String(p.source_drive_id || '');
+  if (!sourceText.trim() && !sourceDriveId) {
+    return _json({ ok:false, error:'source_text or an uploaded file is required' });
+  }
   if (!sourceLang)        return _json({ ok:false, error:'source_language_id required' });
   if (!targetLang)        return _json({ ok:false, error:'target_language_id required' });
   if (!serviceType)       return _json({ ok:false, error:'service_type required' });
@@ -160,8 +166,10 @@ function apiCreateTranslationJob(e) {
   var now = new Date().toISOString();
   var jobId = _ulid('j');
   var docId = _ulid('doc');
-  var sourceHash = _sha256Hex(sourceText);
-  var preview = sourceText.replace(/\s+/g, ' ').slice(0, 500);
+  var sourceHash = sourceText.trim() ? _sha256Hex(sourceText) : String(p.source_sha256 || '');
+  var preview = sourceText.trim()
+    ? sourceText.replace(/\s+/g, ' ').slice(0, 500)
+    : ('(uploaded file: ' + (p.source_filename || 'document') + ')');
 
   // 1. Jobs row — service_type='translation', status='REQUESTED'.
   var jobsHdr = _tenantSchema().Jobs;
@@ -208,10 +216,10 @@ function apiCreateTranslationJob(e) {
     document_id: docId,
     tenant_id: s.payload.tid,
     kind: 'translation-source',
-    r2_key: '',  // v1: paste-only, no R2 blob; reserved for file upload phase
-    mime: 'text/plain',
+    r2_key: sourceDriveId ? ('drive:' + sourceDriveId) : '',  // uploaded file, served via get_translation_source
+    mime: sourceDriveId ? (p.source_mime || 'application/octet-stream') : 'text/plain',
     sha256: sourceHash,
-    size_bytes: sourceText.length,
+    size_bytes: sourceDriveId ? Number(p.source_size_bytes || 0) : sourceText.length,
     linked_job_id: jobId,
     linked_interpreter_id: '',
     linked_consumer_id: '',

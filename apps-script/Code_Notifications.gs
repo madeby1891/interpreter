@@ -228,15 +228,18 @@ function notifyEvent_(ss, tenantId, eventType, recipientUserId, subject, body, s
     result.email = 'queued_' + prefs.email_mode;
   }
 
-  // SMS (immediate only)
-  if (prefs.sms_mode === 'immediate' && prefs.phone_e164 && smsBody) {
+  // SMS (immediate only). Phone comes from the user's saved notification prefs;
+  // if they haven't set one up yet, fall back to a phone the caller resolved
+  // (e.g. the interpreter's account phone) so a first offer can still text them.
+  var smsPhone = prefs.phone_e164 || (metadata && metadata.fallback_phone) || '';
+  if (prefs.sms_mode === 'immediate' && smsPhone && smsBody) {
     try {
-      var smsResult = _sendSmsViaWorker_(tenantId, prefs.phone_e164, smsBody);
-      _logCommunication(ss, tenantId, 'sms', 'out', eventType, recipientUserId, prefs.phone_e164,
+      var smsResult = _sendSmsViaWorker_(tenantId, smsPhone, smsBody);
+      _logCommunication(ss, tenantId, 'sms', 'out', eventType, recipientUserId, smsPhone,
                         smsResult.ok ? 'sent' : 'failed', 'twilio_worker', metadata && metadata.job_id || '');
       result.sms = smsResult.ok ? 'sent' : 'failed';
     } catch (err) {
-      _logCommunication(ss, tenantId, 'sms', 'out', eventType, recipientUserId, prefs.phone_e164, 'failed', 'twilio_worker', metadata && metadata.job_id || '');
+      _logCommunication(ss, tenantId, 'sms', 'out', eventType, recipientUserId, smsPhone, 'failed', 'twilio_worker', metadata && metadata.job_id || '');
       result.sms = 'failed';
     }
   }
