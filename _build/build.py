@@ -443,7 +443,6 @@ def home_body() -> str:
             <tr><td>Free tier</td><td class="own yes">Yes — Deaf-owned, full features, unlimited</td><td class="no">No</td><td>N/A</td></tr>
             <tr><td>Data export</td><td class="own">One click — CSV + JSON</td><td>Per request</td><td>Native to your file</td></tr>
             <tr><td>Public pricing</td><td class="own">Every tier, including Network floor</td><td>Partial</td><td>N/A</td></tr>
-            <tr><td>Accessibility commitment</td><td class="own">Public VPAT, WCAG 2.2 AA log per release</td><td>Per public materials</td><td>None (depends on your build)</td></tr>
           </tbody>
         </table>
       </div>
@@ -1431,7 +1430,7 @@ def pricing_body() -> str:
       <h2>Pricing questions, answered straight.</h2>
       <details class="card mt-5"><summary style="font-weight:700; cursor:pointer">What if I add more interpreters mid-year?</summary><p class="ink-soft" style="margin-top:var(--1891int-s-3)">If you stay within your tier's headcount cap, nothing changes. If you cross a cap, we move you up and prorate. We don't bill retroactively for the growth — we only bill from the day the next cap is crossed.</p></details>
       <details class="card mt-3"><summary style="font-weight:700; cursor:pointer">What counts as an "active" interpreter?</summary><p class="ink-soft" style="margin-top:var(--1891int-s-3)">An interpreter who claimed or was assigned a job in the trailing 90 days. Interpreters on your roster who haven't worked in 90+ days don't count toward the cap.</p></details>
-      <details class="card mt-3"><summary style="font-weight:700; cursor:pointer">Are there setup fees?</summary><p class="ink-soft" style="margin-top:var(--1891int-s-3)">No. Onboarding is white-glove for Phase 0 and Network customers, included in the subscription price. Self-serve for Solo and Practice.</p></details>
+      <details class="card mt-3"><summary style="font-weight:700; cursor:pointer">Are there setup fees?</summary><p class="ink-soft" style="margin-top:var(--1891int-s-3)">No. Onboarding is white-glove for our early agencies and Network customers, included in the subscription price. Self-serve for Solo and Practice.</p></details>
       <details class="card mt-3"><summary style="font-weight:700; cursor:pointer">What's the Deaf-owned verification process?</summary><p class="ink-soft" style="margin-top:var(--1891int-s-3)">A short application, documentation review by a board that includes Fallon Brizendine, decision within 5 business days. Full process is at <a href="{BASE_PATH}/free-for-deaf-owned">Free for Deaf-owned</a>.</p></details>
       <details class="card mt-3"><summary style="font-weight:700; cursor:pointer">What if my ownership changes?</summary><p class="ink-soft" style="margin-top:var(--1891int-s-3)">If ownership changes such that you no longer qualify for Deaf-Owned, the badge comes down and you transition to the appropriate paid tier with 90 days' notice and no service interruption.</p></details>
       <details class="card mt-3"><summary style="font-weight:700; cursor:pointer">Do you offer discounts for nonprofits?</summary><p class="ink-soft" style="margin-top:var(--1891int-s-3)">Deaf-led nonprofits qualify for the Deaf-Owned tier through the same verification process. Other 501(c)(3) interpreting nonprofits get 30% off Practice and Studio.</p></details>
@@ -2015,12 +2014,12 @@ def security_body() -> str:
   <section class="section section-warm">
     <div class="wrap">
       <span class="eyebrow">The audit log</span>
-      <h2>Append-only, hash-chained, exportable.</h2>
+      <h2>Tamper-evident, kept for years, and yours to export.</h2>
       <div class="grid grid-3 mt-5">
-        <div class="card"><h3 class="mt-0">Every PHI read</h3><p class="ink-soft">Every time someone — interpreter, scheduler, requestor — opens a record that contains PHI, an Audit_Log row is written: who, what, when, why.</p></div>
-        <div class="card"><h3 class="mt-0">7-year retention</h3><p class="ink-soft">Audit log retained 7 years. Append-only at the storage layer; deletes are physically blocked.</p></div>
-        <div class="card"><h3 class="mt-0">Hash-chain integrity</h3><p class="ink-soft">Each row carries a SHA-256 of itself + the prior row. Any tampering breaks the chain and shows up on the next integrity check.</p></div>
-        <div class="card"><h3 class="mt-0">SIEM export</h3><p class="ink-soft">Network tier exports the audit log to your SIEM (Splunk, Datadog, Elastic, custom). Format is documented and stable.</p></div>
+        <div class="card"><h3 class="mt-0">Every record opened</h3><p class="ink-soft">Whenever someone — interpreter, scheduler, requestor — opens a record with patient details in it, the log notes who, what, when, and why.</p></div>
+        <div class="card"><h3 class="mt-0">Kept seven years</h3><p class="ink-soft">The log can only be added to. Entries can't be edited or deleted by anyone, and it's held for seven years.</p></div>
+        <div class="card"><h3 class="mt-0">Can't be quietly changed</h3><p class="ink-soft">Each entry is sealed to the one before it. If anything is altered after the fact, that seal breaks and the next check catches it.</p></div>
+        <div class="card"><h3 class="mt-0">Security-log export</h3><p class="ink-soft">On the Network plan, the audit log streams into your own security tooling. The format is documented and stays steady.</p></div>
         <div class="card"><h3 class="mt-0">Subject access</h3><p class="ink-soft">Consumers can request their own access log under HIPAA's right of access. The response is a redacted PDF, ready in 30 days or less.</p></div>
         <div class="card"><h3 class="mt-0">Tenant export</h3><p class="ink-soft">Your full audit log exports with your other data. CSV or JSON. Same one-click button.</p></div>
       </div>
@@ -2081,7 +2080,7 @@ def security_body() -> str:
             <tr><td>Transcript (timed, machine-readable)</td><td>1 year</td><td>Archive (cold storage, restorable on request)</td></tr>
             <tr><td>Approved minutes / human-edited summary</td><td>Permanent</td><td>This is the legal record</td></tr>
             <tr><td>Executive-session / paused-mic portions</td><td>Never captured</td><td>Cannot be retroactively recorded</td></tr>
-            <tr><td>Audit log</td><td>7 years</td><td>Append-only, hash-chained, archive after</td></tr>
+            <tr><td>Audit log</td><td>7 years</td><td>Add-only, tamper-evident, then archived</td></tr>
             <tr><td>Operational data (jobs, invoices, etc.)</td><td>As long as you're a customer</td><td>One-click export on cancellation</td></tr>
           </tbody>
         </table>
@@ -2098,7 +2097,7 @@ def security_body() -> str:
         <div class="card"><h3 class="mt-0">SOC 2</h3><p class="ink-soft">Type I targeted for Q4 2026; Type II for Q3 2027. We won't claim a Type II we don't have. Status is on this page when it changes.</p></div>
         <div class="card"><h3 class="mt-0">GDPR / UK GDPR</h3><p class="ink-soft">DPA available on request. EU/UK customers gated behind data-residency review until our EU presence is set up.</p></div>
         <div class="card"><h3 class="mt-0">FERPA</h3><p class="ink-soft">School-district customers have a FERPA-compatible DPA covering student records. K-12 settings default to no recording.</p></div>
-        <div class="card"><h3 class="mt-0">Section 508 / WCAG 2.2 AA</h3><p class="ink-soft">Public <a href="{BASE_PATH}/accessibility">VPAT and conformance log</a> updated every release.</p></div>
+        <div class="card"><h3 class="mt-0">Accessibility (Section 508 / WCAG)</h3><p class="ink-soft">Built to the recognized standards from the first screen. The formal statement is on the <a href="{BASE_PATH}/accessibility">accessibility</a> page.</p></div>
         <div class="card"><h3 class="mt-0">PCI</h3><p class="ink-soft">No card data touches our servers. Payments are processed end-to-end by Stripe. We hold tokens, not PANs.</p></div>
       </div>
       <p style="margin-top:var(--1891int-s-6)"><a class="btn btn-primary" href="{BASE_PATH}/legal/subprocessors">See the full subprocessor list</a></p>
@@ -2548,7 +2547,7 @@ def build_pages() -> list[Page]:
     pages.append(Page(
         path="security.html",
         title="Security &amp; compliance — 1891 Interpreter",
-        description="HIPAA-defensible by default. PHI redacted before any AI call. SHA-256 hash-chained audit log with 7-year retention. 7-tier role hierarchy, magic-link sign-in, 7-day invitation TTL. Maryland two-party consent baked in. BAA on every paid tier and the Deaf-owned tier.",
+        description="Built to hold up to HIPAA. Patient details are stripped out before anything reaches an AI tool. Every record opened is written down, in a log that can't be quietly edited. Maryland two-party consent is built in. A signed BAA comes with every paid plan and the Deaf-owned plan.",
         nav_active="security",
         breadcrumb_html=breadcrumb(("Home", f"{BASE_PATH}/"), ("Security", "")),
         body=security_body(),
@@ -2556,7 +2555,7 @@ def build_pages() -> list[Page]:
     pages.append(Page(
         path="accessibility.html",
         title="Accessibility — 1891 Interpreter",
-        description="WCAG 2.2 AA across the product. Public VPAT updated every release. ASL videos. Keyboard-navigable everywhere.",
+        description="Built so everyone in the room can use it — keyboard, screen reader, captions, color and contrast, and reduced motion, on the first screen and every screen after. ASL where it explains the product. Not for a badge; because it's the right way to do the work.",
         nav_active="",
         breadcrumb_html=breadcrumb(("Home", f"{BASE_PATH}/"), ("Accessibility", "")),
         body=accessibility_body(),
