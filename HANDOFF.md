@@ -44,25 +44,35 @@ integrations reframed as exports + connectors-on-request (names kept as examples
 payout/1099 aligned to agency-own-Stripe; custom-domain + per-location phone marked
 "on the roadmap". voice-lint clean.
 
-### Last-mile / follow-ons (not blocking; documented so they're not lost)
-1. **CI worker auto-deploy is BROKEN** — the `madeby1891/interpreter` GitHub repo is
-   missing the `CLOUDFLARE_API_TOKEN` Actions secret (only `CLOUDFLARE_ACCOUNT_ID`
-   is set), so every `deploy-workers.yml` run since 2026-06-01 fails at `wrangler
-   deploy`. **Workers must be deployed manually** until fixed:
-   `cd workers/captions && npx --no-install wrangler deploy` (captions has wrangler
-   3.x installed; deploy interpreter-data via `--config ../interpreter-data/wrangler.toml`).
-   FIX: `gh secret set CLOUDFLARE_API_TOKEN -R madeby1891/interpreter` with a
-   Workers-deploy-scoped token (mint in the Cloudflare dashboard — no reusable copy
-   exists locally; local wrangler is OAuth).
-2. **Email intake trigger** is not installed yet — call `_install_inbound_email`
-   once (owner/platform-staff) to start the 5-min poller. And outbound confirmation
-   emails must embed `_inboundIntakeSubjectTag_(tenantId)` = `[1891 REQ:<tid>]` in
-   the subject for replies to route (helper added; wire into the requestor
-   confirmation send when that path is built).
-3. **Pattern G reporting** (`/app/reports/`) is live but dormant until
-   `STRIPE_CONNECT_CLIENT_ID` is set on `1891-interpreter-api` AND Connect-as-platform
-   is enabled in the Stripe dashboard (Anthony). The page shows a "connect your
-   account" CTA until then.
+### Autonomous follow-up — 2026-06-03
+
+- **QuickBooks Online integration — SHIPPED + LIVE** (commit `9e5eed1`, backend @48,
+  api worker redeployed, D1 Agencies `qbo_realm_id` ALTERed). Intuit OAuth2 mirror of
+  Stripe Connect: `workers/api/src/qbo.ts` (+ `/v1/qbo/*` routes), `Code_Qbo.gs`
+  (realm_id on Agencies, refresh token in Script Properties `QBO_REFRESH_<tid>`),
+  `/app/settings/quickbooks` + "Push to QuickBooks" on invoices. Returns
+  `unconfigured` until the four `QBO_*` secrets are set (PASTE-BACK #1).
+- **CI worker auto-deploy — FIXED.** Minted an "Edit Cloudflare Workers" API token in
+  the CF dashboard and set it as the repo's `CLOUDFLARE_API_TOKEN` secret. Verified:
+  `deploy-workers.yml` now runs GREEN for api + interpreter-data + captions (deploy +
+  /healthz smoke all pass). `git push` is the deploy again — manual `wrangler deploy`
+  no longer required. (The Workers template token covers the data worker's queue + D1
+  bindings too.)
+- **Live captions** visually verified at `/app/captions/` (renders, correct voice).
+
+### PASTE-BACK — needs Anthony's dashboard login (each ~2 min)
+1. **QuickBooks creds** — create an app at developer.intuit.com (scope
+   `com.intuit.quickbooks.accounting`), set redirect URI EXACTLY
+   `https://madeby1891.com/interpreter/app/settings/quickbooks-callback.html`, then:
+   `cd workers/api && npx wrangler secret put QBO_CLIENT_ID` (and `QBO_CLIENT_SECRET`,
+   `QBO_REDIRECT_URI`=that URL, `QBO_ENVIRONMENT`=`production`). Lights up QuickBooks.
+   (Couldn't self-serve: Intuit dashboard needs your login.)
+2. **Stripe Connect client_id** (Pattern G `/app/reports/`) — Stripe → Connect settings →
+   OAuth client_id (`ca_…`); `cd workers/api && npx wrangler secret put STRIPE_CONNECT_CLIENT_ID`.
+   (Chrome is hard-blocked from financial dashboards; client_id isn't API-exposed.)
+3. **Email intake** — call `_install_inbound_email` once (owner session) to start the
+   5-min poller; outbound confirmations must carry `_inboundIntakeSubjectTag_(tenantId)`
+   = `[1891 REQ:<tid>]` in the subject for replies to route.
 
 ---
 
