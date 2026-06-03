@@ -2,7 +2,7 @@
 
 > The interpreting agency platform built by the community it serves — free, forever, for Deaf-owned agencies.
 
-**Authors:** Anthony Mowl (operator, builder) and Fallon Brizendine (CDI, MA Interpretation Gallaudet, former dept chair of an ASL interpreting program).
+**Authors:** Anthony Mowl (admin, builder) and Fallon Brizendine (CDI, MA Interpretation Gallaudet, former dept chair of an ASL interpreting program).
 **Status:** v1 draft. Open decisions at the end of every section need a sweep before code starts.
 **Date:** 2026-05-16.
 **Companion reading (read first):** `~/Desktop/1891/CLAUDE.md`, `~/Desktop/1891/ARCHITECTURE.md`, `~/Desktop/1891/shared/specs/SPEECH_PROCESSING.md`, the project's own `CLAUDE.md`, `PROJECT_GUIDE.md`, `HANDOFF.md`.

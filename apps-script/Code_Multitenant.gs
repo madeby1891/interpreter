@@ -164,7 +164,7 @@ function _isHostOwner(session) {
   // Host-owner role is the only account that can see every tenant + provision
   // new ones. Encoded as: session.tid === 'host' AND role === 'role_owner'.
   // Also accepts role_platform_staff as the modern equivalent — multi-tenant
-  // operators sometimes carry role_platform_staff in non-host tenants.
+  // admins sometimes carry role_platform_staff in non-host tenants.
   if (!session || !session.payload) return false;
   if (session.payload.role === 'role_platform_staff') return true;
   return session.payload.tid === 'host' && session.payload.role === 'role_owner';

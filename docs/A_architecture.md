@@ -816,7 +816,7 @@ python migrate.py --tenant acme --source boostlingo --csv path/to/export.csv --d
 python migrate.py --tenant acme --source boostlingo --csv path/to/export.csv --commit
 ```
 
-Dry-run prints: column mapping diff, row counts, validation errors per row, duplicate detection, PHI fields detected. `--commit` is gated behind an interactive confirmation that prints a SHA-256 of the validation report and asks the operator to retype the tenant id.
+Dry-run prints: column mapping diff, row counts, validation errors per row, duplicate detection, PHI fields detected. `--commit` is gated behind an interactive confirmation that prints a SHA-256 of the validation report and asks the admin to retype the tenant id.
 
 **Existing-data hygiene:** the importer normalizes language codes to our BCP-47-ish convention, snaps cert codes to the `Certifications` reference list (warning on unmatched), and refuses to import any column flagged PHI when `phi_mode != full`.
 

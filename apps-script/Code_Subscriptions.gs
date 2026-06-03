@@ -36,7 +36,7 @@
  *   GET  action=subscription_intent_url  → apiSubscriptionIntentUrl  (JSONP)
  *   GET  action=subscription_status      → apiSubscriptionStatus     (session)
  *
- * Operator: after deploying this file, run `migrateSubscriptionsSchema()` from
+ * Admin: after deploying this file, run `migrateSubscriptionsSchema()` from
  * the Apps Script editor once. It's idempotent — safe to re-run.
  */
 
@@ -119,8 +119,8 @@ var SUB_VALID_STATUSES = {
 // ============================================================================
 
 /**
- * Operator runs this once from the Apps Script editor after deploy.
- * Idempotent — re-running is safe. Returns a summary so the operator can
+ * Admin runs this once from the Apps Script editor after deploy.
+ * Idempotent — re-running is safe. Returns a summary so the admin can
  * confirm what was touched.
  */
 function migrateSubscriptionsSchema() {
@@ -529,7 +529,7 @@ function _subHandleSubscriptionEvent_(ctx) {
     return { handled: 'ok', notes: 'agency=' + agencyId + ' tier=' + tier };
   }
 
-  // Orphan — write a breadcrumb so the operator can reconcile.
+  // Orphan — write a breadcrumb so the admin can reconcile.
   return {
     handled: 'ok',
     notes: 'no matching tenant — orphan subscription, needs reconcile (customer=' + customerId + ')'

@@ -1,7 +1,7 @@
 # 1891 Interpreter — Payments Implementation Spec
 
 **Status:** Mode A canonical since 2026-05-19. Pattern F (SaaS subscription) live since 2026-05-18.
-**Owners:** Anthony Mowl (operator), Fallon Brizendine (domain SME).
+**Owners:** Anthony Mowl (admin), Fallon Brizendine (domain SME).
 **Audience:** any agent (human or AI) modifying SaaS billing, Connect OAuth reporting, or future Mode B opt-in.
 **Reads first:** `~/Desktop/1891/CLAUDE.md`, `~/Desktop/1891/shared/specs/PAYMENTS.md` (the contract, esp. **Pattern G + Pattern F**), this file.
 
@@ -361,7 +361,7 @@ All schema lives in Apps Script's `getOrCreateSheet(name, headers)` calls. New c
 
 ### 6.1 `Stripe_Events` tab (new)
 
-Forensic log of every webhook event the Worker forwards. Primary idempotency lives in the Worker's KV `IDEMPOTENCY` namespace; this Sheet row is the operator-readable backup.
+Forensic log of every webhook event the Worker forwards. Primary idempotency lives in the Worker's KV `IDEMPOTENCY` namespace; this Sheet row is the admin-readable backup.
 
 ```
 sev_id           // sev_<22 url-safe chars>

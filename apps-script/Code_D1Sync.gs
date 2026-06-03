@@ -642,7 +642,7 @@ function _d1AuditDiag_() {
 }
 
 // Full read-only dump of the Audit_Log tab (NO PHI in this table) so the entire
-// 28-row legal record is captured in the operator log before any mutation.
+// 28-row legal record is captured in the admin log before any mutation.
 function _d1AuditDump_() {
   var sh = SpreadsheetApp.openById(SHEET_ID).getSheetByName(T.Audit_Log);
   if (!sh) return { error: 'no Audit_Log tab' };

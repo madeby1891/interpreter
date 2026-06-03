@@ -118,7 +118,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--project", required=True, help="project slug")
     parser.add_argument("--site", required=True, help="site root to walk")
     parser.add_argument("--no-widget", action="store_true",
-                        help="skip the feedback-widget tag (operator-only surfaces)")
+                        help="skip the feedback-widget tag (admin-only surfaces)")
     args = parser.parse_args(argv)
     root = pathlib.Path(args.site).resolve()
     if not root.is_dir():

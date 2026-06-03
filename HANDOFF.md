@@ -126,7 +126,7 @@ short cache. See the `.htaccess` mod_rewrite `VERSIONED_ASSET` flag.
 ## Marcom voice + visual overhaul — 2026-06-02
 
 Reworked the whole marketing site (home, features ×9, audience pages, pricing) per
-operator ask: plainer role-friendly language, clickable product "screenshots", and
+admin ask: plainer role-friendly language, clickable product "screenshots", and
 hover life. Source of truth is `_build/build.py`; `site/*.html` is regenerated.
 
 - **New visual system** lives in `build.py` (`mock_frame()`, `mock_phone()`, the
@@ -199,12 +199,12 @@ Full detail (incl. the three bugs found + fixed) + phase-3/4 steps:
 - [ ] Reads flipped — **NOT done.** Remaining gates: (a) a real soak; (b) ~~relocate the Settings
       `anthropic.api_key` secret~~ **DONE 2026-06-01** — plaintext purged from Sheet + D1, key
       relocated to Worker secret + gitignored constant; only the console *revocation* of the burned
-      key remains (operator, see SECURITY below) and it no longer blocks the read flip; (c) flip
+      key remains (admin, see SECURITY below) and it no longer blocks the read flip; (c) flip
       `site/assets/js/api.js` to a D1 read path — BLOCKED on a clean `site/` tree (a parallel agent
       has uncommitted site/ changes; `deploy.sh` builds the working tree, so don't static-deploy over it)
 - [ ] Writes flipped; old Sheet demoted to read-only mirror; godview `data_store: d1` (phase 4)
 
-**🟡 SECURITY — leaked Anthropic key (REMEDIATED 2026-06-01; one operator step left):** the
+**🟡 SECURITY — leaked Anthropic key (REMEDIATED 2026-06-01; one admin step left):** the
 Settings tab held `anthropic.api_key` = a **plaintext live `sk-ant-…` key** (pre-D1; the
 dual-write copied it into D1). The `/v1/read` + `safeRowForLog` redaction was only a band-aid;
 the stored plaintext itself is now gone. **Fixed this session:**
@@ -222,7 +222,7 @@ the stored plaintext itself is now gone. **Fixed this session:**
   (`deleted:1, secret_rows_remaining:0`); `?d1op=reset&tab=Settings` + `backfill` re-synced D1
   (10→9 rows). Verified: Sheet `settings_row_present:false`; D1 (raw SELECT) `anthropic_key_rows:0,
   secret_shaped_rows:0`. New `?d1op=anthropiccheck` is a non-leaking self-check (prefix+len only).
-- **⛔ STILL OPEN — revoke the compromised key at the console (needs operator):** no Anthropic
+- **⛔ STILL OPEN — revoke the compromised key at the console (needs admin):** no Anthropic
   admin key on disk + Chrome MCP down, so the agent can't do it. **Anthony:** console.anthropic.com
   → API keys → find the key beginning `sk-ant-api03-mX_3O` (interpreter AI-intake; last used
   ~today) → **Revoke**. Already orphaned (nothing reads it) but live/valid until revoked.

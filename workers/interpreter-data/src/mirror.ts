@@ -1,13 +1,13 @@
 /**
  * interpreter-data — nightly read-only D1 -> Sheets mirror (ADR §5).
  *
- * Preserves the "operator opens the Sheet and eyeballs rows" affordance after
+ * Preserves the "admin opens the Sheet and eyeballs rows" affordance after
  * cutover. D1 is the source of truth; the Sheet is a disposable, read-only view.
  *
  * CRITICAL SAFETY: this is INERT until env.MIRROR_ENABLED === "true", which is
  * set ONLY at strangler phase 4 (the Sheet has been demoted from source of
  * truth). During dual-write (phase 2) and read-flip (phase 3) the live Sheet is
- * STILL authoritative, so mirroring into it would clobber operator edits. The
+ * STILL authoritative, so mirroring into it would clobber admin edits. The
  * caller (index.ts scheduled) already guards on MIRROR_ENABLED; this function
  * re-checks as a belt-and-suspenders.
  *
@@ -18,7 +18,7 @@
 import { type Env, TABLES, PHI_BLOB_COLUMNS, logSys } from './db';
 
 /** Tables exported to the human-readable mirror. Auth/token/log tables are
- *  intentionally excluded — operators don't eyeball those, and they churn. */
+ *  intentionally excluded — admins don't eyeball those, and they churn. */
 const MIRROR_TABLES: string[] = [
   'Agencies', 'Users', 'Roles', 'Interpreters', 'Interpreter_Documents',
   'Tenant_Requirements', 'Rate_Modifiers', 'Rate_Cards', 'Notification_Prefs',

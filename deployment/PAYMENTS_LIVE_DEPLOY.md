@@ -66,7 +66,7 @@ In the editor:
 DEPLOY_WORKER=0 bash ~/Desktop/1891/projects/interpreter/deployment/deploy.sh
 ```
 
-This rsyncs `site/` to GoDaddy. The `DEPLOY_WORKER=0` is the default but pass it explicitly so the next operator reading this script knows the option exists.
+This rsyncs `site/` to GoDaddy. The `DEPLOY_WORKER=0` is the default but pass it explicitly so the next admin reading this script knows the option exists.
 
 ---
 

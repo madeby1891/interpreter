@@ -453,7 +453,7 @@ Every onboarding flow uses the 1891 standard magic-link pattern (Apps Script iss
 
 ## B8. Accessibility commitments (every dashboard)
 
-Accessibility is the product, not a feature. Built by a Deaf-family operator (Anthony, fifth-generation Deaf since 1891; Fallon, CDI, Gallaudet-trained) for an industry whose entire purpose is communication access. The bar is higher than legal minimums because the users will notice if it's not.
+Accessibility is the product, not a feature. Built by a Deaf-family admin (Anthony, fifth-generation Deaf since 1891; Fallon, CDI, Gallaudet-trained) for an industry whose entire purpose is communication access. The bar is higher than legal minimums because the users will notice if it's not.
 
 - **WCAG 2.2 AA across every surface**, verified by automated scan (axe-core in CI on every PR) plus quarterly manual audit by a Deaf accessibility consultant.
 - **Audio cues always have visual + haptic partners.** A chime when a job is assigned to you also flashes the status pill, increments a badge, and (on mobile) vibrates. Mute the speakers, unplug the headphones — the platform still works.
@@ -464,7 +464,7 @@ Accessibility is the product, not a feature. Built by a Deaf-family operator (An
 - **High-contrast mode toggle** per user (persisted to profile). Default theme is already 4.5:1 minimum; HC mode pushes to 7:1+.
 - **Text size adjustable to 200%** without horizontal scroll or layout break, verified via responsive testing. Density-critical screens (Lin's timeline) get a "compact / comfortable / large" toggle.
 - **Screen-reader tested on every release** with VoiceOver (macOS, iOS), JAWS (Windows), NVDA (Windows), and TalkBack (Android). Release notes call out any regressions and block deploy if a P0 SR bug is open.
-- **VRS-friendly contact paths.** Wherever the platform captures a phone number (consents, two-factor, requestor callback), it never blocks a videophone area code. SMS-based 2FA has a videophone fallback ("we'll have a relay operator call you with the code"). Consents recorded by phone are also accepted by videophone with a stored video artifact.
+- **VRS-friendly contact paths.** Wherever the platform captures a phone number (consents, two-factor, requestor callback), it never blocks a videophone area code. SMS-based 2FA has a videophone fallback ("we'll have a relay admin call you with the code"). Consents recorded by phone are also accepted by videophone with a stored video artifact.
 - **DeafBlind considerations.** Consumer profile has tactile-ASL and Pro-Tactile modality flags. The MyInterpreter portal supports a high-contrast + 200% + extended-timeout mode that pairs well with refreshable Braille displays. Session reminder timing is configurable (24h / 48h / 72h before).
 - **Plain language across all copy.** No "AI-powered transcription" — say "live captions from speech." No "intelligent diarization" — say "we know who spoke when." This is a brand-voice rule and an accessibility rule simultaneously; the cognitive accessibility win is real.
 - **No reliance on motion.** Animations are decorative; `prefers-reduced-motion` honored everywhere. Status changes are visible without animation.

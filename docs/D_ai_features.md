@@ -346,8 +346,8 @@ Templates live in the agency Sheet `Templates` tab; one row per template:
 
 ### D3.7 Voicephone / videophone friendliness
 
-- Deaf consumers may call from a videophone gateway (e.g., Sorenson, Convo, ZVRS) using regular E.164 numbers. We do not block these; ACR detection is not reliable. Carrier sometimes inserts a relay-operator preamble; the voicemail-intake feature must tolerate operator-spoken meta-text and not let Claude treat it as part of the request body. Heuristic: first 6 seconds of a relay-routed call are stripped if Deepgram's transcript starts with relay-operator boilerplate phrases (configurable list).
-- For consumer SMS where the number is a TTY-relay number, we honor it the same as any other SMS, and we accept that responses may include relay-operator framing (`(operator) THE PERSON SAYS ...`); the parser strips that framing before model processing.
+- Deaf consumers may call from a videophone gateway (e.g., Sorenson, Convo, ZVRS) using regular E.164 numbers. We do not block these; ACR detection is not reliable. Carrier sometimes inserts a relay-admin preamble; the voicemail-intake feature must tolerate admin-spoken meta-text and not let Claude treat it as part of the request body. Heuristic: first 6 seconds of a relay-routed call are stripped if Deepgram's transcript starts with relay-admin boilerplate phrases (configurable list).
+- For consumer SMS where the number is a TTY-relay number, we honor it the same as any other SMS, and we accept that responses may include relay-admin framing (`(admin) THE PERSON SAYS ...`); the parser strips that framing before model processing.
 - Outbound calls TO consumers always go via the consumer's preferred relay or videophone provider when one is set on the consumer record. The "place call" UI shows the relay in use.
 
 ---

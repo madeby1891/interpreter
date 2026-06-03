@@ -8,7 +8,7 @@
 //   - optionally upload a receipt per expense (stored on Drive)
 //   - optional notes from the interpreter
 //
-// Auto-billing model (per operator pref): close-out posts immediately.
+// Auto-billing model (per admin pref): close-out posts immediately.
 //   - Jobs.actual_start / actual_end set
 //   - Jobs.status -> COMPLETED
 //   - Job_Assignments.billable_minutes recomputed

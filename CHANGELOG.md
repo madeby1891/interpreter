@@ -223,7 +223,7 @@ through:
 - Fires the `job_complete` notification event
 - Returns a `flagged_for_dispute` boolean so the modal can warn
 
-The **auto-bill** policy (per operator choice): close-out posts immediately;
+The **auto-bill** policy (per admin choice): close-out posts immediately;
 the scheduler doesn't have to approve before invoice/payout flows pick it up.
 But the scheduler can **dispute** within the review window — click the
 "⚠ N%" chip on the day-of board → opens the job page → "Dispute close-out"
