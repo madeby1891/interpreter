@@ -6,6 +6,37 @@ future-you) can pick up cold in under five minutes.
 
 ---
 
+## Marcom voice + visual overhaul — 2026-06-02
+
+Reworked the whole marketing site (home, features ×9, audience pages, pricing) per
+operator ask: plainer role-friendly language, clickable product "screenshots", and
+hover life. Source of truth is `_build/build.py`; `site/*.html` is regenerated.
+
+- **New visual system** lives in `build.py` (`mock_frame()`, `mock_phone()`, the
+  `ui_*()` builders) + `site/assets/css/marketing-interact.css` (`.mock`, `.ui-*`,
+  feature-row, hover/reveal polish). Feature pages now lead with a clickable browser/
+  phone mock and reuse the live JS widgets (`data-widget=rates|cancel|sms|clients`)
+  inline. Hero **copy** stays non-`data-reveal` (visible without JS); only decorative
+  media fades in.
+- **Language:** removed engineer-speak everywhere (`/app/*`, `<kbd>` grids, `one_per_*`,
+  `Parallel-3`, monotonic, `lib/redact`, `WebRTC`, `StreamingStt`, vendor names →
+  generic roles). `voice-lint` is green; rule 5 ("the phone") will bite — use
+  "phone-friendly" / "by phone".
+
+### ⚠️ CDN cache-busting (non-obvious — cost a second deploy)
+The marketing site sits behind a CDN. **HTML is `cf-cache-status: DYNAMIC`** (served
+fresh) but **`/assets/*` is cached ~4h** (`cache-control: max-age=14400`). Asset URLs
+had **no version string**, so the first deploy shipped new HTML referencing the *same*
+CSS URL → the edge kept serving the **old** stylesheet and the mockups rendered
+unstyled live. Fix (commit `a664a86`): `build.py` now appends `?v=<sha1 of asset bytes>`
+to every CSS/JS href (`ASSET_V`). Any asset change now busts the edge the moment the
+HTML ships — **no manual CDN purge needed** (the default Cloudflare token is
+`zone:read` only; it can't purge anyway). If you change `site/assets/*` directly,
+rebuild so the hash updates. Verify after deploy: the live HTML's `?v=` must match a
+freshly-served `marketing-interact.css?v=…`.
+
+---
+
 ## D1 system-of-record migration (ADR-001) — 2026-05-31
 
 interpreter is the **highest-value** migration in the workspace (PHI + payment records
