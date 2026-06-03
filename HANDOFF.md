@@ -82,12 +82,19 @@ The marketing page is lean: ~22 KB transferred, 21 requests, gzip on, **no web
 fonts** (system stacks), assets edge-cached + now content-versioned. The drags
 are infra, not code:
 
-- **Biggest: HTML isn't edge-cached.** `cf-cache-status: DYNAMIC` → every view
-  round-trips to the GoDaddy origin → TTFB 160–640 ms (≈60% of load time).
-  Cloudflare won't cache HTML without a **Cache Rule**. Now safe to add one for
-  `/interpreter/*` (assets are content-versioned, so a "cache-everything + edge
-  TTL" rule won't serve stale CSS/JS). Needs Cloudflare access — default token is
-  `zone:read`, can't add rules. Biggest single win available.
+- **FIXED — HTML is now edge-cached.** Was `cf-cache-status: DYNAMIC` → ~400 ms
+  TTFB (origin round-trip). Added a Cloudflare **Cache Rule** on the `madeby1891.com`
+  zone (account `8c3571f09abd644406f30db05056e6d2`), via the dashboard:
+  - Name: **"Cache interpreter marketing HTML"** (order 1, Active).
+  - Expression: `http.host eq "madeby1891.com" and starts_with(uri.path,"/interpreter/")
+    and NOT starts_with(.../interpreter/app/ | /api/ | /pay/)` — marketing pages only;
+    the app/api/pay paths stay DYNAMIC.
+  - Eligible for cache · Edge TTL = respect origin (HTML `max-age=300` → 5-min edge
+    cache) · Browser TTL = respect origin (keeps `max-age=300`, not CF's 4 h default).
+  - **Result (verified live): TTFB 160–640 ms → ~94 ms, `cf-cache-status: HIT`.**
+  - Versioned assets stay 1-yr immutable; `/interpreter/app/` confirmed still DYNAMIC.
+  - If a marketing page ever serves stale: it self-clears in 5 min, or purge the URL
+    in CF → Caching → Configuration → Purge.
 - **GoDaddy injects `img1.wsimg.com/.../tccl.min.js`** — a render-blocking
   traffic tracker, appended *after* `</html>`, not in our source. Currently
   **CSP-blocked so it doesn't actually load** (silver lining), but it's host
@@ -99,10 +106,16 @@ are infra, not code:
   `event-capture.anthonymowl.workers.dev` + `conv.madeby1891.com`. Verified live:
   those scripts now load (846 ms network, no CSP console violations) and the
   GoDaddy `wsimg` tracker stays blocked (0 ms — deliberately NOT allowlisted).
-- **Duplicate/stale security headers.** Origin `.htaccess` *and* a zone-wide
-  Cloudflare rule both set X-Frame-Options / Permissions-Policy / HSTS (conflicting
-  values), plus a stale `content-security-policy-report-only` leaking another
-  project's domains (Disney/runDisney/jsdelivr). Cosmetic; fix at the edge.
+- **Duplicate/stale security headers — DELIBERATELY LEFT ALONE.** Origin
+  `.htaccess` *and* a zone-wide Cloudflare rule both set X-Frame-Options /
+  Permissions-Policy / HSTS (conflicting values), plus a stale
+  `content-security-policy-report-only` leaking another project's domains
+  (Disney/runDisney/jsdelivr). Assessed and **not changed**: it's cosmetic
+  (browsers honor the strictest value; the report-only CSP doesn't enforce),
+  negligible perf cost (HPACK-compressed header bytes), and the fix is a
+  **zone-wide** rule edit that risks every other project's headers. Not worth the
+  blast radius. If ever cleaned up: scope that zone Transform Rule to exclude
+  `/interpreter/` (the `.htaccess` already sets the stricter correct headers).
 
 **Done this pass:** versioned assets (`?v=<hash>`) now cache 1 year `immutable`
 (was 1 h), scoped to `?v=` requests so un-versioned `app/*` assets keep their
