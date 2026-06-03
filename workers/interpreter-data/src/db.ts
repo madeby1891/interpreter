@@ -125,7 +125,7 @@ export const TABLES: Record<string, TableDef> = {
   Settings:      { pk: ['tenant_id','key'], mode: 'upsert', tenantScoped: true,
     columns: ['tenant_id','key','value','category','updated_by_user_id','updated_at','_created_at','_updated_at'] },
   Audit_Log:     { pk: ['audit_id'], mode: 'upsert', tenantScoped: true,
-    columns: ['audit_id','tenant_id','ts','user_id','ip','user_agent','action','record_type','record_id','purpose_of_use','result','jti'] },
+    columns: ['audit_id','tenant_id','ts','user_id','ip','user_agent','action','record_type','record_id','purpose_of_use','result','jti','prev_seal','seal'] },
 
   // out-of-_tenantSchema tabs
   Auth_Tokens:   { pk: ['token_hash'], mode: 'upsert', tenantScoped: true,

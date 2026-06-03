@@ -791,10 +791,16 @@ CREATE TABLE IF NOT EXISTS Audit_Log (
   record_id      TEXT,
   purpose_of_use TEXT,
   result         TEXT,
-  jti            TEXT
+  jti            TEXT,
+  prev_seal      TEXT,   -- tamper-evident chain: seal of the physically prior row
+  seal           TEXT    -- HMAC(prev_seal + this row's content); see Code.gs _logAudit
 );
 CREATE INDEX IF NOT EXISTS idx_audit_tenant_ts ON Audit_Log (tenant_id, ts DESC);
 CREATE INDEX IF NOT EXISTS idx_audit_action ON Audit_Log (tenant_id, action, ts DESC);
+-- The live DB was provisioned out-of-band (see MIGRATION.md), so the chain columns
+-- must be ALTERed onto the already-deployed table (no-op on a fresh provision):
+--   ALTER TABLE Audit_Log ADD COLUMN prev_seal TEXT;
+--   ALTER TABLE Audit_Log ADD COLUMN seal TEXT;
 
 -- ====================================================================
 -- SHEET TABS OUTSIDE _tenantSchema() (live in the Sheet, in the T map)

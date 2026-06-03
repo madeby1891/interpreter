@@ -1,0 +1,51 @@
+# wrangler.toml — workers/captions (1891 Interpreter)
+#
+# Realtime backend for the Live Captions vertical
+# (madeby1891.com/interpreter/app/captions/). Each session code maps to one
+# Durable Object (CaptionsRoom). One device opens a "mic" socket and streams
+# 16 kHz linear-PCM up; the room proxies that audio to the streaming-
+# transcription vendor, tags each caption with the speaker's name + color, and
+# fans it out to every "viewer" socket joined to the same session code.
+#
+# Cloned from workers/dinnertable, trimmed to captions only (no CRM, billing,
+# magic-link, email, Stripe, or transcript-archive code).
+
+name = "1891-interpreter-captions"
+main = "src/index.ts"
+compatibility_date = "2024-09-01"
+compatibility_flags = ["nodejs_compat"]
+workers_dev = true
+
+# Public route once a subdomain is provisioned. Until then the worker is reached
+# at https://1891-interpreter-captions.<account>.workers.dev — the app points at
+# that .workers.dev URL (an endpoint in code, never surfaced as branding).
+# routes = [
+#   { pattern = "captions.madeby1891.com/*", custom_domain = true }
+# ]
+
+# One DO instance per session code. Holds the open WebSockets (viewers + the
+# mic) and brokers the audio -> caption fan-out in one place, so a caption is a
+# single in-memory broadcast with no extra hop.
+[[durable_objects.bindings]]
+name = "CAPTIONS_ROOM"
+class_name = "CaptionsRoom"
+
+# A migration block is REQUIRED to register the new Durable Object class. Without
+# this tag wrangler refuses to bind CaptionsRoom on deploy.
+[[migrations]]
+tag = "v1"
+new_classes = ["CaptionsRoom"]
+
+[vars]
+LOG_LEVEL = "info"
+# Sites allowed to open the metered mic-ingest socket (spends transcription
+# minutes). Browsers always send Origin on a WS upgrade and can't forge it
+# cross-site. Comma-separated; localhost is always allowed for dev.
+ALLOWED_ORIGINS = "https://madeby1891.com,https://www.madeby1891.com"
+
+# Secret (wrangler secret put):
+#   DEEPGRAM_API_KEY — shared 1891 streaming-transcription key (live captions).
+#     Reuse ~/.config/1891/deepgram-key — never mint a per-project key. Set with:
+#       wrangler secret put DEEPGRAM_API_KEY --name 1891-interpreter-captions < ~/.config/1891/deepgram-key
+#     Unset = the mic socket self-skips with a clean close + mic_status
+#     'unconfigured'; viewers, roster, and presence keep working.
