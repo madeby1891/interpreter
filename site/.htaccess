@@ -48,6 +48,13 @@ RedirectMatch 403 ^/interpreter/godview\.json$
   RewriteCond %{REQUEST_FILENAME} !-f
   RewriteCond %{REQUEST_FILENAME}.html -f
   RewriteRule ^(.+?)/?$ $1.html [L]
+
+  # Content-hash-versioned assets (e.g. site.css?v=ab12cd34) never change for a
+  # given URL — the hash moves when the bytes move (build.py). Flag those
+  # requests so mod_headers can mark them immutable + cache them for a year.
+  # Scoped to ?v= so the un-versioned app/* assets keep their short cache.
+  RewriteCond %{QUERY_STRING} (^|&)v=[A-Za-z0-9]+ [NC]
+  RewriteRule \.(css|js)$ - [E=VERSIONED_ASSET:1]
 </IfModule>
 
 # --- Security headers --------------------------------------------------------
@@ -77,6 +84,11 @@ RedirectMatch 403 ^/interpreter/godview\.json$
   # once provisioned). Browsers ignore an unreachable report-to gracefully.
   Header always set Reporting-Endpoints 'csp-endpoint="/interpreter/api/csp-report"'
 
+  # Versioned assets (?v=<hash>, flagged in mod_rewrite above) are immutable —
+  # cache them for a year so returning visitors and the edge never re-fetch
+  # until the hash changes. Replaces the 1-hour mod_expires default for these.
+  Header set Cache-Control "public, max-age=31536000, immutable" env=VERSIONED_ASSET
+
   # Don't leak server software
   Header always unset Server
   Header always unset X-Powered-By
@@ -89,7 +101,8 @@ RedirectMatch 403 ^/interpreter/godview\.json$
   # HTML — short cache, frequent updates
   ExpiresByType text/html "access plus 5 minutes"
 
-  # CSS/JS — versioned via filename in future; for now, 1 hour
+  # CSS/JS — default 1 hour for un-versioned requests (e.g. app/* assets).
+  # Requests carrying ?v=<hash> get a 1-year immutable cache via mod_headers above.
   ExpiresByType text/css "access plus 1 hour"
   ExpiresByType application/javascript "access plus 1 hour"
 
