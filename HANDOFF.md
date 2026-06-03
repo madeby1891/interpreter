@@ -6,6 +6,66 @@ future-you) can pick up cold in under five minutes.
 
 ---
 
+## SHIPPED — "finish the product" pass — 2026-06-02
+
+Closed the gap between marketing claims and working code. All live + verified.
+
+**Live workers** (deployed manually via wrangler — see CI note below):
+- `1891-interpreter-captions` (NEW) — live-caption Durable-Object worker, cloned
+  from the dinnertable streaming shape. `/healthz` → `captions_configured:true`.
+  Secret `DEEPGRAM_API_KEY` set (reused `~/.config/1891/deepgram-key`). App
+  surface at `/app/captions/`.
+- `interpreter-data` — redeployed with `Audit_Log.prev_seal/seal` columns.
+  **Live D1 was ALTERed** (`ALTER TABLE Audit_Log ADD COLUMN prev_seal/seal`) —
+  done, do not repeat.
+
+**Backend (Apps Script @47):**
+- **Tamper-evident audit log** — `_logAudit` now HMAC-seals each row to the prior
+  one (global append-order chain). `apiVerifyAuditChain` (`?action=verify_audit_chain`,
+  owner/auditor) walks it and reports the first break. `ts`/seal columns pinned to
+  plain-text format so seals round-trip. Backs the security-page "sealed to the one
+  before it" claim (was previously untrue).
+- **One-click export** — `apiExportTenant` (`export_tenant`) → all tenant tables as
+  JSON; app builds a client-side ZIP (JSON + per-table CSV) at `/app/settings/export`.
+- **SMS offers** — `apiOfferJob` routes through `notifyEvent_` to text the
+  interpreter ("Reply YES to claim", PHI-free) + email fallback. Needs the
+  interpreter to have a phone + SMS-on for `job_offer` (set at `/app/me/notifications`).
+- **Translation file upload** — `apiUploadTranslationSource` / `apiGetTranslationSource`;
+  create-job accepts an uploaded file. UI at `/app/translate/`.
+- **SSO (OIDC)** — `Code_Sso.gs`. Config + client secret live in **Script
+  Properties** (`SSO_CFG_<tid>` / `SSO_SECRET_<tid>`), never the Sheet. Owner sets
+  it at `/app/settings/sso` (issuer auto-discovery or manual endpoints; allowed_domain;
+  auto_provision). Sign-in at `/app/sso/`, callback `/app/sso/callback.html`.
+- **Email→draft intake** — `Code_EmailIntake.gs`. Gmail-poll trigger feeds the
+  shared `_aiIntakeParse_` → draft Job (REQUESTED); a human still confirms.
+
+**Marketing copy** reconciled to reality (commit `8a5916d`): accounting
+integrations reframed as exports + connectors-on-request (names kept as examples);
+payout/1099 aligned to agency-own-Stripe; custom-domain + per-location phone marked
+"on the roadmap". voice-lint clean.
+
+### Last-mile / follow-ons (not blocking; documented so they're not lost)
+1. **CI worker auto-deploy is BROKEN** — the `madeby1891/interpreter` GitHub repo is
+   missing the `CLOUDFLARE_API_TOKEN` Actions secret (only `CLOUDFLARE_ACCOUNT_ID`
+   is set), so every `deploy-workers.yml` run since 2026-06-01 fails at `wrangler
+   deploy`. **Workers must be deployed manually** until fixed:
+   `cd workers/captions && npx --no-install wrangler deploy` (captions has wrangler
+   3.x installed; deploy interpreter-data via `--config ../interpreter-data/wrangler.toml`).
+   FIX: `gh secret set CLOUDFLARE_API_TOKEN -R madeby1891/interpreter` with a
+   Workers-deploy-scoped token (mint in the Cloudflare dashboard — no reusable copy
+   exists locally; local wrangler is OAuth).
+2. **Email intake trigger** is not installed yet — call `_install_inbound_email`
+   once (owner/platform-staff) to start the 5-min poller. And outbound confirmation
+   emails must embed `_inboundIntakeSubjectTag_(tenantId)` = `[1891 REQ:<tid>]` in
+   the subject for replies to route (helper added; wire into the requestor
+   confirmation send when that path is built).
+3. **Pattern G reporting** (`/app/reports/`) is live but dormant until
+   `STRIPE_CONNECT_CLIENT_ID` is set on `1891-interpreter-api` AND Connect-as-platform
+   is enabled in the Stripe dashboard (Anthony). The page shows a "connect your
+   account" CTA until then.
+
+---
+
 ## Marcom performance audit — 2026-06-02
 
 The marketing page is lean: ~22 KB transferred, 21 requests, gzip on, **no web
