@@ -21,6 +21,22 @@ ROOT = Path(__file__).resolve().parents[1]
 SITE = ROOT / "site"
 BASE_PATH = "/interpreter"
 
+# Asset cache-busting. The site sits behind a CDN that caches /assets/* for
+# hours with no per-file versioning — so a CSS/JS change wouldn't go live until
+# the TTL expired. We append ?v=<content-hash> to every stylesheet/script href
+# so any change to those files busts the edge cache the moment the (uncached)
+# HTML ships. Recomputed each build from the actual file bytes.
+import hashlib as _hashlib
+def _asset_version() -> str:
+    h = _hashlib.sha1()
+    for _rel in ("assets/css/site.css", "assets/css/marketing-interact.css",
+                 "assets/js/main.js", "assets/js/marketing-interact.js"):
+        _p = SITE / _rel
+        if _p.exists():
+            h.update(_p.read_bytes())
+    return h.hexdigest()[:8]
+ASSET_V = _asset_version()
+
 # Release stamping — shared/specs/CONTINUOUS_LEARNING.md §2.5.
 import sys as _sys
 _sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -58,8 +74,8 @@ HEAD_TPL = """<!doctype html>
 <meta name="theme-color" content="#C8553D">
 <link rel="canonical" href="{canonical}">
 <link rel="icon" type="image/svg+xml" href="{base}/assets/img/favicon.svg">
-<link rel="stylesheet" href="{base}/assets/css/site.css">
-<link rel="stylesheet" href="{base}/assets/css/marketing-interact.css">
+<link rel="stylesheet" href="{base}/assets/css/site.css?v={asset_v}">
+<link rel="stylesheet" href="{base}/assets/css/marketing-interact.css?v={asset_v}">
 <meta property="og:title" content="{og_title}">
 <meta property="og:description" content="{description}">
 <meta property="og:type" content="website">
@@ -183,8 +199,8 @@ FOOTER = f"""<footer class="site-footer">
     </div>
   </div>
 </footer>
-<script src="{BASE_PATH}/assets/js/main.js" defer></script>
-<script src="{BASE_PATH}/assets/js/marketing-interact.js" defer></script>
+<script src="{BASE_PATH}/assets/js/main.js?v={ASSET_V}" defer></script>
+<script src="{BASE_PATH}/assets/js/marketing-interact.js?v={ASSET_V}" defer></script>
 </body>
 </html>
 """
@@ -2911,6 +2927,7 @@ def render(page: Page) -> str:
         base=BASE_PATH,
         extra_head=page.extra_head,
         event_tags=EVENT_TAGS,
+        asset_v=ASSET_V,
     )
     return head + header_html(page.nav_active) + page.breadcrumb_html + f'<main id="main">\n{page.body}\n</main>\n' + FOOTER
 
