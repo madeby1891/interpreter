@@ -264,7 +264,7 @@ def home_body() -> str:
           <p class="lede">Scheduling. Interpreter app. Billing. Translation. Live captions. One tool.</p>
           <div class="supporting-deck" style="margin-top:var(--1891int-s-5)">
             <div>Spoken languages and signed languages, same tool, same price.</div>
-            <div>Universal design as default — not a v2 patch.</div>
+            <div>Built so everyone in the room can use it, from the first screen.</div>
             <div>Free, forever, for verified Deaf-owned agencies.</div>
           </div>
           <div class="cluster" style="margin-top:var(--1891int-s-6)">
@@ -293,14 +293,14 @@ def home_body() -> str:
         <div class="pillar" data-reveal>
           <span class="pillar-num" aria-hidden="true">1</span>
           <h3>Built by the community it serves</h3>
-          <p>The co-founders are a fifth-generation-Deaf builder and a certified Deaf interpreter who chaired an interpreting program — not consultants who took a workshop.</p>
+          <p>The co-founders are a fifth-generation-Deaf builder and a Certified Deaf Interpreter who chaired an interpreting program. People who've lived this work, not studied it from the outside.</p>
           <p><a href="{BASE_PATH}/about">Meet Anthony and Fallon →</a></p>
         </div>
         <div class="pillar" data-reveal data-delay="100">
           <span class="pillar-num" aria-hidden="true">2</span>
-          <h3>Universal design as default</h3>
-          <p>Every screen ships keyboard-navigable, screen-reader-tested, captioned, and high-contrast on day one. Public VPAT updated every release.</p>
-          <p><a href="{BASE_PATH}/accessibility">Read the conformance log →</a></p>
+          <h3>Built so everyone can use it</h3>
+          <p>Every screen works with a keyboard, reads cleanly in a screen reader, carries captions, and holds up in high contrast — from the first screen, not bolted on later.</p>
+          <p><a href="{BASE_PATH}/accessibility">How we build for access →</a></p>
         </div>
         <div class="pillar" data-reveal data-delay="200">
           <span class="pillar-num" aria-hidden="true">3</span>
@@ -1885,7 +1885,7 @@ def about_body() -> str:
     <div class="wrap">
       <span class="eyebrow">About</span>
       <h1>Built by the people who use it. Run by the people who built it.</h1>
-      <p class="lede">Two co-founders. A community advisory board. A small remote team that's growing on purpose, slowly.</p>
+      <p class="lede">Two co-founders and a small team — in Frederick and remote — growing slowly, on purpose.</p>
     </div>
   </section>
 
@@ -1893,15 +1893,15 @@ def about_body() -> str:
     <div class="wrap">
       <div class="grid grid-2" style="gap:var(--1891int-s-8); align-items:flex-start">
         <div class="card">
-          <span class="eyebrow">Co-founder · CEO</span>
+          <span class="eyebrow">Co-founder</span>
           <h2 class="mt-0">Anthony Mowl</h2>
-          <p class="ink-soft">Fifth-generation Deaf since 1891. Operator and builder; ships software with AI agents daily. Frederick, MD. The "1891" in the name is his family's continuous Deaf lineage. The brand voice is his: plain-spoken builder, no buzzwords, visible diffs.</p>
+          <p class="ink-soft">Fifth-generation Deaf, in a family line that goes back to 1891 — that's where the name comes from. He runs the business and builds the product, out of Frederick, Maryland. The voice you're reading across this site is his: plain, direct, allergic to buzzwords.</p>
           <p><a href="mailto:hello@madeby1891.com">hello@madeby1891.com</a> · <a href="https://madeby1891.com/">madeby1891.com</a></p>
         </div>
         <div class="card">
-          <span class="eyebrow">Co-founder · CDI &amp; head of community</span>
+          <span class="eyebrow">Co-founder</span>
           <h2 class="mt-0">Fallon Brizendine</h2>
-          <p class="ink-soft">Certified Deaf Interpreter. MA in Interpretation, Gallaudet. Former department chair of an ASL interpreting program. Fallon is the subject-matter authority on Sections B (stakeholders), C (modalities), and F (Deaf-owned verification) of the PRD; her standing in the community is the reason the verification board has any credibility.</p>
+          <p class="ink-soft">A Certified Deaf Interpreter with a master's in interpretation from Gallaudet, and years spent chairing an ASL interpreting program. She leads on the things that have to be right — how the work actually happens, the languages we support, and what it means to be Deaf-owned. She's spent her career in this community, and it shows in every decision.</p>
           <p><a href="mailto:hello@madeby1891.com">hello@madeby1891.com</a></p>
         </div>
       </div>
@@ -1911,21 +1911,20 @@ def about_body() -> str:
   <section class="section section-warm">
     <div class="wrap">
       <span class="eyebrow">How we work</span>
-      <h2>Small team. Visible diffs. Slow growth on purpose.</h2>
+      <h2>Small team. Work in the open. Slow growth on purpose.</h2>
       <div class="grid grid-3 mt-5">
-        <div class="card"><h3 class="mt-0">Frederick, MD</h3><p class="ink-soft">Headquartered in Frederick. Remote-first. We hire across the US and into Canada in year 2.</p></div>
-        <div class="card"><h3 class="mt-0">Open changelog</h3><p class="ink-soft">Every release shows up at <a href="{BASE_PATH}/changelog">/changelog</a>. We ship; it's visible.</p></div>
-        <div class="card"><h3 class="mt-0">Open marketing site</h3><p class="ink-soft">This site is open source. Other Deaf-owned organizations can fork the verification-page template. Product itself stays private.</p></div>
+        <div class="card"><h3 class="mt-0">Frederick, MD</h3><p class="ink-soft">Based in Frederick, remote-first. We're hiring carefully — a few people at a time, not a hiring spree.</p></div>
+        <div class="card"><h3 class="mt-0">In the open</h3><p class="ink-soft">When a release goes out, it shows up on the <a href="{BASE_PATH}/changelog">changelog</a>. We'd rather you see the work than take our word for it.</p></div>
+        <div class="card"><h3 class="mt-0">Built to share</h3><p class="ink-soft">This marketing site is open source, so other Deaf-owned organizations can borrow the verification-page template. The product itself stays private.</p></div>
       </div>
     </div>
   </section>
 
   <section class="section">
     <div class="wrap-narrow">
-      <span class="eyebrow">Verification board</span>
-      <h2>Fallon, plus two community advisors.</h2>
-      <p>The board reviews every Deaf-owned application within 5 business days. The two community advisors rotate annually, drawn from a pool of advisors with explicit standing in the Deaf agency-owner community. We'll name them publicly once finalized. Until then, applications are received but decisions are paused.</p>
-      <p class="muted" style="font-size:14.5px">Per PRD F4: all denials are reviewed by the full board, not a single reviewer.</p>
+      <span class="eyebrow">Deaf-owned verification</span>
+      <h2>Right now, this is Fallon's call.</h2>
+      <p>Fallon reviews Deaf-owned applications herself. We're bringing on a small group of community advisors — people with real standing among Deaf agency owners — to review alongside her, and we'll name them here once they're seated. Until that group is in place, we're glad to take applications, but we're holding final decisions rather than have anyone verified by a board that doesn't fully exist yet. We'd rather be slow than pretend.</p>
     </div>
   </section>
 
@@ -1962,7 +1961,7 @@ def our_1891_body() -> str:
       </ul>
 
       <h2 style="margin-top:var(--1891int-s-7)">What we do.</h2>
-      <p>Build a tool that works for the people who do this work. Ship visible diffs. Pay interpreters on the day the agency promised. Keep the badge meaningful by keeping the standard real. Update the changelog every release. Answer email.</p>
+      <p>Build a tool that works for the people who do this work. Show our work in the open. Pay interpreters on the day the agency promised. Keep the Deaf-owned badge meaningful by keeping the standard real. Answer email.</p>
 
       <div class="pull-quote">
         Built in Frederick. Carried forward since 1891.
@@ -1993,7 +1992,7 @@ def security_body() -> str:
   <section class="section">
     <div class="wrap">
       <span class="eyebrow">PHI handling</span>
-      <h2>What never reaches Claude, DeepL, or any other model raw.</h2>
+      <h2>What the AI never sees, raw.</h2>
       <div class="grid grid-2 mt-5">
         <div class="card card-warm">
           <h3 class="mt-0">Redacted before the model sees it</h3>
@@ -2115,57 +2114,47 @@ def accessibility_body() -> str:
   <section class="feature-hero">
     <div class="wrap">
       <span class="eyebrow">Accessibility</span>
-      <h1>Universal design as default, not a v2 patch.</h1>
-      <p class="lede">Every screen ships keyboard-navigable, screen-reader-tested, captioned, and high-contrast on day one. We publish the VPAT. We publish the conformance log. We publish the known issues with target fix dates.</p>
+      <h1>Built so everyone in the room can use it.</h1>
+      <p class="lede">Keyboard, screen reader, captions, color and contrast, motion — handled on the first screen and every screen after it. Not to earn a badge. Because it's the work, and it's the right way to do it.</p>
     </div>
   </section>
 
   <section class="section">
     <div class="wrap">
-      <span class="eyebrow">Conformance</span>
-      <h2>WCAG 2.2 AA across the product. Updated every release.</h2>
+      <span class="eyebrow">What that means, plainly</span>
+      <h2>Day-to-day, here's what we do.</h2>
       <div class="grid grid-3 mt-5">
-        <div class="card"><h3 class="mt-0">Keyboard</h3><p class="ink-soft">Every action reachable via keyboard. Focus is visible on every interactive element. Tab order matches reading order. No focus traps.</p></div>
-        <div class="card"><h3 class="mt-0">Screen reader</h3><p class="ink-soft">VoiceOver, NVDA, JAWS, TalkBack tested every release. Live regions for dynamic content. ARIA used minimally and correctly.</p></div>
-        <div class="card"><h3 class="mt-0">Contrast</h3><p class="ink-soft">Body text at AAA contrast. UI affordances at AA minimum. Color is never the only signal — every state change has color + icon + text.</p></div>
-        <div class="card"><h3 class="mt-0">Captions</h3><p class="ink-soft">Default-on whenever audio plays. Every marketing video has English captions and ASL inset. Every product audio has captions in real time.</p></div>
-        <div class="card"><h3 class="mt-0">ASL videos</h3><p class="ink-soft">Every marketing page that explains a concept has an ASL inset version. Glossary entries each have an ASL video by Fallon or a vetted contributor.</p></div>
-        <div class="card"><h3 class="mt-0">Reduced motion</h3><p class="ink-soft">prefers-reduced-motion: reduce disables all transitions and motion. Tested in every release.</p></div>
+        <div class="card"><h3 class="mt-0">Keyboard</h3><p class="ink-soft">Every action works from the keyboard. You can always see where you are. The order you tab through matches the order you'd read. Nowhere to get stuck.</p></div>
+        <div class="card"><h3 class="mt-0">Screen reader</h3><p class="ink-soft">Tested with the screen readers people actually use, every release. When something changes on screen, it's announced. We lean on plain, correct markup over clever tricks.</p></div>
+        <div class="card"><h3 class="mt-0">Color &amp; contrast</h3><p class="ink-soft">Text is easy to read against its background. Color is never the only signal — every change carries an icon and words too, so it works whether or not you see color the same way.</p></div>
+        <div class="card"><h3 class="mt-0">Captions</h3><p class="ink-soft">On by default whenever there's audio. Our explainer videos carry captions and an ASL version. Audio inside the product is captioned as it happens.</p></div>
+        <div class="card"><h3 class="mt-0">ASL</h3><p class="ink-soft">Where a page explains how something works, there's an ASL version. Glossary terms come with an ASL video — many of them signed by Fallon herself.</p></div>
+        <div class="card"><h3 class="mt-0">Motion</h3><p class="ink-soft">If your device asks for less motion, the site listens and the animations turn off. We check it every release.</p></div>
       </div>
     </div>
   </section>
 
   <section class="section section-warm">
-    <div class="wrap">
-      <span class="eyebrow">Conformance log</span>
-      <h2>What's tested, what's outstanding, when it's fixed.</h2>
-      <div class="table-scroll">
-        <table class="compare">
-          <thead><tr><th>Release</th><th>Status</th><th>Notes</th></tr></thead>
-          <tbody>
-            <tr><td>2026-05-17 (this site)</td><td class="yes">WCAG 2.2 AA target</td><td>Static marketing site. No known blocking issues at launch. ASL inset videos added with Phase 0.</td></tr>
-            <tr><td>Phase 0 design partners (Q3 2026)</td><td>Targeted</td><td>Full app: scheduler dashboard, interpreter app, billing screens. VPAT 1.0 published with this release.</td></tr>
-            <tr><td>Public launch (Q4 2026)</td><td>Targeted</td><td>VPAT 2.0 with full coverage matrix.</td></tr>
-          </tbody>
-        </table>
-      </div>
-      <p class="muted" style="font-size:14px; margin-top:var(--1891int-s-4)">Found something not on the list? Email <a href="mailto:accessibility@madeby1891.com">accessibility@madeby1891.com</a> — it routes to a priority queue.</p>
+    <div class="wrap-narrow">
+      <span class="eyebrow">Where we are, honestly</span>
+      <h2>This is the marketing site today. The app comes next.</h2>
+      <p class="ink-soft">Right now what's public is this site, and it's built to the same bar we hold the product to. The app comes online with our first agencies later this year, and we'll keep this page current as it does — including the things still on our list and when we expect to have them fixed. If you hit something that doesn't work, that's a bug to us, the same as any other.</p>
+      <p style="margin-top:var(--1891int-s-4)">Found something? Email <a href="mailto:accessibility@madeby1891.com">accessibility@madeby1891.com</a> and a person will read it.</p>
     </div>
   </section>
 
   <section class="section">
     <div class="wrap-narrow">
-      <span class="eyebrow">Accessibility statement</span>
-      <h2>What we commit to.</h2>
+      <span class="eyebrow">What you can count on</span>
+      <h2>The promises behind it.</h2>
       <ol class="stack-3" style="padding-left:1.2em">
-        <li>Every screen ships WCAG 2.2 AA-conformant. We block releases on regressions.</li>
-        <li>Every marketing page has ASL with English captions when it explains a product concept.</li>
-        <li>Every accessibility issue reported via <a href="mailto:accessibility@madeby1891.com">accessibility@madeby1891.com</a> gets a response within 2 business days and a target fix date within 5.</li>
-        <li>VPAT is public, on this page, updated every release. No "VPAT available on request" gatekeeping.</li>
-        <li>Accessibility features are in every tier. Never paywalled.</li>
-        <li>We don't auto-caption ASL. That's a research problem, not a product feature. We do auto-caption English speech with vendor-abstracted live STT.</li>
+        <li>Access is in everything we make, for everyone, at no extra charge. Charging for it would be backwards.</li>
+        <li>When a page explains how the product works, it comes with ASL and captions.</li>
+        <li>Tell us something isn't working and you'll hear back from a person within two business days, with a real fix date soon after.</li>
+        <li>An access problem blocks a release the same as any other bug — because it is one.</li>
+        <li>We don't auto-caption sign language. Getting that right is a research problem, not something to fake. We do caption spoken English, live.</li>
       </ol>
-      <p style="margin-top:var(--1891int-s-5)"><a class="btn btn-primary" href="{BASE_PATH}/legal/accessibility-statement">Read the legal-form accessibility statement</a></p>
+      <p style="margin-top:var(--1891int-s-5)"><a class="btn btn-primary" href="{BASE_PATH}/legal/accessibility-statement">The formal, standards-language statement</a></p>
     </div>
   </section>
 """
@@ -2177,22 +2166,22 @@ def changelog_body() -> str:
     <div class="wrap-narrow">
       <span class="eyebrow">Changelog</span>
       <h1>What's new.</h1>
-      <p class="lede">Every release shows up here. We ship; it's visible.</p>
+      <p class="lede">This is where releases show up as they land. It's early, so the list is short — we'd rather it be honest than padded.</p>
     </div>
   </section>
 
   <section class="section">
     <div class="wrap-narrow">
       <article class="card">
-        <div class="tag" style="color:var(--1891int-bloom-deep)">{BUILD_DATE} · Marketing site v1</div>
-        <h2 class="mt-0" style="margin-top:6px">Public marketing site live at madeby1891.com/interpreter.</h2>
+        <div class="tag" style="color:var(--1891int-bloom-deep)">{BUILD_DATE} · The marketing site</div>
+        <h2 class="mt-0" style="margin-top:6px">This site went live at madeby1891.com/interpreter.</h2>
         <ul class="checks">
-          <li>Home, audience pages (agencies, schedulers, interpreters, requestors, payers), pricing, free-for-Deaf-owned, security, accessibility, about, our-1891.</li>
-          <li>Nine feature pages.</li>
-          <li>Legal cluster (privacy, terms, BAA, DPA, subprocessors, responsible disclosure, DMCA, accessibility statement).</li>
-          <li>WCAG 2.2 AA target across the site at launch.</li>
+          <li>Home, the pages for each role (agencies, schedulers, interpreters, requestors, billing), pricing, free for Deaf-owned, security, accessibility, about, and our 1891.</li>
+          <li>Nine walkthroughs of what the product does.</li>
+          <li>The legal pages — privacy, terms, BAA, data processing, subprocessors, disclosure, and the accessibility statement.</li>
+          <li>Built for access from the first screen.</li>
         </ul>
-        <p class="ink-soft">No product yet — the app itself begins onboarding with the Phase 0 design-partner cohort. This is the marketing presence and the verification surface.</p>
+        <p class="ink-soft">The product itself isn't open to everyone yet — it starts with our first agencies later this year. For now, this is the front door and the place to apply for Deaf-owned verification.</p>
       </article>
     </div>
   </section>
@@ -2603,29 +2592,29 @@ def build_pages() -> list[Page]:
         title="Blog — 1891 Interpreter",
         description="Writing from the 1891 Interpreter team.",
         breadcrumb_html=breadcrumb(("Home", f"{BASE_PATH}/"), ("Blog", "")),
-        body=stub_body("Blog", "Writing from the team.", "First posts arrive in June 2026 — including 'How a Deaf-owned interpreting agency operates' (Fallon) and 'The math on per-seat platforms vs flat-fee' (Anthony)."),
+        body=stub_body("Blog", "Writing from the team.", "We're working on the first few posts — plain writing about how this work actually gets done. They'll show up here when they're ready, not before."),
     ))
     pages.append(Page(
         path="case-studies/index.html",
         title="Case studies — 1891 Interpreter",
         description="Customer stories from agencies using 1891 Interpreter.",
         breadcrumb_html=breadcrumb(("Home", f"{BASE_PATH}/"), ("Case studies", "")),
-        body=stub_body("Case studies", "Customer stories.", "Our first case study lands at the end of the Phase 0 design-partner program (Q3 2026). We won't publish stories without signed permission."),
+        body=stub_body("Case studies", "Customer stories.", "Our first stories will come from the agencies we work with early on — and only with their written permission. Nothing here until they're ready to be named."),
     ))
     pages.append(Page(
         path="customers/index.html",
         title="Customers — 1891 Interpreter",
         description="The agencies running on 1891 Interpreter (logos with signed permission only).",
         breadcrumb_html=breadcrumb(("Home", f"{BASE_PATH}/"), ("Customers", "")),
-        body=stub_body("Customers", "This page launches empty, and stays empty until permission is signed.",
-                       "Per PRD F10 #7: an empty page is more honest than a fuzzy-logo page. Case studies launch first; logos follow with written permission from each agency."),
+        body=stub_body("Customers", "This page is empty on purpose.",
+                       "An empty page is more honest than a wall of borrowed logos. We'll add an agency here only with their written permission — never before."),
     ))
     pages.append(Page(
         path="resources/index.html",
         title="Resources — 1891 Interpreter",
         description="Guides, glossaries, and templates from 1891 Interpreter.",
         breadcrumb_html=breadcrumb(("Home", f"{BASE_PATH}/"), ("Resources", "")),
-        body=stub_body("Resources", "Guides, glossaries, templates.", "The glossary is the long-tail SEO play — fifty entries by month six, each with an ASL video and a Spanish translation. First batch lands with Phase 1."),
+        body=stub_body("Resources", "Guides, glossaries, templates.", "A plain-language glossary is in the works — each term with an ASL video and a Spanish translation — along with a few practical guides. We'll add them here as they're ready."),
     ))
 
     # Legal cluster
