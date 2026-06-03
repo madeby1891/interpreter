@@ -6,6 +6,38 @@ future-you) can pick up cold in under five minutes.
 
 ---
 
+## Marcom performance audit — 2026-06-02
+
+The marketing page is lean: ~22 KB transferred, 21 requests, gzip on, **no web
+fonts** (system stacks), assets edge-cached + now content-versioned. The drags
+are infra, not code:
+
+- **Biggest: HTML isn't edge-cached.** `cf-cache-status: DYNAMIC` → every view
+  round-trips to the GoDaddy origin → TTFB 160–640 ms (≈60% of load time).
+  Cloudflare won't cache HTML without a **Cache Rule**. Now safe to add one for
+  `/interpreter/*` (assets are content-versioned, so a "cache-everything + edge
+  TTL" rule won't serve stale CSS/JS). Needs Cloudflare access — default token is
+  `zone:read`, can't add rules. Biggest single win available.
+- **GoDaddy injects `img1.wsimg.com/.../tccl.min.js`** — a render-blocking
+  traffic tracker, appended *after* `</html>`, not in our source. Currently
+  **CSP-blocked so it doesn't actually load** (silver lining), but it's host
+  cruft. Opt out via GoDaddy hosting support, or strip at the Cloudflare edge.
+- **The injected feedback widget + event-capture are dead.** `build.py`'s
+  EVENT_TAGS load from `cdn.madeby1891.com`, but the `.htaccess` CSP
+  (`script-src/style-src 'self'…`, `connect-src` lacks `event-capture.*.workers.dev`)
+  blocks them — feedback button never renders, analytics never fire. Decide:
+  allowlist those hosts in the CSP (so they work) **or** drop the dead tags.
+- **Duplicate/stale security headers.** Origin `.htaccess` *and* a zone-wide
+  Cloudflare rule both set X-Frame-Options / Permissions-Policy / HSTS (conflicting
+  values), plus a stale `content-security-policy-report-only` leaking another
+  project's domains (Disney/runDisney/jsdelivr). Cosmetic; fix at the edge.
+
+**Done this pass:** versioned assets (`?v=<hash>`) now cache 1 year `immutable`
+(was 1 h), scoped to `?v=` requests so un-versioned `app/*` assets keep their
+short cache. See the `.htaccess` mod_rewrite `VERSIONED_ASSET` flag.
+
+---
+
 ## Marcom voice + visual overhaul — 2026-06-02
 
 Reworked the whole marketing site (home, features ×9, audience pages, pricing) per
