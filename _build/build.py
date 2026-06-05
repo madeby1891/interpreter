@@ -45,13 +45,13 @@ from compute_event_token import event_token  # noqa: E402
 
 EVENT_TOKEN = event_token("interpreter")
 EVENT_TAGS = (
-    f'<link rel="stylesheet" href="https://cdn.madeby1891.com/shared/components/feedback-widget/feedback-widget.css">\n'
-    f'<script src="https://cdn.madeby1891.com/shared/lib/event-capture/event-capture.js" '
+    f'<link rel="stylesheet" href="/shared/components/feedback-widget/feedback-widget.css">\n'
+    f'<script src="/shared/lib/event-capture/event-capture.js" '
     f'data-event-capture-key="interpreter" '
     f'data-event-capture-url="https://event-capture.anthonymowl.workers.dev/e" '
     f'data-event-capture-token="{EVENT_TOKEN}" '
     f'data-event-capture-errors="true" defer></script>\n'
-    f'<script src="https://cdn.madeby1891.com/shared/components/feedback-widget/feedback-widget.js" '
+    f'<script src="/shared/components/feedback-widget/feedback-widget.js" '
     f'data-project="interpreter" '
     f'data-endpoint="https://event-capture.anthonymowl.workers.dev/feedback" '
     f'data-token="{EVENT_TOKEN}" defer></script>'

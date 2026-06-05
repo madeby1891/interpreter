@@ -38,7 +38,7 @@ def tags(project: str, *, with_widget: bool = True) -> str:
     """Build the script-tag block (no surrounding sentinels)."""
     token = event_token(project)
     lines = [
-        '<script src="https://cdn.madeby1891.com/shared/lib/event-capture/event-capture.js"',
+        '<script src="/shared/lib/event-capture/event-capture.js"',
         f'        data-event-capture-key="{project}"',
         '        data-event-capture-url="https://event-capture.anthonymowl.workers.dev/e"',
         f'        data-event-capture-token="{token}"',
@@ -47,8 +47,8 @@ def tags(project: str, *, with_widget: bool = True) -> str:
     ]
     if with_widget:
         lines.extend([
-            '<link rel="stylesheet" href="https://cdn.madeby1891.com/shared/components/feedback-widget/feedback-widget.css">',
-            '<script src="https://cdn.madeby1891.com/shared/components/feedback-widget/feedback-widget.js"',
+            '<link rel="stylesheet" href="/shared/components/feedback-widget/feedback-widget.css">',
+            '<script src="/shared/components/feedback-widget/feedback-widget.js"',
             f'        data-project="{project}"',
             '        data-endpoint="https://event-capture.anthonymowl.workers.dev/feedback"',
             f'        data-token="{token}"',
