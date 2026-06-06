@@ -210,13 +210,18 @@ Full detail (incl. the three bugs found + fixed) + phase-3/4 steps:
 - [x] **Fresh-on-write** nudge (phase-3 prereq): post-write re-sync of touched tables (flag-gated, non-blocking) — proven 10/10 Settings rows refreshed in 1.3s after a simulated stale D1
 - [x] Read surface `/v1/read` (HMAC-gated, PHI- + secret-redacted) for the read flip
 - [ ] Human-readable mirror live (`mirror.ts`, INERT until phase 4)
-- [ ] Reads flipped — **NOT done.** Remaining gates: (a) a real soak; (b) ~~relocate the Settings
-      `anthropic.api_key` secret~~ **DONE 2026-06-01** — plaintext purged from Sheet + D1, key
-      relocated to Worker secret + gitignored constant; only the console *revocation* of the burned
-      key remains (admin, see SECURITY below) and it no longer blocks the read flip; (c) flip
-      `site/assets/js/api.js` to a D1 read path — BLOCKED on a clean `site/` tree (a parallel agent
-      has uncommitted site/ changes; `deploy.sh` builds the working tree, so don't static-deploy over it)
-- [ ] Writes flipped; old Sheet demoted to read-only mirror; godview `data_store: d1` (phase 4)
+- [x] **Reads flipped — DONE + verified live 2026-06-06.** D1 is the read system of record.
+      Done *inside Apps Script* (not `api.js`): all 16 `apiList*/apiGet*` accessors call
+      `_dbValues_(ss, sh, T.X)` (Code_D1Store.gs), flag `D1_PRIMARY=true` (d1-secret.gs). No
+      site/client change → the `api.js` route is moot, and the dirty `site/` tree no longer
+      blocks anything. Verified: `?d1op=readcheck` 25 tables 0 cell-mismatches; `?d1op=readsmoke`
+      hits the real endpoints + proves D1 is the source via a D1-only sentinel. (The Anthropic-key
+      relocation was done 2026-06-01; only the console *revocation* of the burned key remains.)
+- [ ] **Writes flipped (phase 4) — NOT done; deliberately staged.** ~200 inlined writes across
+      22 `.gs` files (incl. the Audit_Log hash-chain). All-or-nothing per table: convert site →
+      turn that table's Sheet→D1 nudge OFF → turn D1→Sheet mirror ON. Shim ready
+      (`_dbUpsert_`/`_dbDelete_`). Interim is coherent: reads D1-authoritative, writes keep D1
+      fresh via the nudge. Plan: MIGRATION.md "Phase 4". Then godview `data_store: d1` fully.
 
 **🟡 SECURITY — leaked Anthropic key (REMEDIATED 2026-06-01; one admin step left):** the
 Settings tab held `anthropic.api_key` = a **plaintext live `sk-ant-…` key** (pre-D1; the

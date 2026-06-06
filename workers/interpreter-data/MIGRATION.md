@@ -116,9 +116,47 @@ python3 provision_rest.py exec <db_id> "SELECT ..."   # ad-hoc query / parity
 ```
 phase 1  STAND UP    [DONE]   D1 provisioned, schema applied, worker deployed + /healthz verified, no traffic
 phase 2  DUAL-WRITE  [DONE]   Sheet→D1 sender live, backfill + fresh-on-write nudge, full parity, idempotent, 30-min trigger
-phase 3  FLIP READS  [NOT STARTED]   reads from D1; Sheet still written (the rollback net)
+phase 3  FLIP READS  [DONE 2026-06-06]  all 16 app read accessors read D1 via _dbValues_ (flag D1_PRIMARY=true); verified live
 phase 4  FLIP WRITES [NOT STARTED]   D1 sole writer; Sheet demoted to read-only mirror
 ```
+
+### 2026-06-06 — PHASE 3 (flip reads) is LIVE + VERIFIED
+
+D1 is now the **read system of record**. `apps-script/Code_D1Store.gs` is the data-access
+layer; every `apiList*/apiGet*` accessor's `getDataRange().getValues()` was repointed to
+`_dbValues_(ss, sh, T.X)`, which reads D1 (raw, via the Worker) when `D1_PRIMARY=true` and
+**denormalizes** back to the Sheet's representation (`_dbDenorm_`: epoch int→ISO string;
+`"N.0"`→Number) so every downstream `_rowToObj()` is byte-identical to what the Sheet
+returned. Writes still flow **Sheet → fresh-on-write nudge → D1**, so D1 stays current; the
+Sheet is demoted to the write-staging surface (no longer read by the app). No site/client
+change — reads flip *inside* Apps Script, behind the unchanged `/v1/proxy/exec` contract.
+
+**Two fidelity bugs the verification caught + fixed (would have served wrong/empty data):**
+1. Global rows: seeded `Roles` carry `tenant_id='*'`; the tenant-scoped `/v1/read` returned
+   0. Fixed: filter `(tenant_id = ? OR tenant_id = '*')` (commit `bc162f6`).
+2. Format impedance: D1 stores normalized values (epoch ints, `"N.0"`); `_dbDenorm_` inverts
+   on read. Proven by `?d1op=readcheck` (cell-by-cell D1-vs-Sheet).
+
+**Verified live (`?d1op=readcheck` + `?d1op=readsmoke`):**
+- readcheck: **25 populated tables, 0 cell-mismatches** (Audit_Log off by 1 legacy ISO-PK
+  row, `cell_mismatches=0` — every other audit row matches; benign).
+- readsmoke (hits the REAL endpoints with a minted host-owner session): apiListSettings 9,
+  apiListJobs 23, apiListInterpreters 10, apiListAssignments 16; and the **divergence proof
+  — a Settings row written to D1 ONLY surfaced through `apiListSettings`** (⇒ the live
+  accessor reads D1, not the Sheet), then was cleaned up.
+
+### Phase 4 (D1 sole writer) — the remaining step, deliberately staged
+
+The ~200 runtime writes are inlined `appendRow`/`setValue` across 22 `.gs` files (no central
+helper; the `Audit_Log` hash-chain among them). Phase 4 is **all-or-nothing per table**:
+once a write goes to D1 directly, the Sheet→D1 nudge for that table must be turned OFF (else
+the next tick re-syncs the stale Sheet over the D1 write and reverts it) and the D1→Sheet
+mirror (`mirror.ts`, `MIRROR_ENABLED`) turned ON. The shim is ready (`_dbUpsert_`/`_dbDelete_`
+in Code_D1Store.gs). Recommended order: convert per domain (Settings → Rates → Docs → Clients
+→ Jobs/Offers → Invoicing/Payments → PHI/Audit), each with its own nudge-exclusion + a
+write-smoke (mutate via the real endpoint, confirm it lands in D1 and mirrors to the Sheet),
+before flipping the next. Until then reads are D1-authoritative and writes keep D1 fresh via
+the nudge — a coherent, safe interim state, not a half-cutover.
 
 ### 2026-06-05 — RE-VERIFICATION + STATUS CORRECTION (independent, both sides)
 
