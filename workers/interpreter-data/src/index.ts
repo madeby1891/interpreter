@@ -147,7 +147,10 @@ async function route(request: Request, env: Env): Promise<Response> {
     const where: string[] = [];
     const binds: unknown[] = [];
     if (def.columns.includes('tenant_id') && env2.data.tenant_id) {
-      where.push(`${q('tenant_id')} = ?`); binds.push(String(env2.data.tenant_id));
+      // Include global/shared rows (tenant_id = '*', e.g. seeded Roles) so a tenant's
+      // read returns its own rows PLUS the globals it inherits — matching what the
+      // per-tenant Sheet tab contains.
+      where.push(`(${q('tenant_id')} = ? OR ${q('tenant_id')} = '*')`); binds.push(String(env2.data.tenant_id));
     }
     if (env2.data.where_col) {
       if (!cols.includes(env2.data.where_col)) return json({ ok: false, error: `unknown column: ${env2.data.where_col}` }, 400);
