@@ -8,7 +8,7 @@ Project-specific overrides go here. If a rule is already in the root CLAUDE.md, 
 
 ## Project conventions
 
-- **Source of truth: per-agency Google Sheet** (`1891-interpreter-<slug>`), not a database. Plus a small `1891-interpreter-control` Sheet that holds the tenant registry. Justified in PRD section A2.
+- **Source of truth: per-agency Google Sheet** (`1891-interpreter-<slug>`) *operationally today* — **migrating to Cloudflare D1 per ADR-001** (see the "Source of truth" section below; phase-2 dual-write done + verified, cutover pending). Plus a small `1891-interpreter-control` Sheet that holds the tenant registry. Justified in PRD section A2.
 - **Worker code in TypeScript.** Apps Script in plain JS. Static pages: hand-rolled HTML + vanilla JS only. No SPA framework, no React, no Vue, no Svelte.
 - **Per-tenant resource naming.** R2 keys: `{tenant_id}/...`. KV keys: `{tenant_id}:...`. DO names: `AgencyHub:{tenant_id}` and `JobRoom:{job_id}`. Sheets row writes carry `tenant_id` for cross-check. Lint-enforced in `workers/api/src/kv.ts`.
 - **CSS namespace.** Project tokens prefixed `--1891int-*`. Inherits `--1891-*` from `~/Desktop/1891/shared/design-system/tokens/colors.css`. Project tokens: `--1891int-bloom: #C8553D` (terracotta), `--1891int-river: #2E5E5C` (teal-green).
@@ -39,7 +39,9 @@ Project-specific overrides go here. If a rule is already in the root CLAUDE.md, 
 
 ## Source of truth
 
-For this project, the canonical record of truth is the **per-agency Google Sheet** (`1891-interpreter-<slug>`). The control plane is the `1891-interpreter-control` Sheet.
+> **⚠️ MIGRATING per ADR-001 ([`PERSISTENCE_ARCHITECTURE.md`](../../shared/specs/PERSISTENCE_ARCHITECTURE.md)).** The **designated** system of record is **Cloudflare D1** (`interpreter-data`), not the Sheet — interpreter is the workspace's highest-value migration (PHI + payments). Status (re-verified 2026-06-05): **phase 2 dual-write is done + verified** — D1 is a live, fresh-on-write, full-parity copy (36 tables / 0 missing / 0 orphan / 394 keys; PHI-safe; secrets clean). **Reads/writes are NOT yet flipped**, so *operationally* the Sheet below is still the live read/write store + rollback net. Phase 3 (flip reads via `site/assets/js/api.js`) and phase 4 (D1 sole writer; ~240 inlined writes) are the remaining cutover. The Sheet-centric description below is the *current operational* truth, demoted-in-waiting. See [`workers/interpreter-data/MIGRATION.md`](workers/interpreter-data/MIGRATION.md).
+
+For this project, the canonical record of truth is **today** the **per-agency Google Sheet** (`1891-interpreter-<slug>`) until the ADR-001 cutover completes. The control plane is the `1891-interpreter-control` Sheet.
 
 Specifically:
 - All structured rows (Jobs, Job_Assignments, Interpreters, Consumers, etc.) live in the per-agency Sheet.

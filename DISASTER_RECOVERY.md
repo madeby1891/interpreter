@@ -10,6 +10,7 @@ What to do when something breaks. Update with every new failure mode the team le
 |---|---|---|---|
 | Per-agency rows | Per-agency Google Sheet | Nightly export to R2 (encrypted, 35-day retention) | Restore Sheet from Drive version history (90-day default) or rebuild from R2 export |
 | Control plane | `1891-interpreter-control` Sheet | Same nightly export | Same |
+| D1 system of record (ADR-001) | D1 `interpreter-data` (`5a445d42-…`) — **dual-write parity copy** today; becomes primary at phase-4 cutover | The Sheet itself IS the backup during phases 2–3 (D1 re-derives from it); R2 nightly export covers both | **Phase 2–3:** D1 drifted/wiped → `?d1op=reset[&tab=]` + `?d1op=backfill` re-syncs from the Sheet (idempotent; verified 2026-06-05, full keyset parity). **Migration rollback (any phase):** point reads back at the Sheet — it stays the authoritative writer + warm net until phase 4 soaks. **Post-cutover:** D1 is primary; restore from `wrangler d1 export` SQL dump + the §5 read-only Sheet mirror |
 | Blobs (PDFs, translated docs, recordings) | R2 bucket `1891-interpreter` | R2 object versioning enabled | Restore from version history |
 | Hot operational state (DO) | Durable Objects | None (rebuilt from Sheet+R2) | Acceptable — DO data is derived |
 | KV cache | KV | None (rebuilt from Sheet) | Acceptable — pure read cache |

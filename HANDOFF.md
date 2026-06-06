@@ -165,6 +165,20 @@ Sheet to copy it into D1; nothing live was overwritten or deleted.
 Full detail (incl. the three bugs found + fixed) + phase-3/4 steps:
 [`workers/interpreter-data/MIGRATION.md`](workers/interpreter-data/MIGRATION.md).
 
+> **2026-06-05 — re-verified live (independent, both sides).** Phase 2 is **done +
+> verified**, not just "live." Queried D1 directly (worker HMAC endpoints) AND the Sheet
+> (`?d1op=`): record-set parity **36 tables / 0 missing / 0 orphan / 394 keys** (keyset,
+> not just counts); `/v1/phi-audit` `phi_intact:true, total_bad:0` (PHI cols empty — seed
+> data); secret scan clean both stores (D1 Settings 0 secret-shaped; Sheet
+> `settings_row_present:false`); fresh `?d1op=tick` `errors:0`; 30-min trigger re-confirmed
+> installed; Audit_Log included (29/29 — the old "excluded" note is stale). **Cutover scope
+> after reading the live code:** phase 3 (reads) is tractable through the single client
+> module `site/assets/js/api.js` but blocked on a dirty `site/` tree (the 3 stale
+> build-artifact files — set them aside first) + a read-fidelity audit (D1 stores some
+> numeric cols as trailing-`.0` strings); phase 4 (D1 sole writer) is **~240 inlined
+> positional writes** across 23 `.gs` files incl. the Audit_Log hash-chain — a per-domain,
+> verified migration, not a one-shot. See MIGRATION.md "2026-06-05 RE-VERIFICATION".
+
 **Standing now (phase 2 LIVE — dual-write running, idempotent):**
 - D1 `interpreter-data` (`5a445d42-4e08-48e8-84a3-8156f86c567a`) + KV `interpreter-cache`
   (`86aaf1be509040b489c1023fae24709c`) + queue `interpreter-jobs` — provisioned via the

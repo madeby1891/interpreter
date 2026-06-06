@@ -115,10 +115,57 @@ python3 provision_rest.py exec <db_id> "SELECT ..."   # ad-hoc query / parity
 
 ```
 phase 1  STAND UP    [DONE]   D1 provisioned, schema applied, worker deployed + /healthz verified, no traffic
-phase 2  DUAL-WRITE  [LIVE]   Sheet→D1 sender deployed, clean backfill (366 rows / 23 tables / 0 err), parity 23/23, idempotent, 30-min trigger
-phase 3  FLIP READS  [NOT STARTED]   reads from D1; Sheet still written (after soak)
+phase 2  DUAL-WRITE  [DONE]   Sheet→D1 sender live, backfill + fresh-on-write nudge, full parity, idempotent, 30-min trigger
+phase 3  FLIP READS  [NOT STARTED]   reads from D1; Sheet still written (the rollback net)
 phase 4  FLIP WRITES [NOT STARTED]   D1 sole writer; Sheet demoted to read-only mirror
 ```
+
+### 2026-06-05 — RE-VERIFICATION + STATUS CORRECTION (independent, both sides)
+
+A later task believed "no migration landed" (it read only the top 3 commits). Not so —
+phases 1–2 + all phase-3 *prep* landed (`480ee64`, `71e5463`, `73c1124`, `6aead7e`,
+`1eb46bb`). Re-verified live 2026-06-05 by querying **D1 directly** (worker HMAC
+endpoints) AND the Sheet (`?d1op=`), not by trusting the prior docs' numbers:
+
+- **Worker live:** `/healthz` → `ok, schema_version 1, 39 tables`.
+- **Row-count parity (worker `/v1/parity`, all 36 tables):** matches the Sheet. Populated:
+  Interpreter_Documents 110, Job_Events 45, Audit_Log 29, Jobs 23, Rate_Cards 22,
+  Languages 20, Tenant_Requirements 18, Certifications 17, Job_Assignments 16,
+  Rate_Modifiers 13, Consumers 12, Interpreters 10, Settings 9, Roles 8, Requestors 7,
+  Requestor_Contacts 7, Payers 6, Locations 6, Invoice_Lines 5, Auth_Tokens 5, Invoices 3,
+  Agencies 1, Users 1, Payouts 1.
+- **Record-set parity (`?d1op=keyset`, not just counts):** 36 tables, **0 missing_in_d1,
+  0 orphan_in_d1, 394 keys** — D1 holds the SAME record set, not merely equal counts.
+- **PHI invariant (`/v1/phi-audit`):** `phi_intact:true, total_bad:0`; every PHI column
+  `populated:0` (seed/demo data — no real PHI has moved; the passthrough is correct but
+  un-exercised by ciphertext).
+- **Secret scan (both stores):** D1 Settings = 9 keys, **0 secret-shaped**; Sheet
+  `?d1op=anthropiccheck` → `settings_row_present:false` (the 2026-06-01 `sk-ant` leak
+  stays remediated — key lives only in the gitignored secret constant + Worker secret).
+- **Dual-write healthy NOW:** a fresh `?d1op=tick` re-synced every table, `errors:0`.
+  30-min `d1SyncTick` trigger re-confirmed installed.
+- **Audit_Log:** the "excluded" note below is STALE — header was repaired 2026-06-01,
+  `D1_SYNC_EXCLUDE = {}`, and it syncs (29/29, keyset match).
+
+So the **data layer is done + independently verified**. What's genuinely left is the
+**cutover (phases 3–4)** — and the honest scope, after reading the live code:
+
+- **Phase 3 (flip reads):** TRACTABLE. Reads funnel through one client module
+  (`site/assets/js/api.js`) → `1891-interpreter-api` proxy. The flip = a D1-read path on
+  that worker (single-table reads can front `interpreter-data /v1/read`; joined views —
+  Jobs/Invoices — need shaped endpoints) + repoint `api.js`, behind a flag. Was BLOCKED
+  on a dirty `site/` tree (the 3 stale build-artifact files); still is until those are set
+  aside. **Read-fidelity caveat:** some numeric columns are stored as trailing-`.0`
+  strings in D1 (e.g. `Interpreters.home_zip` `"21701.0"`, `classification` `"1099.0"`) —
+  audit per-column equality before flipping a surface, or normalize on read.
+- **Phase 4 (D1 sole writer):** the HARD part. Writes are **~240 inlined positional
+  primitives** (`appendRow`/`setValue`) across 23 `.gs` files — Invoicing (14 setValue),
+  Payments (12), Offers (10), Subscriptions (10), plus the `Audit_Log` hash-chain seal.
+  There is **no central write helper** to flip. This is a deliberate, per-domain, verified
+  migration (one domain at a time: Jobs → Offers → Invoices → Payments → Subscriptions …),
+  NOT a one-shot — slamming it on the live PHI/payments app would be reckless. Only after
+  it soaks does the Sheet demote to the §5 read-only mirror (`MIRROR_ENABLED=true`) and
+  godview flip to `data_store: d1`.
 
 ### CORRECTION to the phase-1 note (set the record straight)
 
