@@ -137,7 +137,7 @@ async function route(request: Request, env: Env): Promise<Response> {
   // Tenant-scoped; optional single-column equality filter; PHI columns ALWAYS
   // redacted to '[redacted-phi]' (never returns ciphertext or plaintext); capped.
   if (path === '/v1/read' && request.method === 'POST') {
-    const env2 = await openEnvelope<{ table?: string; tenant_id?: string; where_col?: string; where_val?: string; limit?: number }>(request, env);
+    const env2 = await openEnvelope<{ table?: string; tenant_id?: string; where_col?: string; where_val?: string; limit?: number; raw?: boolean }>(request, env);
     if (!env2.ok) return env2.resp;
     const table = String(env2.data.table || '');
     const def = TABLES[table];
@@ -153,11 +153,18 @@ async function route(request: Request, env: Env): Promise<Response> {
       if (!cols.includes(env2.data.where_col)) return json({ ok: false, error: `unknown column: ${env2.data.where_col}` }, 400);
       where.push(`${q(env2.data.where_col)} = ?`); binds.push(String(env2.data.where_val ?? ''));
     }
-    const lim = Math.min(Math.max(Number(env2.data.limit ?? 50), 1), 500);
+    // raw=true → faithful rows for the full-trust HMAC server caller (the read-flip:
+    // Apps Script reads its own system of record back, so it needs real ciphertext in
+    // PHI columns to decrypt, and empty PHI columns as '' not '[redacted-phi]', and real
+    // config values). HMAC is the trust boundary — the same secret that WRITES every row.
+    // Default (raw falsy) keeps the PHI- + secret-redacted projection for any debug use.
+    // raw allows a higher row cap so a read can pull a whole (small, multi-tenant) table.
+    const raw = env2.data.raw === true;
+    const lim = Math.min(Math.max(Number(env2.data.limit ?? 50), 1), raw ? 10000 : 500);
     const sql = `SELECT ${cols.map(q).join(', ')} FROM ${q(table)}`
       + (where.length ? ` WHERE ${where.join(' AND ')}` : '') + ` LIMIT ${lim}`;
     const { results } = await env.DB.prepare(sql).bind(...binds).all<Record<string, unknown>>();
-    const rows = (results ?? []).map((r) => safeRowForLog(table, r));
+    const rows = (results ?? []).map((r) => (raw ? r : safeRowForLog(table, r)));
     return json({ ok: true, table, count: rows.length, rows });
   }
 
