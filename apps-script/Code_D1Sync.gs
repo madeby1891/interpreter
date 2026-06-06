@@ -513,7 +513,10 @@ function handleD1Op_(e) {
   if (op === 'auditdump') return _json({ ok: true, auditdump: _d1AuditDump_() });
   if (op === 'auditbackup') return _json({ ok: true, auditbackup: _d1AuditBackup_() });
   if (op === 'auditfixheader') return _json({ ok: true, auditfixheader: _d1AuditFixHeader_() });
-  return _json({ ok: false, error: 'unknown d1op (ping|backfill|parity|keyset|tick|install_trigger|uninstall_trigger|reset|purgesecrets|anthropiccheck|peek|auditdiag|auditdump|auditbackup|auditfixheader)' });
+  if (op === 'readcheck') return _json({ ok: true, readcheck: _d1ReadCheck_(p.tab || null) });  // phase-3 read-flip precondition
+  if (op === 'dbprimary') return _json({ ok: true, d1_primary: (typeof D1_PRIMARY !== 'undefined' && D1_PRIMARY) });  // is the read/write flip live?
+  if (op === 'readsmoke') return _json({ ok: true, smoke: _d1ReadSmoke_() });
+  return _json({ ok: false, error: 'unknown d1op (ping|backfill|parity|keyset|tick|install_trigger|uninstall_trigger|reset|purgesecrets|anthropiccheck|peek|auditdiag|auditdump|auditbackup|auditfixheader|readcheck|dbprimary)' });
 }
 
 // --- security remediation: purge leaked secrets from the Settings Sheet --------

@@ -1058,7 +1058,7 @@ function apiListJobs(e) {
   _ensureTab(ss, T.Jobs, _tenantSchema().Jobs);
 
   var sheet = ss.getSheetByName(T.Jobs);
-  var data = sheet.getDataRange().getValues();
+  var data = _dbValues_(ss, sheet, T.Jobs);
   if (data.length < 2) return _json({ ok:true, jobs:[] });
   var hdr = data[0];
   var jobs = [];
@@ -1501,7 +1501,7 @@ function apiListInterpreters(e) {
   var ss = SpreadsheetApp.openById(SHEET_ID);
   _ensureTab(ss, T.Interpreters, _tenantSchema().Interpreters);
   var sh = ss.getSheetByName(T.Interpreters);
-  var data = sh.getDataRange().getValues();
+  var data = _dbValues_(ss, sh, T.Interpreters);
   if (data.length < 2) return _json({ ok:true, interpreters:[] });
   var hdr = data[0];
   var out = [];
@@ -1633,7 +1633,7 @@ function apiListRequestors(e) {
   var ss = SpreadsheetApp.openById(SHEET_ID);
   _ensureTab(ss, T.Requestors, _tenantSchema().Requestors);
   var sh = ss.getSheetByName(T.Requestors);
-  var data = sh.getDataRange().getValues();
+  var data = _dbValues_(ss, sh, T.Requestors);
   if (data.length < 2) return _json({ ok:true, requestors:[] });
   var hdr = data[0];
   var out = [];
@@ -1721,7 +1721,7 @@ function apiListSettings(e) {
   var ss = SpreadsheetApp.openById(SHEET_ID);
   _ensureTab(ss, T.Settings, _tenantSchema().Settings);
   var sh = ss.getSheetByName(T.Settings);
-  var data = sh.getDataRange().getValues();
+  var data = _dbValues_(ss, sh, T.Settings);
   if (data.length < 2) return _json({ ok:true, settings:{} });
   var hdr = data[0];
   var settings = {};
@@ -2044,7 +2044,7 @@ function apiListAssignments(e) {
   var ss = SpreadsheetApp.openById(SHEET_ID);
   var sh = ss.getSheetByName(T.JobAssignments);
   if (!sh) return _json({ ok:true, assignments:[] });
-  var data = sh.getDataRange().getValues();
+  var data = _dbValues_(ss, sh, T.JobAssignments);
   if (data.length < 2) return _json({ ok:true, assignments:[] });
   var hdr = data[0];
   var out = [];
@@ -2064,7 +2064,7 @@ function apiListJobEvents(e) {
   var ss = SpreadsheetApp.openById(SHEET_ID);
   var sh = ss.getSheetByName(T.JobEvents);
   if (!sh) return _json({ ok:true, events:[] });
-  var data = sh.getDataRange().getValues();
+  var data = _dbValues_(ss, sh, T.JobEvents);
   if (data.length < 2) return _json({ ok:true, events:[] });
   var hdr = data[0];
   var out = [];
@@ -2083,7 +2083,7 @@ function apiListCommunications(e) {
   var ss = SpreadsheetApp.openById(SHEET_ID);
   var sh = ss.getSheetByName(T.Communications);
   if (!sh) return _json({ ok:true, comms:[] });
-  var data = sh.getDataRange().getValues();
+  var data = _dbValues_(ss, sh, T.Communications);
   if (data.length < 2) return _json({ ok:true, comms:[] });
   var hdr = data[0];
   var out = [];
