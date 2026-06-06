@@ -201,7 +201,7 @@ function apiListStripeAccounts(e) {
   _payEnsureInterpreterCols(ss);
   var sh = ss.getSheetByName(T.Interpreters);
   if (!sh) return _json({ ok:true, accounts: [] });
-  var data = sh.getDataRange().getValues();
+  var data = _dbValues_(ss, sh, T.Interpreters);
   if (data.length < 2) return _json({ ok:true, accounts: [] });
   var hdr = data[0];
 
@@ -251,7 +251,7 @@ function apiList1099Forms(e) {
   _payEnsureInterpreterCols(ss);
   var sh = ss.getSheetByName(T.Interpreters);
   if (!sh) return _json({ ok:true, forms: [] });
-  var data = sh.getDataRange().getValues();
+  var data = _dbValues_(ss, sh, T.Interpreters);
   if (data.length < 2) return _json({ ok:true, forms: [] });
   var hdr = data[0];
 
@@ -268,7 +268,7 @@ function apiList1099Forms(e) {
   var thisYear = new Date().getUTCFullYear();
   var priorYear = thisYear - 1;
   if (poSh) {
-    var pd = poSh.getDataRange().getValues();
+    var pd = _dbValues_(ss, poSh, T.Payouts);
     if (pd.length >= 2) {
       var ph = pd[0];
       var pInterp = ph.indexOf('interpreter_id');

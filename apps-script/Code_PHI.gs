@@ -248,7 +248,7 @@ function apiListConsumers(e) {
   var ss = SpreadsheetApp.openById(SHEET_ID);
   _ensureTab(ss, T.Consumers, _tenantSchema().Consumers);
   var sheet = ss.getSheetByName(T.Consumers);
-  var data = sheet.getDataRange().getValues();
+  var data = _dbValues_(ss, sheet, T.Consumers);
   if (data.length < 2) return _json({ ok:true, consumers: [] });
   var hdr = data[0];
   var out = [];

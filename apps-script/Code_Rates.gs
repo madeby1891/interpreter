@@ -68,7 +68,7 @@ function apiListRateModifiers(e) {
   var ss = SpreadsheetApp.openById(SHEET_ID);
   _ensureTab(ss, T.RateModifiers, _tenantSchema().Rate_Modifiers);
   var sh = ss.getSheetByName(T.RateModifiers);
-  var data = sh.getDataRange().getValues();
+  var data = _dbValues_(ss, sh, T.RateModifiers);
   if (data.length < 2) return _json({ ok:true, modifiers:[] });
   var hdr = data[0];
   var out = [];
@@ -163,7 +163,7 @@ function apiListRateCards(e) {
   var ss = SpreadsheetApp.openById(SHEET_ID);
   _ensureTab(ss, T.RateCards, _tenantSchema().Rate_Cards);
   var sh = ss.getSheetByName(T.RateCards);
-  var data = sh.getDataRange().getValues();
+  var data = _dbValues_(ss, sh, T.RateCards);
   if (data.length < 2) return _json({ ok:true, rate_cards:[] });
   var hdr = data[0];
   var out = [];

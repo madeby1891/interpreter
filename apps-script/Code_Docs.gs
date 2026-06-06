@@ -45,7 +45,7 @@ function apiListInterpreterDocs(e) {
   var ss = SpreadsheetApp.openById(SHEET_ID);
   _ensureTab(ss, T.InterpreterDocuments, _tenantSchema().Interpreter_Documents);
   var sh = ss.getSheetByName(T.InterpreterDocuments);
-  var data = sh.getDataRange().getValues();
+  var data = _dbValues_(ss, sh, T.InterpreterDocuments);
   var hdr = data[0];
   var out = [];
   if (data.length >= 2) {
@@ -159,7 +159,7 @@ function apiListRequirements(e) {
   var ss = SpreadsheetApp.openById(SHEET_ID);
   _ensureTab(ss, T.TenantRequirements, _tenantSchema().Tenant_Requirements);
   var sh = ss.getSheetByName(T.TenantRequirements);
-  var data = sh.getDataRange().getValues();
+  var data = _dbValues_(ss, sh, T.TenantRequirements);
   if (data.length < 2) return _json({ ok:true, requirements:[] });
   var hdr = data[0];
   var out = [];

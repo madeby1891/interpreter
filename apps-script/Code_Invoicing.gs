@@ -774,7 +774,7 @@ function apiGetPayout(e) {
   var lines = [];
   var sh = ss.getSheetByName(T.JobEvents);
   if (sh) {
-    var data = sh.getDataRange().getValues();
+    var data = _dbValues_(ss, sh, T.JobEvents);
     if (data.length >= 2) {
       var hdr = data[0];
       var iType = hdr.indexOf('event_type');

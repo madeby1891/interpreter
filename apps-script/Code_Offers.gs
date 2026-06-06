@@ -52,7 +52,7 @@ function apiListMyOffers(e) {
   // All assignments for this interpreter
   var asgSh = ss.getSheetByName(T.JobAssignments);
   if (!asgSh) return _json({ ok:true, offers:[] });
-  var asgData = asgSh.getDataRange().getValues();
+  var asgData = _dbValues_(ss, asgSh, T.JobAssignments);
   if (asgData.length < 2) return _json({ ok:true, offers:[] });
   var aHdr = asgData[0];
   var myAssignments = [];
