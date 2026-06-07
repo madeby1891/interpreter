@@ -31,7 +31,7 @@
   <g transform="translate(80,80)">
     <rect width="80" height="80" rx="16" fill="url(#og-plate)"/>
     <rect x="4.5" y="4.5" width="71" height="71" rx="13" fill="none" stroke="#FAFAF7" stroke-opacity="0.08" stroke-width="0.8"/>
-    <g fill="url(#og-glyph)" font-family="Iowan Old Style, Palatino Linotype, Palatino, Georgia, serif" font-weight="700" text-anchor="middle">
+    <g fill="url(#og-glyph)" font-family="'Futura', 'Futura PT', 'Century Gothic', system-ui, sans-serif" font-weight="700" text-anchor="middle">
       <text x="22" y="36" font-size="26">1</text>
       <text x="46" y="36" font-size="26">8</text>
       <text x="22" y="66" font-size="26">9</text>
@@ -46,7 +46,7 @@
       <circle cx="0" cy="-3.2" r="1.2" fill="#FFD8C7"/>
     </g>
 
-    <text x="100" y="38" font-family="Iowan Old Style, Palatino Linotype, Palatino, Georgia, serif" font-weight="700" font-size="30" fill="#0F1419">1891</text>
+    <text x="100" y="38" font-family="'Futura', 'Futura PT', 'Century Gothic', system-ui, sans-serif" font-weight="700" font-size="30" fill="#0F1419">1891</text>
     <text x="100" y="66" font-family="system-ui, -apple-system, sans-serif" font-weight="500" font-size="20" fill="#5C6670">Interpreter</text>
   </g>
 
@@ -73,7 +73,7 @@
 
   <!-- Right accent: oversized 1891 mark -->
   <g transform="translate(940,210)" opacity="0.5">
-    <text font-family="Iowan Old Style, Palatino Linotype, Palatino, Georgia, serif" font-weight="700" font-size="180" fill="#C8553D" text-anchor="middle" x="100" y="120">1891</text>
+    <text font-family="'Futura', 'Futura PT', 'Century Gothic', system-ui, sans-serif" font-weight="700" font-size="180" fill="#C8553D" text-anchor="middle" x="100" y="120">1891</text>
   </g>
 
   <!-- Bottom URL strip -->
