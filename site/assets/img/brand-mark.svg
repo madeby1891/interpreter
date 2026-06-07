@@ -23,9 +23,9 @@
   <!-- Hairline inner frame: stamped-medallion feel -->
   <rect x="3.5" y="3.5" width="57" height="57" rx="11" fill="none" stroke="#FAFAF7" stroke-opacity="0.07" stroke-width="0.6"/>
 
-  <!-- "1891" — single horizontal row, bold serif, centered.
+  <!-- "1891" — single horizontal row, bold Futura, centered.
        Tuned for clarity at 16px favicon size. -->
-  <g fill="url(#bm-glyph)" font-family="'Iowan Old Style','Palatino Linotype',Palatino,Georgia,serif" font-weight="700" font-size="26" text-anchor="middle">
+  <g fill="url(#bm-glyph)" font-family="'Futura','Futura PT','Century Gothic',system-ui,sans-serif" font-weight="700" font-size="26" text-anchor="middle">
     <text x="32" y="36" letter-spacing="0.5">1891</text>
   </g>
 
