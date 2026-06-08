@@ -45,7 +45,12 @@ ALLOWED_ORIGINS = "https://madeby1891.com,https://www.madeby1891.com"
 
 # Secret (wrangler secret put):
 #   DEEPGRAM_API_KEY — shared 1891 streaming-transcription key (live captions).
-#     Reuse ~/.config/1891/deepgram-key — never mint a per-project key. Set with:
-#       wrangler secret put DEEPGRAM_API_KEY --name 1891-interpreter-captions < ~/.config/1891/deepgram-key
+#     Reuse ~/.config/1891/deepgram-key — never mint a per-project key. That file
+#     is a shell snippet (`export DEEPGRAM_API_KEY="<40-hex>"` + comments), NOT a
+#     bare key — so `secret put < file` uploads the whole comment block and the
+#     vendor 401s every call (silent: mic_status 'unavailable', no captions, while
+#     /healthz still says configured). SOURCE it and pipe only the value:
+#       . ~/.config/1891/deepgram-key && printf %s "$DEEPGRAM_API_KEY" | \
+#         wrangler secret put DEEPGRAM_API_KEY --name 1891-interpreter-captions
 #     Unset = the mic socket self-skips with a clean close + mic_status
 #     'unconfigured'; viewers, roster, and presence keep working.
