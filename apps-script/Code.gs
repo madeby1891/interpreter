@@ -419,6 +419,13 @@ function handleInboundForm(e) {
 
   // Every other form gets a same-minute receipt to the submitter.
   _ackInbound_(formId, params);
+
+  // Working-session requests also enroll in the lifecycle follow-up series
+  // (inert until the drip flags flip — see Code_Funnel.gs _commsEnroll_).
+  if (formId === 'demo_request') {
+    var demoEmail = String(params.email || params.work_email || '').trim().toLowerCase();
+    _commsEnroll_('demo-followup', demoEmail, 'demo_request', false);
+  }
   return _json({ ok:true, received:iso });
 }
 

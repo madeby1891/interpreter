@@ -509,6 +509,9 @@ function _subHandleSubscriptionEvent_(ctx) {
         subscription_id: subscriptionId,
         agency_id: agencyId
       });
+      // Lifecycle onboarding series (inert until drip flags flip) — same
+      // idempotency umbrella as the welcome: first-create only.
+      _commsEnroll_('subscriber-onboarding', billingEmail, 'subscription_welcome', false);
     }
   }
 

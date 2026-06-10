@@ -4,6 +4,15 @@ Dated history of changes. Newest entries at the top. Note user-visible changes o
 
 ---
 
+## 2026-06-10 (evening) — pilot-window copy, contact@ consolidation, attribution, drip stack
+
+Same-day follow-up on Fallon's GO.
+
+- **Verification copy softened, no named reviewers.** Every review-process surface — free-for-deaf-owned, the pricing FAQ, the about-page section, the published verification standard, and the application receipt email — now says applications are **reviewed during the pilot window, in the order they arrive**, with written reasons either way. The hard 5-business-day decision promise is retired until the review group seats. Founder bios are unchanged.
+- **One contact address.** `accessibility@` / `security@` / `privacy@` / `legal@` all consolidate to **contact@madeby1891.com** on every page and in backend notification routing (the dedicated aliases were printed but never existed — accessibility and security reports were bouncing).
+- **Purchase attribution.** Subscribing now stamps the consent banner's id into the payment record (advertising-consent visitors only), so future campaigns can see what converted. Validated server-side; can never block a checkout.
+- **Drip email stack, built and deliberately dormant.** Three series are authored, seeded, and wired — sandbox nurture (3 emails over 9 days, consent-box subscribers only), working-session follow-up (2 emails), and new-subscriber onboarding (2 emails) — each with one-click unsubscribe. Nothing sends until the deliverability hardening and the master flag flip, which are deliberate go-live decisions, not deploys.
+
 ## 2026-06-10 — launch funnel: gated sandbox, form receipts, lead console, watchdog
 
 The pre-launch funnel pass. Everything below is live and verified.

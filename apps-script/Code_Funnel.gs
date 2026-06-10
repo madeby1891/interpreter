@@ -210,10 +210,57 @@ function apiSandboxVerify(e) {
   if (!data[found][iVer]) {
     sheet.getRange(found + 1, iVer + 1).setValue(nowIso);
     _logAudit('sandbox_gate_verified', 'sandbox_gate', '', '');
+    // First verification = the engaged-visitor moment. Enroll in the nurture
+    // series only if they ticked the box at the gate (consent at capture;
+    // the drip walk re-checks marketing consent again at send time).
+    var iMc = hdr.indexOf('marketing_consent');
+    if (iMc >= 0 && String(data[found][iMc]) === 'yes') {
+      _commsEnroll_('sandbox-nurture', String(data[found][iEmail]), 'sandbox_gate', true);
+    }
   }
   sheet.getRange(found + 1, iSeen + 1).setValue(nowIso);
   sheet.getRange(found + 1, iVisits + 1).setValue(Number(data[found][iVisits] || 0) + 1);
   return _json({ ok:true, email: String(data[found][iEmail]), verified_at: nowIso });
+}
+
+// ============================================================================
+// DRIP ENROLLMENT — comms worker /v1/enroll (X-Comms-Internal HMAC).
+//
+// Enrolling is NOT sending: rows sit in the shared drip tables until the
+// sequence is 'active' AND COMMS_DRIP='on' (both Anthony-gated, after DMARC).
+// Soft-fail by design — a funnel write must never break the user-facing flow.
+// Key lives in gitignored comms-secret.gs (_commsInternalKeyValue_).
+// ============================================================================
+
+var COMMS_ENROLL_URL = 'https://comms-send.anthonymowl.workers.dev/v1/enroll';
+
+function _commsEnroll_(sequenceName, recipient, consentSource, marketingConsent) {
+  var key = '';
+  try { key = _commsInternalKeyValue_(); } catch (_) { return; }  // secret file absent → no-op
+  if (!key || !_isValidEmail(recipient)) return;
+  try {
+    var payload = JSON.stringify({
+      project_slug: 'interpreter',
+      sequence_name: sequenceName,
+      recipient: recipient,
+      consent_source: consentSource,
+      marketing_consent: marketingConsent ? 1 : 0
+    });
+    var t = String(Math.floor(Date.now() / 1000));
+    var sig = Utilities.base64EncodeWebSafe(
+      Utilities.computeHmacSha256Signature(t + '.' + payload, key)
+    ).replace(/=+$/, '');
+    var resp = UrlFetchApp.fetch(COMMS_ENROLL_URL, {
+      method: 'post',
+      contentType: 'application/json',
+      payload: payload,
+      headers: { 'X-Comms-Internal': 't=' + t + ',s=' + sig, 'X-Comms-Caller': 'interpreter-apps-script' },
+      muteHttpExceptions: true
+    });
+    _logAudit('comms_enroll', sequenceName, '', 'http ' + resp.getResponseCode());
+  } catch (err) {
+    _logAudit('comms_enroll_failed', sequenceName, '', String(err));
+  }
 }
 
 // ============================================================================

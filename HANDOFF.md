@@ -50,6 +50,49 @@ Anthony). Backend deployed + smoked same day:
 Front-end lanes (sandbox `/try/`, lead console page, site CTAs + form
 fixes) ALL SHIPPED same day — live + verified; see CHANGELOG 2026-06-10.
 
+### Same-day follow-up (Fallon's GO): copy soften + contact@ + P1 stack
+
+- **Pilot-window verification copy (backend @55/@56, site live):** every
+  review-process surface (free-for-deaf-owned, pricing FAQ, about,
+  legal/deaf-owned-verification-standard, the ack email) now reads
+  "reviewed during the pilot window, in the order applications arrive" —
+  NO individual names in review copy (founder bios + JSON-LD unchanged).
+  The hard 5-business-day decision promise is retired until the review
+  group seats.
+- **Alias consolidation:** accessibility@/security@/privacy@/legal@ →
+  `contact@madeby1891.com` site-wide AND in `_notifyOwner` routing
+  (those aliases were printed but never created — a11y/security form
+  notifications were bouncing). Re-split when real aliases exist.
+- **Attribution (LIVE):** `/pay/subscribe` passes the consent banner's
+  `1891_uid` → `uid_1891` in Checkout + subscription metadata
+  (shape-validated ULID, silently dropped on mismatch). Worker deployed
+  via CI, 90/90 tests green.
+- **Drip stack (BUILT, triple-gated inert):**
+  - 7 templates in `ops/comms-templates/interpreter/` (3-file shape,
+    voice-lint green, only `{{unsub_url}}` as a variable — body URLs are
+    constants so a drip send can never refuse on missing vars).
+  - 3 sequences seeded as **draft** in the shared admin D1
+    (`itp-seq-sandbox-nurture` D+2/5/9 marketing,
+    `itp-seq-demo-followup` D+1/4 lifecycle,
+    `itp-seq-subscriber-onboarding` D+1/7 lifecycle).
+  - comms worker grew `POST /v1/enroll` (X-Comms-Internal HMAC,
+    idempotent on sequence+recipient) — monorepo commit `704db70`,
+    CI-deployed, smoked: valid HMAC enrolls, forged → 401.
+  - Apps Script `_commsEnroll_` (Code_Funnel.gs; key in gitignored
+    `comms-secret.gs`, value from `~/.config/1891/comms-internal-key`)
+    fires on: first sandbox verify WITH the consent box (marketing),
+    demo_request submit (lifecycle), subscription welcome (lifecycle).
+    **Proven live end-to-end:** gate→email→verify auto-enrolled
+    `fallonbriz+dripsmoke@gmail.com` into sandbox-nurture with
+    marketing_consent=1 — that row stays as the flip-day canary.
+- **DRIP FLIP RITUAL (Anthony, in order):** 1) DMARC → p=quarantine.
+  2) `/v1/sync` the interpreter template bundle into comms-send (or
+  redeploy with the bundle rebuilt). 3) Flip the three `sequences` rows
+  `draft`→`active` (wrangler d1 execute admin-control-plane). 4) Set
+  `COMMS_DRIP=on` + add the cron trigger on comms-send. 5) Watch the
+  canary enrollment get the D+2 smart-fill email; `COMMS_SEND_MODE`
+  stays `restricted` until the allowlist test passes.
+
 **Deploy-order note (post PR-#2 merge):** backend @54 was clasp-deployed
 from the funnel lane BEFORE the phase-4 rails PR merged, so the live
 script currently has Code_Funnel but NOT Code_D1MirrorApply / the

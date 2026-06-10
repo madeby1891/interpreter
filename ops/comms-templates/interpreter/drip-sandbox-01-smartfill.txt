@@ -1,0 +1,5 @@
+Hi — you ran smart-fill in the sandbox, so you saw the score bars. The whole formula: certification & language fit 30, location 20, requestor preference 20, workload balance 15, prior performance 15. All visible, every time — your schedulers can defend any assignment.
+
+Pick up your sandbox: https://madeby1891.com/interpreter/try/
+
+Unsubscribe: {{unsub_url}}

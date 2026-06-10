@@ -1,0 +1,6 @@
+Thirty minutes, no slide deck. We open the app with your data shape — a few sample rows you give us, no real patient detail — and walk your day-of board, smart-fill, and billing.
+
+Book: https://madeby1891.com/interpreter/get-a-demo
+Or reply with two or three time windows that work.
+
+Unsubscribe: {{unsub_url}}

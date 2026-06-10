@@ -1,0 +1,80 @@
+{
+  "sequences": [
+    {
+      "id": "itp-seq-sandbox-nurture",
+      "name": "sandbox-nurture",
+      "project": "interpreter",
+      "status": "draft",
+      "enrollment": "sandbox gate verified + marketing consent box ticked (consent_source=sandbox_gate)",
+      "steps": [
+        {
+          "step_index": 0,
+          "template_id": "drip-sandbox-01-smartfill",
+          "offset_days": 2,
+          "channel": "email",
+          "category": "marketing"
+        },
+        {
+          "step_index": 1,
+          "template_id": "drip-sandbox-02-deaf-owned-free",
+          "offset_days": 5,
+          "channel": "email",
+          "category": "marketing"
+        },
+        {
+          "step_index": 2,
+          "template_id": "drip-sandbox-03-working-session",
+          "offset_days": 9,
+          "channel": "email",
+          "category": "marketing"
+        }
+      ]
+    },
+    {
+      "id": "itp-seq-demo-followup",
+      "name": "demo-followup",
+      "project": "interpreter",
+      "status": "draft",
+      "enrollment": "demo_request form submit (consent_source=demo_request)",
+      "steps": [
+        {
+          "step_index": 0,
+          "template_id": "drip-demo-01-nudge",
+          "offset_days": 1,
+          "channel": "email",
+          "category": "lifecycle"
+        },
+        {
+          "step_index": 1,
+          "template_id": "drip-demo-02-switching-case",
+          "offset_days": 4,
+          "channel": "email",
+          "category": "lifecycle"
+        }
+      ]
+    },
+    {
+      "id": "itp-seq-subscriber-onboarding",
+      "name": "subscriber-onboarding",
+      "project": "interpreter",
+      "status": "draft",
+      "enrollment": "customer.subscription.created welcome path (consent_source=subscription_welcome)",
+      "steps": [
+        {
+          "step_index": 0,
+          "template_id": "drip-onboard-01-setup",
+          "offset_days": 1,
+          "channel": "email",
+          "category": "lifecycle"
+        },
+        {
+          "step_index": 1,
+          "template_id": "drip-onboard-02-checkin",
+          "offset_days": 7,
+          "channel": "email",
+          "category": "lifecycle"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,19 @@
+{
+  "id": "drip-sandbox-02-deaf-owned-free",
+  "subject": "Free forever, if the agency is Deaf-owned",
+  "from_name": "1891 Interpreter",
+  "from_email": "contact@send.madeby1891.com",
+  "reply_to": "contact@madeby1891.com",
+  "category": "marketing",
+  "urgency": "low",
+  "trigger": "sandbox-nurture step 1 (D+5)",
+  "audience": "Same as step 0",
+  "voice": "Plain-spoken builder; no buzzwords; no vendor names",
+  "variables": [
+    "unsub_url"
+  ],
+  "sample_vars": {
+    "unsub_url": "https://example.com/unsubscribe?token=SAMPLE"
+  },
+  "notes": "Authored 2026-06-10 (WS9 funnel lane). Sequence definition: sequences.json. Sends only when the sequence is active AND COMMS_DRIP=on (Anthony-gated)."
+}
