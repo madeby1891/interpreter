@@ -57,8 +57,15 @@ var D1_SYNC_EXCLUDE = {};
 function _d1SyncTables_() {
   // _tenantSchema() keys ARE the Worker table names / tab names (33 tables),
   // plus the upsertable magic-link log. Control tables handled separately.
+  // PHASE 4 (per-table write flip): a table listed in D1_WRITE_TABLES writes to
+  // D1 directly, so it MUST drop out of the Sheet→D1 sender here — otherwise the
+  // next tick/backfill would re-sync the stale (now read-only-mirror) Sheet tab
+  // over the D1 writes and silently revert them. The same flag gates the
+  // inverse-direction mirror receiver (Code_D1MirrorApply.gs), so each table's
+  // flip is atomic: sync-off + mirror-on cannot drift apart. Rollback order:
+  // remove the table from D1_WRITE_TABLES FIRST, then backfill Sheet→D1.
   return Object.keys(_tenantSchema()).concat(['Auth_Tokens']).filter(function (t) {
-    return !D1_SYNC_EXCLUDE[t];
+    return !D1_SYNC_EXCLUDE[t] && !_d1IsWriteFlipped_(t);
   });
 }
 
@@ -290,6 +297,7 @@ function _d1NudgeSync_(tenantId, spreadsheetId, tables) {
   for (var i = 0; i < tables.length; i++) {
     var tbl = tables[i];
     if (D1_SYNC_EXCLUDE[tbl]) continue;
+    if (_d1IsWriteFlipped_(tbl)) continue; // phase 4: D1-write-primary — nudging would revert D1 writes
     try {
       var ss = SpreadsheetApp.openById(spreadsheetId);
       var sh = ss.getSheetByName(tbl); if (!sh) continue;
@@ -516,7 +524,14 @@ function handleD1Op_(e) {
   if (op === 'readcheck') return _json({ ok: true, readcheck: _d1ReadCheck_(p.tab || null) });  // phase-3 read-flip precondition
   if (op === 'dbprimary') return _json({ ok: true, d1_primary: (typeof D1_PRIMARY !== 'undefined' && D1_PRIMARY) });  // is the read/write flip live?
   if (op === 'readsmoke') return _json({ ok: true, smoke: _d1ReadSmoke_() });
-  return _json({ ok: false, error: 'unknown d1op (ping|backfill|parity|keyset|tick|install_trigger|uninstall_trigger|reset|purgesecrets|anthropiccheck|peek|auditdiag|auditdump|auditbackup|auditfixheader|readcheck|dbprimary)' });
+  // phase 4 (Code_D1MirrorApply.gs): the Worker's signed D1→Sheet mirror snapshot,
+  // and the introspection op the runbook uses to confirm both sides' flags agree.
+  if (op === 'mirror_apply') return _json(handleD1MirrorApply_(e));
+  if (op === 'mirror_status') {
+    var wt = _d1WriteTables_();
+    return _json({ ok: true, write_tables: wt.all ? 'all' : Object.keys(wt.map), sync_tables: _d1SyncTables_().length });
+  }
+  return _json({ ok: false, error: 'unknown d1op (ping|backfill|parity|keyset|tick|install_trigger|uninstall_trigger|reset|purgesecrets|anthropiccheck|peek|auditdiag|auditdump|auditbackup|auditfixheader|readcheck|dbprimary|readsmoke|mirror_apply|mirror_status)' });
 }
 
 // --- security remediation: purge leaked secrets from the Settings Sheet --------

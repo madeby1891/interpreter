@@ -6,6 +6,45 @@ future-you) can pick up cold in under five minutes.
 
 ---
 
+## ADR-001 phase-4 rails (WS9 / FREDERICK) — 2026-06-10 — READY, needs Anthony to ship
+
+Branch `frederick/ws9-interpreter` (pushed). Everything is inert-by-default: merging +
+deploying changes NO live behavior until the flags below are set. Full runbook:
+`workers/interpreter-data/MIGRATION.md` → "Phase 4 runbook (per table)".
+
+**What's on the branch:**
+- Worker `interpreter-data`: per-table D1→Sheet mirror (`MIRROR_TABLES_ENABLED`
+  allowlist beside `MIRROR_ENABLED`), HMAC-signed snapshots, `POST /v1/mirror/run`
+  (narrows-only manual trigger), `src/hmac.ts` extraction, tsc now clean.
+- Test harness: `npm test` in `workers/interpreter-data/` — 19 vitest-pool-workers
+  tests, real workerd + real local D1 (migrations applied), outbound POST mocked,
+  net-connect disabled, synthetic fixtures only. All green.
+- Apps Script (committed, NOT deployed): `Code_D1MirrorApply.gs` (signed `?d1op=
+  mirror_apply` receiver: freshness window, replay cache, registry-resolved target
+  spreadsheet, header-order-preserving tab rewrite, counts-only logging) +
+  `Code_D1Sync.gs` (per-table sender cutoff via `D1_WRITE_TABLES`, `mirror_apply`/
+  `mirror_status` routed; flag unset = zero change).
+
+**Anthony, to ship the rails (safe now, still inert after):**
+1. Merge `frederick/ws9-interpreter` → `main` (CI deploys `interpreter-data`, smokes
+   `/healthz`, expects `tables:39`).
+2. `shared/ops/clasp-deploy.sh apps-script "phase-4 mirror receiver + sender cutoff (inert)"`
+   — NOT in the 7–10am ET weekday window.
+3. Set the Worker secret (any time before the first table flips):
+   `npx wrangler secret put MIRROR_SHEET_EXEC` from `workers/interpreter-data/`, value
+   `<apps-script /exec URL>?d1op=mirror_apply&setup=<SHEET_ID>`.
+
+**To flip the FIRST table (Settings) — only after the rails above:**
+1. In the gitignored `apps-script/d1-secret.gs` add: `var D1_WRITE_TABLES = 'Settings';`
+   then convert Settings' write sites to `_dbUpsert_`/`_dbDelete_` + clasp-deploy.
+2. On the Worker: set vars `MIRROR_ENABLED=true`, `MIRROR_TABLES_ENABLED=Settings`
+   (wrangler.toml [vars] or dashboard) + deploy.
+3. Verify per the runbook write-smoke (`mirror_status` → `/v1/mirror/run` → tick report
+   excludes Settings). Rollback order is in the runbook — mirror-once FIRST, then flag off,
+   then `backfill&tab=Settings`.
+
+---
+
 ## SHIPPED — "finish the product" pass — 2026-06-02
 
 Closed the gap between marketing claims and working code. All live + verified.

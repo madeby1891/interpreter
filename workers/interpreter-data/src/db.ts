@@ -17,7 +17,10 @@ export interface Env {
   DEFAULT_TENANT: string;   // "host" (the legacy host tenant)
   HMAC_SECRET: string;      // secret — matches Apps Script HMAC_SECRET / Worker JWT_SECRET
   MIRROR_SHEET_EXEC?: string; // secret — read-only D1->Sheets mirror target (ADR §5)
-  MIRROR_ENABLED?: string;    // "true" only AFTER cutover (phase 4); off during dual-write
+  MIRROR_ENABLED?: string;    // "true" only once phase 4 BEGINS; off during dual-write
+  MIRROR_TABLES_ENABLED?: string; // phase-4 per-table allowlist: "Settings,Rate_Cards" | "all".
+                                  // Only tables whose writes are ALREADY D1-direct may be
+                                  // listed — mirroring a Sheet-authoritative tab clobbers it.
 }
 
 export const now = (): number => Math.floor(Date.now() / 1000);
