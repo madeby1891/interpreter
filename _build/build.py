@@ -1642,7 +1642,7 @@ def start_free_body() -> str:
     <div class="wrap-narrow">
       <div class="cluster" style="justify-content:center">
         <a class="btn btn-primary btn-lg" href="{BASE_PATH}/free-for-deaf-owned#apply">Open the application</a>
-        <a class="btn btn-secondary btn-lg" href="{BASE_PATH}/get-a-demo">Or get a demo first</a>
+        <a class="btn btn-secondary btn-lg" href="{BASE_PATH}/get-a-demo">Or walk through it with us first</a>
       </div>
       <h2 style="margin-top:var(--1891int-s-7)">A few quick FAQs.</h2>
       <details class="card mt-3"><summary style="font-weight:700; cursor:pointer">Do I have to upload documentation immediately?</summary><p class="ink-soft" style="margin-top:var(--1891int-s-3)">No. You can submit the application now and email documentation after we acknowledge.</p></details>
