@@ -271,6 +271,9 @@ def home_body() -> str:
             <a class="btn btn-primary btn-lg" href="{BASE_PATH}/get-a-demo">Book a working session</a>
             <a class="btn btn-secondary btn-lg" href="{BASE_PATH}/free-for-deaf-owned">Free if Deaf-owned</a>
           </div>
+          <p class="hero-try" style="margin-top:var(--1891int-s-4); font-size:15px">
+            Or skip the forms entirely — <a href="{BASE_PATH}/try/">open the sandbox</a>. No signup; the console boots in your browser with sample data.
+          </p>
           <p class="muted" style="margin-top:var(--1891int-s-5); font-size:14px">
             No credit card. No per-seat fees. No per-call fees. Export your data any day, with one click.
           </p>
@@ -1143,7 +1146,8 @@ def for_requestors_body() -> str:
     <div class="wrap-narrow">
       <span class="eyebrow">Sample request form</span>
       <h2>Two required fields. Everything else helps.</h2>
-      <form class="form-card" data-form action="/api/lead" method="post" aria-label="Sample request form">
+      <form class="form-card" data-form action="https://1891-interpreter-api.anthonymowl.workers.dev/v1/proxy/exec" method="post" aria-label="Sample request form">
+            <noscript><p class="muted" style="font-size:13.5px">Without JavaScript, submitting shows a plain-text receipt from our server instead of staying on this page — or email <a href="mailto:hello@madeby1891.com">hello@madeby1891.com</a>.</p></noscript>
         <input type="hidden" name="form_id" value="requestor_sample">
         <div class="consent-block">
           <strong>Important:</strong> Do not include patient names, diagnoses, medical record numbers, or other clinical details in this form. The interpreter receives only what's needed to do their work — generic context, not records.
@@ -1355,6 +1359,7 @@ def pricing_body() -> str:
       <span class="eyebrow">Pricing</span>
       <h1>Public prices, every tier. Flat per agency. No per-job fee.</h1>
       <p class="lede">Annual is the published number; monthly is roughly 20% more. Cancel any time — your data exports on the way out, one click.</p>
+      <p class="hero-try" style="font-size:15px">Not sure yet? <a href="{BASE_PATH}/try/">Open the sandbox</a> and run a day on the board first — no signup.</p>
     </div>
   </section>
 
@@ -1503,7 +1508,8 @@ def free_body() -> str:
       <span class="eyebrow">Apply</span>
       <h2>Verification application.</h2>
       <p class="lede">The board reviews within 5 business days. Both approvals and denials come back with written reasons.</p>
-      <form class="form-card" data-form action="/api/lead" method="post" aria-label="Deaf-owned verification application">
+      <form class="form-card" data-form action="https://1891-interpreter-api.anthonymowl.workers.dev/v1/proxy/exec" method="post" aria-label="Deaf-owned verification application">
+            <noscript><p class="muted" style="font-size:13.5px">Without JavaScript, submitting shows a plain-text receipt from our server instead of staying on this page — or email <a href="mailto:hello@madeby1891.com">hello@madeby1891.com</a>.</p></noscript>
         <input type="hidden" name="form_id" value="deaf_owned_application">
         <div class="consent-block">
           <strong>What happens to this info:</strong> It goes to the verification board (Fallon Brizendine + two community advisors). We retain applications for 24 months from submission, longer if approved. See our <a href="{BASE_PATH}/legal/privacy">privacy notice</a>.
@@ -1558,6 +1564,7 @@ def get_demo_body() -> str:
       <span class="eyebrow">Book a working session</span>
       <h1>30 minutes. Your agency on the screen.</h1>
       <p class="lede">No slide deck. We open the app with your data shape (a few sample rows you give us, no real PHI) and walk through your day-of board, smart-fill, billing, and the BAA.</p>
+      <p class="hero-try" style="font-size:15px">Can't wait for a calendar slot? <a href="{BASE_PATH}/try/">The sandbox is open right now</a> — no signup.</p>
     </div>
   </section>
 
@@ -1565,7 +1572,8 @@ def get_demo_body() -> str:
     <div class="wrap">
       <div class="grid grid-2" style="gap:var(--1891int-s-7); align-items:flex-start">
         <div class="form-card">
-          <form data-form action="/api/lead" method="post" aria-label="Demo request">
+          <form data-form action="https://1891-interpreter-api.anthonymowl.workers.dev/v1/proxy/exec" method="post" aria-label="Demo request">
+            <noscript><p class="muted" style="font-size:13.5px">Without JavaScript, submitting shows a plain-text receipt from our server instead of staying on this page — or email <a href="mailto:hello@madeby1891.com">hello@madeby1891.com</a>.</p></noscript>
             <input type="hidden" name="form_id" value="demo_request">
             <div class="field">
               <label for="d_name">Your name <span aria-hidden="true">*</span></label>
@@ -1690,7 +1698,8 @@ def contact_body() -> str:
   <section class="section section-warm">
     <div class="wrap-narrow">
       <h2>Or send us a note.</h2>
-      <form class="form-card" data-form action="/api/lead" method="post" aria-label="Contact form">
+      <form class="form-card" data-form action="https://1891-interpreter-api.anthonymowl.workers.dev/v1/proxy/exec" method="post" aria-label="Contact form">
+            <noscript><p class="muted" style="font-size:13.5px">Without JavaScript, submitting shows a plain-text receipt from our server instead of staying on this page — or email <a href="mailto:hello@madeby1891.com">hello@madeby1891.com</a>.</p></noscript>
         <input type="hidden" name="form_id" value="contact">
         <div class="field"><label for="c_name">Your name</label><input id="c_name" name="name" type="text" autocomplete="name"></div>
         <div class="field"><label for="c_email">Email <span aria-hidden="true">*</span></label><input id="c_email" name="email" type="email" required aria-required="true" autocomplete="email"></div>
@@ -2244,6 +2253,40 @@ def fourohfour_body() -> str:
 # -----------------------------------------------------------------------------
 # Page registry
 # -----------------------------------------------------------------------------
+
+
+def try_body() -> str:
+    # The sandbox console shell. /try/_sandbox.js renders into these mounts;
+    # seed + engine + styles live as static files under site/try/.
+    return f"""
+  <section class="sbx-app" id="sbx-app">
+    <div class="sbx-head">
+      <h1><span id="sbx-brand">Riverside Interpreting</span></h1>
+      <span class="sbx-tagline" id="sbx-vibe-label">Sample agency</span>
+      <span class="sbx-days" id="sbx-days">14 days left in this sandbox</span>
+    </div>
+    <p class="sbx-demobanner">
+      This is a <strong>live sandbox</strong> of the agency console — real screens, sample data.
+      Everything you change stays in your browser; nothing lands on our servers. Click anything.
+    </p>
+    <div class="sbx-kpis" id="sbx-kpis"></div>
+    <div class="sbx-tabs" id="sbx-tabs" role="tablist" aria-label="Sandbox sections"></div>
+    <div id="sbx-view"></div>
+    <noscript><p class="muted">The sandbox is a fully client-side demo and needs JavaScript to run.
+      For a guided look instead, <a href="{BASE_PATH}/get-a-demo">book a working session</a>.</p></noscript>
+  </section>
+  <div class="sbx-exits">
+    <strong>Like what you see?</strong>
+    <a href="{BASE_PATH}/free-for-deaf-owned">Free if Deaf-owned</a>
+    <a href="{BASE_PATH}/pricing">See pricing</a>
+    <a href="{BASE_PATH}/get-a-demo">Book a working session</a>
+  </div>
+  <div class="sbx-toast" id="sbx-toast" role="status" aria-live="polite"></div>
+  <div class="sbx-drawer" id="sbx-drawer" hidden></div>
+  <div class="sbx-gate" id="sbx-gate" hidden></div>
+  <div class="sbx-expiry" id="sbx-expiry" hidden></div>
+"""
+
 
 def build_pages() -> list[Page]:
     pages: list[Page] = []
@@ -2895,6 +2938,19 @@ def build_pages() -> list[Page]:
         description="The page you're looking for doesn't exist here.",
         body=fourohfour_body(),
         extra_head='\n<meta name="robots" content="noindex">',
+    ))
+
+    pages.append(Page(
+        path="try/index.html",
+        title="Try the sandbox — 1891 Interpreter",
+        description="The agency console, live in your browser with sample data. No signup, nothing to install. Run the day board, claim a job, rank interpreters with smart-fill, draft an invoice.",
+        nav_active="",
+        body=try_body(),
+        og_title="Try 1891 Interpreter — the sandbox is open",
+        extra_head=f"""
+<link rel="stylesheet" href="{BASE_PATH}/try/_sandbox.css?v={ASSET_V}">
+<script src="{BASE_PATH}/try/seed-data.js?v={ASSET_V}" defer></script>
+<script src="{BASE_PATH}/try/_sandbox.js?v={ASSET_V}" defer></script>""",
     ))
 
     return pages
