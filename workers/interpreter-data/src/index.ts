@@ -10,8 +10,12 @@
  *   POST /v1/dual-write           -> HMAC envelope { tenant_id, table, op, row|pk }
  *   POST /v1/dual-write/batch     -> HMAC envelope { writes: [ {tenant_id,table,op,row} ] }
  *   POST /v1/parity               -> HMAC envelope { table, tenant_id? } -> { count }
- * Scheduled (cron): nightly read-only mirror to a Sheet — INERT until MIRROR_ENABLED
- *   (only after cutover, ADR §5). Never clobbers the live source Sheet during dual-write.
+ *   POST /v1/mirror/run           -> HMAC envelope { tables?, tenant_id? } — manual
+ *        per-table mirror trigger for the phase-4 write-smoke (subset of the
+ *        env-enabled set only; inert unless MIRROR_ENABLED + MIRROR_TABLES_ENABLED).
+ * Scheduled (cron): nightly read-only mirror to a Sheet — INERT until MIRROR_ENABLED,
+ *   and PER-TABLE via MIRROR_TABLES_ENABLED (phase 4 flips one table at a time, so
+ *   only D1-write-primary tables may be mirrored; the rest stay Sheet-authoritative).
  *
  * Every mutating route requires the HMAC envelope (body-signed, base64 sig) —
  * the same shape as DASHBOARD_CONTRACT #13, the Blast'D Mac contract, and kgh-data.
@@ -26,24 +30,14 @@ import {
   tableNames, safeRowForLog, TABLES,
 } from './db';
 import { runMirror } from './mirror';
+import { signBody, verifyBody } from './hmac';
+
+// Re-export so existing importers (tests, tooling) keep working after the
+// HMAC helpers moved to hmac.ts (mirror.ts needs them without an import cycle).
+export { signBody };
 
 const json = (body: unknown, status = 200): Response =>
   new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
-
-// ---- HMAC envelope (SHA-256, base64), body-signed --------------------------
-async function hmacKey(secret: string, usage: KeyUsage[]): Promise<CryptoKey> {
-  return crypto.subtle.importKey('raw', new TextEncoder().encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, usage);
-}
-export async function signBody(secret: string, body: string): Promise<string> {
-  const mac = await crypto.subtle.sign('HMAC', await hmacKey(secret, ['sign']), new TextEncoder().encode(body));
-  return btoa(String.fromCharCode(...new Uint8Array(mac)));
-}
-async function verifyBody(secret: string, body: string, sig: string): Promise<boolean> {
-  try {
-    const expected = Uint8Array.from(atob(sig), (c) => c.charCodeAt(0));
-    return await crypto.subtle.verify('HMAC', await hmacKey(secret, ['verify']), expected, new TextEncoder().encode(body));
-  } catch { return false; }
-}
 
 interface Envelope { payload?: string; sig?: string }
 type Parsed<T> = { ok: true; data: T } | { ok: false; resp: Response };
@@ -196,6 +190,21 @@ async function route(request: Request, env: Env): Promise<Response> {
     return json({ ok: true, cleared });
   }
 
+  // Manual mirror trigger (HMAC-gated) — the phase-4 write-smoke companion.
+  // After converting a table's writes to D1, run this to materialize the D1
+  // rows into the (now read-only) Sheet tab immediately instead of waiting for
+  // the nightly cron. `tables`/`tenant_id` only NARROW the env-enabled set —
+  // a table absent from MIRROR_TABLES_ENABLED can never be mirrored from here.
+  // Also the documented FIRST STEP of a per-table rollback: mirror once so the
+  // Sheet tab is current, then flip the table's write flag back to Sheet.
+  if (path === '/v1/mirror/run' && request.method === 'POST') {
+    const env2 = await openEnvelope<{ tables?: string[]; tenant_id?: string }>(request, env);
+    if (!env2.ok) return env2.resp;
+    const tables = Array.isArray(env2.data.tables) ? env2.data.tables.map(String) : undefined;
+    const report = await runMirror(env, tables, env2.data.tenant_id ? String(env2.data.tenant_id) : undefined);
+    return json({ ok: true, mirror: report });
+  }
+
   // PHI invariant audit (HMAC-gated). Returns COUNTS ONLY — never any cell value.
   // Verifies every stored PHI column is the opaque `v1:…` ciphertext format and
   // never plaintext. `bad_*` must be 0. This is how we prove the encryption
@@ -272,7 +281,8 @@ export default {
   },
   async scheduled(_e: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> {
     // Mirror is INERT during dual-write (ADR §5/§6) — runMirror self-guards on
-    // MIRROR_ENABLED so the cron can be wired now without risking the live Sheet.
+    // MIRROR_ENABLED + the per-table MIRROR_TABLES_ENABLED allowlist, so the
+    // cron can stay wired without risking any Sheet-authoritative tab.
     ctx.waitUntil((async () => {
       if (String(env.MIRROR_ENABLED || '').toLowerCase() !== 'true') {
         await logSys(env, 'mirror.skipped', { payload: { reason: 'MIRROR_ENABLED!=true (dual-write phase)' } });
