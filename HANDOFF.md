@@ -6,6 +6,52 @@ future-you) can pick up cold in under five minutes.
 
 ---
 
+## Launch funnel (WS9-funnel lane) — 2026-06-10 — backend LIVE @54
+
+Branch `frederick/ws9-funnel` (off main — deliberately NOT stacked on the
+phase-4 rails branch `frederick/ws9-interpreter`, which stays parked for
+Anthony). Backend deployed + smoked same day:
+
+- **`Code_Funnel.gs` (new):** per-form acknowledgment emails (every inbound
+  form now gets a same-minute receipt — backs the live site's "auto-reply"
+  / response-time promises), the `/try/` sandbox email gate
+  (`form_id=sandbox_gate` issues a 7-day continuation token in the new
+  `Sandbox_Tokens` tab + emails the link; `action=sandbox_verify` redeems,
+  stamps `verified_at`, counts visits), the lead console backend
+  (`list_leads` / `update_lead` with a `Lead_Status` workflow overlay tab,
+  platform-staff/host-owner gated), and `leadDigestTick` (daily 8am ET
+  digest of new leads / >24h SLA breaches / pending Deaf-owned apps /
+  sandbox funnel counts to hello@ + Fallon). Trigger installed via
+  `action=install_lead_digest&setup=<SHEET_ID>` — done, live.
+- **Smoked live 2026-06-10:** gate → email landed in <1 min with link;
+  `sandbox_verify` ok on the real token, rejects bogus; digest trigger
+  installed (tz America/New_York). New tabs are NOT in `_tenantSchema()`,
+  so the D1 sync ignores them by construction (verified: the tick
+  enumerates schema keys + Auth_Tokens only).
+- **⚠️ clasp-push-from-fresh-clone foot-gun (cost 20 min, could have cost
+  the live flags):** the live project carries gitignored `d1-secret.gs`
+  (D1_PRIMARY=true) + `anthropic-secret.gs`. `clasp push` REPLACES server
+  contents with local — pushing from a clone without those files would
+  delete them. Protocol used (do this on any new machine): `clasp pull`
+  into a temp dir with a bare `.clasp.json` (scriptId only) → copy
+  `*-secret.*` into `apps-script/` as `.gs` (gitignored) → `diff` every
+  shared module for server↔repo drift (was zero) → then push + deploy.
+- **⚠️ Email-intake trigger deliberately NOT installed** (PASTE-BACK #3
+  stays open): the manifest has NO Gmail oauth scope —
+  `processInboundRequestEmails` uses `GmailApp` and would fail every 5 min.
+  Lighting it up needs `https://www.googleapis.com/auth/gmail.modify` added
+  to `appsscript.json` + re-consent, a deliberate step, not a drive-by.
+- **MailApp sender note:** acks/gate emails send with `name: BRAND_NAME` +
+  `replyTo: contact@…` but the envelope address is the script owner's
+  Gmail (MailApp can't send as an alias it doesn't own). Same posture as
+  the Pattern-F welcome email. Fine for launch; Resend rail is the upgrade
+  path if/when drips ship.
+
+Front-end lanes (sandbox `/try/`, lead console page, site CTAs + form
+fixes) land on the same branch — see CHANGELOG once shipped.
+
+---
+
 ## SHIPPED — "finish the product" pass — 2026-06-02
 
 Closed the gap between marketing claims and working code. All live + verified.
