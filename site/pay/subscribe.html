@@ -259,7 +259,10 @@
         tier: pick.tier,
         billing: pick.billing,
         customer_email: email,
-        agency_name: agency || undefined
+        agency_name: agency || undefined,
+        // Attribution: consent-banner uid, present only when the visitor
+        // granted advertising consent. Server validates shape; never blocks.
+        uid_1891: (window.consent && window.consent.uid && window.consent.uid()) || undefined
       })
     })
       .then(function (r) {

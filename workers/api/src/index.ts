@@ -476,10 +476,11 @@ interface BillingCheckoutBody {
   billing?: unknown;
   customer_email?: unknown;
   agency_name?: unknown;
+  uid_1891?: string;
 }
 
 async function parseBillingCheckoutBody(req: Request): Promise<
-  | { ok: true; tier: Tier; billing: Billing; customer_email: string; agency_name?: string }
+  | { ok: true; tier: Tier; billing: Billing; customer_email: string; agency_name?: string; uid_1891?: string }
   | { ok: false; error: string }
 > {
   let body: BillingCheckoutBody = {};
@@ -497,12 +498,18 @@ async function parseBillingCheckoutBody(req: Request): Promise<
     return { ok: false, error: "valid customer_email required" };
   }
   const agency = body.agency_name ? String(body.agency_name).slice(0, 200) : undefined;
-  return { ok: true, tier, billing, customer_email: email, agency_name: agency };
+  // Attribution stamp (CREDENTIAL_PROVISIONING §1.11): the consent banner's
+  // 1891_uid ULID, present only when the visitor granted advertising consent.
+  // Shape-validated and silently dropped on mismatch — attribution must never
+  // be able to fail a checkout.
+  const rawUid = String(body.uid_1891 ?? "").trim();
+  const uid = /^[0-9A-HJKMNP-TV-Z]{26}$/i.test(rawUid) ? rawUid : undefined;
+  return { ok: true, tier, billing, customer_email: email, agency_name: agency, uid_1891: uid };
 }
 
 async function runBillingCheckout(
   env: Env,
-  parsed: { tier: Tier; billing: Billing; customer_email: string; agency_name?: string }
+  parsed: { tier: Tier; billing: Billing; customer_email: string; agency_name?: string; uid_1891?: string }
 ): Promise<Response> {
   if (!stripeConfigured(env)) {
     // Match the stripeUnconfigured() contract — 200 with ok:false so the
@@ -514,6 +521,7 @@ async function runBillingCheckout(
     billing: parsed.billing,
     customer_email: parsed.customer_email,
     agency_name: parsed.agency_name,
+    uid_1891: parsed.uid_1891,
   });
   if ((session as { ok?: false }).ok === false) {
     return json({ ok: false, error: (session as { error: string }).error }, { status: 502 });
