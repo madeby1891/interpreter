@@ -111,6 +111,41 @@ python3 provision_rest.py exec <db_id> "SELECT ..."   # ad-hoc query / parity
 > are already live regardless — only the Worker *code* needs deploying, and it serves no
 > traffic until phase 2.
 
+## Write-path survey — what ACTUALLY happens to a row today (2026-06-10)
+
+The live end-to-end path (column names are HEADERS ONLY here — never row contents):
+
+```
+browser form (site/app pages)
+  → site/assets/js/api.js  (single client module; ENDPOINT = 1891-interpreter-api /v1/proxy/exec)
+  → workers/api (1891-interpreter-api Worker)  — CORS proxy + PHI encryption boundary
+      (PHI_MASTER_KEY lives HERE; Code_PHI.gs round-trips plaintext→`v1:iv:ct` via this Worker)
+  → apps-script doPost dispatch (Code.gs) → per-domain api* handler
+  → Sheet tab write — ~240 inlined appendRow/setValue sites across 23 .gs files   [WRITE STAGING]
+  → _d1NudgeAfterWrite_ (immediate, per-action table list) + 30-min d1SyncTick     [SHEET→D1 SENDER]
+  → POST /v1/dual-write[/batch] (HMAC body-signed envelope)
+  → workers/interpreter-data → D1 upsert by PK, tenant-pinned                      [SYSTEM OF RECORD]
+
+reads: app accessors → _dbValues_ (Code_D1Store.gs, D1_PRIMARY=true) → POST /v1/read → D1
+       (the Sheet is NOT read by the app since phase 3, 2026-06-06)
+```
+
+- **Writers to the Sheet:** Apps Script only (the ~240 inlined sites; plus
+  `Code_D1MirrorApply.gs` once phase 4 flips a table — then per snapshot, not per row).
+- **Writers to D1:** `interpreter-data` Worker only (dual-write sender + nudge today;
+  `_dbUpsert_`/`_dbDelete_` direct writes in phase 4).
+- **Readers:** app = D1 (via `/v1/read`); humans = the Sheet (the eyeball affordance the
+  phase-4 mirror preserves); godview = its own HMAC metrics endpoint.
+- **PHI columns (ciphertext blobs end-to-end, never decrypted by the data spine** —
+  registry `db.ts PHI_BLOB_COLUMNS`): `Consumers.legal_first_encrypted`,
+  `Consumers.legal_last_encrypted`, `Consumers.dob_encrypted`, `Consumers.mrn_encrypted`,
+  `Consumers.notes_sealed`, `Interpreters.payment_details_encrypted`. Default `/v1/read`
+  redacts them; the mirror masks to `[encrypted]`; `safeRowForLog()` keeps them out of
+  logs; `/v1/phi-audit` proves the stored shape, counts-only. As of 2026-06-05 every PHI
+  column is `populated:0` live (seed/demo-grade rows) — the discipline is proven, the
+  ciphertext path real-PHI-unexercised.
+- **Full 40-table column inventory:** `schema.sql` (1:1 with the Sheet tabs' header rows).
+
 ## Strangler phases — where we are and what's next
 
 ```
