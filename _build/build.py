@@ -1436,7 +1436,7 @@ def pricing_body() -> str:
       <details class="card mt-5"><summary style="font-weight:700; cursor:pointer">What if I add more interpreters mid-year?</summary><p class="ink-soft" style="margin-top:var(--1891int-s-3)">If you stay within your tier's headcount cap, nothing changes. If you cross a cap, we move you up and prorate. We don't bill retroactively for the growth — we only bill from the day the next cap is crossed.</p></details>
       <details class="card mt-3"><summary style="font-weight:700; cursor:pointer">What counts as an "active" interpreter?</summary><p class="ink-soft" style="margin-top:var(--1891int-s-3)">An interpreter who claimed or was assigned a job in the trailing 90 days. Interpreters on your roster who haven't worked in 90+ days don't count toward the cap.</p></details>
       <details class="card mt-3"><summary style="font-weight:700; cursor:pointer">Are there setup fees?</summary><p class="ink-soft" style="margin-top:var(--1891int-s-3)">No. Onboarding is white-glove for our early agencies and Network customers, included in the subscription price. Self-serve for Solo and Practice.</p></details>
-      <details class="card mt-3"><summary style="font-weight:700; cursor:pointer">What's the Deaf-owned verification process?</summary><p class="ink-soft" style="margin-top:var(--1891int-s-3)">A short application, documentation review by a board that includes Fallon Brizendine, decision within 5 business days. Full process is at <a href="{BASE_PATH}/free-for-deaf-owned">Free for Deaf-owned</a>.</p></details>
+      <details class="card mt-3"><summary style="font-weight:700; cursor:pointer">What's the Deaf-owned verification process?</summary><p class="ink-soft" style="margin-top:var(--1891int-s-3)">A short application and a documentation review during the pilot window — decisions come in the order applications arrive, with a written reason either way. Full process is at <a href="{BASE_PATH}/free-for-deaf-owned">Free for Deaf-owned</a>.</p></details>
       <details class="card mt-3"><summary style="font-weight:700; cursor:pointer">What if my ownership changes?</summary><p class="ink-soft" style="margin-top:var(--1891int-s-3)">If ownership changes such that you no longer qualify for Deaf-Owned, the badge comes down and you transition to the appropriate paid tier with 90 days' notice and no service interruption.</p></details>
       <details class="card mt-3"><summary style="font-weight:700; cursor:pointer">Do you offer discounts for nonprofits?</summary><p class="ink-soft" style="margin-top:var(--1891int-s-3)">Deaf-led nonprofits qualify for the Deaf-Owned tier through the same verification process. Other 501(c)(3) interpreting nonprofits get 30% off Practice and Studio.</p></details>
     </div>
@@ -1466,7 +1466,7 @@ def free_body() -> str:
         <li>State Deaf-owned business certification (where the state offers one).</li>
         <li>SBA self-certification for a Deaf-owned small business.</li>
         <li>NAD agency-member designation (where applicable to the agency's classification).</li>
-        <li>A sworn attestation — used where no state pathway exists. One page, plain English. Fallon co-signs the program-level standard so the attestation is verifying against a clear definition, not a vibe.</li>
+        <li>A sworn attestation — used where no state pathway exists. One page, plain English, verified against the published program-level standard — a clear definition, not a vibe.</li>
       </ul>
       <p class="muted" style="font-size:14px">Full standard: <a href="{BASE_PATH}/legal/deaf-owned-verification-standard">HTML</a> · <a href="{BASE_PATH}/assets/docs/deaf-owned-verification-standard.pdf">PDF</a></p>
     </div>
@@ -1478,8 +1478,8 @@ def free_body() -> str:
       <h2>Seven steps. No "pending forever."</h2>
       <ol class="stack-5" style="counter-reset:step; padding-left:0; list-style:none">
         <li class="card"><strong>1. Apply.</strong> Owner submits the form below: agency legal name, state of formation, owner name, contact email, documentation type.</li>
-        <li class="card"><strong>2. Acknowledge.</strong> Auto-reply within 5 minutes. A real person (Fallon or board secretary) confirms receipt within 2 business days.</li>
-        <li class="card"><strong>3. Board review.</strong> The verification board — Fallon plus two community advisors, rotating — reviews within 5 business days. Decision is binary (approve/deny) with a written reason either way.</li>
+        <li class="card"><strong>2. Acknowledge.</strong> Auto-reply within 5 minutes. A real person confirms receipt within 2 business days.</li>
+        <li class="card"><strong>3. Review.</strong> Applications are reviewed during the pilot window, in the order they arrive. Decision is binary (approve/deny) with a written reason either way.</li>
         <li class="card"><strong>4. Approve path.</strong> Tier flipped to Free Forever on the same day. Badge ("Deaf-owned · 1891 verified") becomes available for your public profile and as an embeddable SVG for your own site. BAA auto-attached.</li>
         <li class="card"><strong>5. Annual recertification.</strong> Light. Once a year we email: "still owned by the same person/people? Reply yes." No re-documentation unless ownership changed.</li>
         <li class="card"><strong>6. Deny path.</strong> Reasoned response. Appeal within 30 days. <strong>All denials are reviewed by the full board, not a single reviewer.</strong> A denied agency is welcome on a paid tier — the badge is the gate, not the platform.</li>
@@ -1507,12 +1507,12 @@ def free_body() -> str:
     <div class="wrap-narrow">
       <span class="eyebrow">Apply</span>
       <h2>Verification application.</h2>
-      <p class="lede">The board reviews within 5 business days. Both approvals and denials come back with written reasons.</p>
+      <p class="lede">Applications are reviewed during the pilot window. Both approvals and denials come back with written reasons.</p>
       <form class="form-card" data-form action="https://1891-interpreter-api.anthonymowl.workers.dev/v1/proxy/exec" method="post" aria-label="Deaf-owned verification application">
             <noscript><p class="muted" style="font-size:13.5px">Without JavaScript, submitting shows a plain-text receipt from our server instead of staying on this page — or email <a href="mailto:hello@madeby1891.com">hello@madeby1891.com</a>.</p></noscript>
         <input type="hidden" name="form_id" value="deaf_owned_application">
         <div class="consent-block">
-          <strong>What happens to this info:</strong> It goes to the verification board (Fallon Brizendine + two community advisors). We retain applications for 24 months from submission, longer if approved. See our <a href="{BASE_PATH}/legal/privacy">privacy notice</a>.
+          <strong>What happens to this info:</strong> It goes to the verification reviewers. We retain applications for 24 months from submission, longer if approved. See our <a href="{BASE_PATH}/legal/privacy">privacy notice</a>.
         </div>
         <div class="field">
           <label for="dao_legal">Agency legal name <span aria-hidden="true">*</span></label>
@@ -1654,7 +1654,7 @@ def start_free_body() -> str:
       </div>
       <h2 style="margin-top:var(--1891int-s-7)">A few quick FAQs.</h2>
       <details class="card mt-3"><summary style="font-weight:700; cursor:pointer">Do I have to upload documentation immediately?</summary><p class="ink-soft" style="margin-top:var(--1891int-s-3)">No. You can submit the application now and email documentation after we acknowledge.</p></details>
-      <details class="card mt-3"><summary style="font-weight:700; cursor:pointer">How fast is approval?</summary><p class="ink-soft" style="margin-top:var(--1891int-s-3)">Acknowledgment within 5 minutes, board review within 5 business days, decision the same day as review.</p></details>
+      <details class="card mt-3"><summary style="font-weight:700; cursor:pointer">How fast is approval?</summary><p class="ink-soft" style="margin-top:var(--1891int-s-3)">Acknowledgment within 5 minutes. Applications are reviewed during the pilot window, in the order they arrive, and decisions come with written reasons.</p></details>
       <details class="card mt-3"><summary style="font-weight:700; cursor:pointer">What if I'm denied?</summary><p class="ink-soft" style="margin-top:var(--1891int-s-3)">All denials come with written reasoning and a 30-day appeal window. Appeals are reviewed by the full board, not a single reviewer. You're welcome on a paid tier in the meantime.</p></details>
       <details class="card mt-3"><summary style="font-weight:700; cursor:pointer">Can I start using the platform before approval?</summary><p class="ink-soft" style="margin-top:var(--1891int-s-3)">Yes — a trial Practice account opens on the day you apply, and converts to Free Forever the day you're approved. No payment method asked while your application is pending.</p></details>
       <p class="muted" style="margin-top:var(--1891int-s-6); font-size:14px">Need to talk to a human first? <a href="{BASE_PATH}/contact">Contact us</a>.</p>
@@ -1684,12 +1684,12 @@ def contact_body() -> str:
         <div class="card">
           <h3 class="mt-0">Accessibility feedback</h3>
           <p class="ink-soft">Anything not working well with a screen reader, keyboard, or magnification? This goes to a priority queue.</p>
-          <p><a href="mailto:accessibility@madeby1891.com">accessibility@madeby1891.com</a></p>
+          <p><a href="mailto:contact@madeby1891.com">contact@madeby1891.com</a></p>
         </div>
         <div class="card">
           <h3 class="mt-0">Responsible disclosure</h3>
           <p class="ink-soft">Found a security issue? Please don't post it — email us. Process and PGP key on the <a href="{BASE_PATH}/legal/responsible-disclosure">disclosure page</a>.</p>
-          <p><a href="mailto:security@madeby1891.com">security@madeby1891.com</a></p>
+          <p><a href="mailto:contact@madeby1891.com">contact@madeby1891.com</a></p>
         </div>
       </div>
     </div>
@@ -1931,8 +1931,8 @@ def about_body() -> str:
   <section class="section">
     <div class="wrap-narrow">
       <span class="eyebrow">Deaf-owned verification</span>
-      <h2>Right now, this is Fallon's call.</h2>
-      <p>Fallon reviews Deaf-owned applications herself. We're bringing on a small group of community advisors — people with real standing among Deaf agency owners — to review alongside her, and we'll name them here once they're seated. Until that group is in place, we're glad to take applications, but we're holding final decisions rather than have anyone verified by a board that doesn't fully exist yet. We'd rather be slow than pretend.</p>
+      <h2>Reviewed during the pilot window.</h2>
+      <p>While the platform is in its pilot window, applications are reviewed by the program itself — a small group, in the order applications arrive, with a written reason either way. We're expanding the review group with community advisors who have real standing among Deaf agency owners, and we'll name the full group here once it's seated. We'd rather be slow than pretend.</p>
     </div>
   </section>
 
@@ -1992,7 +1992,7 @@ def security_body() -> str:
       <div class="cluster" style="margin-top:var(--1891int-s-6)">
         <a class="btn btn-primary" href="{BASE_PATH}/legal/baa">Read the BAA</a>
         <a class="btn btn-secondary" href="{BASE_PATH}/legal/subprocessors">Subprocessor list</a>
-        <a class="btn btn-ghost" href="mailto:security@madeby1891.com">Responsible disclosure</a>
+        <a class="btn btn-ghost" href="mailto:contact@madeby1891.com">Responsible disclosure</a>
       </div>
     </div>
   </section>
@@ -2147,7 +2147,7 @@ def accessibility_body() -> str:
       <span class="eyebrow">Where we are, honestly</span>
       <h2>This is the marketing site today. The app comes next.</h2>
       <p class="ink-soft">Right now what's public is this site, and it's built to the same bar we hold the product to. The app comes online with our first agencies later this year, and we'll keep this page current as it does — including the things still on our list and when we expect to have them fixed. If you hit something that doesn't work, that's a bug to us, the same as any other.</p>
-      <p style="margin-top:var(--1891int-s-4)">Found something? Email <a href="mailto:accessibility@madeby1891.com">accessibility@madeby1891.com</a> and a person will read it.</p>
+      <p style="margin-top:var(--1891int-s-4)">Found something? Email <a href="mailto:contact@madeby1891.com">contact@madeby1891.com</a> and a person will read it.</p>
     </div>
   </section>
 
@@ -2672,7 +2672,7 @@ def build_pages() -> list[Page]:
       <p>We use a single session cookie set only after you sign in, and only to maintain your session. No third-party cookies. No analytics cookies on the public marketing site at launch.</p>
 
       <h2>Your rights.</h2>
-      <p>You can request a copy of any personal data we hold about you, ask us to correct or delete it, or withdraw consent at any time. Email <a href=\"mailto:privacy@madeby1891.com\">privacy@madeby1891.com</a>. We respond within 30 days.</p>
+      <p>You can request a copy of any personal data we hold about you, ask us to correct or delete it, or withdraw consent at any time. Email <a href=\"mailto:contact@madeby1891.com\">contact@madeby1891.com</a>. We respond within 30 days.</p>
 
       <h2>HIPAA.</h2>
       <p>If you are a covered entity or business associate, our <a href=\"""" + BASE_PATH + """/legal/baa\">BAA</a> governs PHI handling and takes precedence over this privacy notice for PHI specifically.</p>
@@ -2748,7 +2748,7 @@ def build_pages() -> list[Page]:
       <p>We notify you of any breach affecting your PHI within 30 days, with as much detail as we have. For low-risk events, we notify in our quarterly summary; for high-risk events, we notify within 24 hours and walk you through the response together.</p>
 
       <h2>How to get the BAA.</h2>
-      <p>Email <a href=\"mailto:legal@madeby1891.com\">legal@madeby1891.com</a> with your organization name and we'll send the executable PDF. Most BAAs are countersigned within 3 business days. Redlines are welcome on Studio and Network; we'll work them with our counsel and yours.</p>
+      <p>Email <a href=\"mailto:contact@madeby1891.com\">contact@madeby1891.com</a> with your organization name and we'll send the executable PDF. Most BAAs are countersigned within 3 business days. Redlines are welcome on Studio and Network; we'll work them with our counsel and yours.</p>
     """
     pages.append(Page(
         path="legal/baa.html",
@@ -2772,7 +2772,7 @@ def build_pages() -> list[Page]:
       <p>Primary data residency is US. EU/UK customer data is gated behind data-residency review until our EU presence is established (targeted 2027). Standard Contractual Clauses (SCCs) and UK IDTA apply where transfers occur.</p>
 
       <h2>How to get the DPA.</h2>
-      <p>Email <a href=\"mailto:legal@madeby1891.com\">legal@madeby1891.com</a>. Standard DPA signed within 3 business days.</p>
+      <p>Email <a href=\"mailto:contact@madeby1891.com\">contact@madeby1891.com</a>. Standard DPA signed within 3 business days.</p>
     """
     pages.append(Page(
         path="legal/dpa.html",
@@ -2819,7 +2819,7 @@ def build_pages() -> list[Page]:
       <p>Every release runs automated checks (axe-core), manual screen-reader testing (VoiceOver, NVDA, JAWS, TalkBack), and keyboard-only smoke tests. Releases block on regressions. The conformance log at <a href=\"""" + BASE_PATH + """/accessibility\">/accessibility</a> is updated per release.</p>
 
       <h2>How to report a barrier.</h2>
-      <p>Email <a href=\"mailto:accessibility@madeby1891.com\">accessibility@madeby1891.com</a>. Reports go to a priority queue: response within 2 business days, target fix date within 5.</p>
+      <p>Email <a href=\"mailto:contact@madeby1891.com\">contact@madeby1891.com</a>. Reports go to a priority queue: response within 2 business days, target fix date within 5.</p>
 
       <h2>Formats and assistive tech.</h2>
       <p>The product works with current versions of major screen readers and browsers. We test against Safari + VoiceOver on macOS and iOS, Chrome + NVDA on Windows, Firefox + JAWS, and Chrome + TalkBack on Android. Older browsers may have degraded experience; we maintain a documented support matrix in the product help.</p>
@@ -2834,7 +2834,7 @@ def build_pages() -> list[Page]:
 
     rd_html = """
       <h2>Reporting a vulnerability.</h2>
-      <p>If you discover a security issue in our platform, please email <a href=\"mailto:security@madeby1891.com\">security@madeby1891.com</a>. We acknowledge within 1 business day and provide a response within 5 business days.</p>
+      <p>If you discover a security issue in our platform, please email <a href=\"mailto:contact@madeby1891.com\">contact@madeby1891.com</a>. We acknowledge within 1 business day and provide a response within 5 business days.</p>
 
       <h2>Safe harbor.</h2>
       <p>We will not pursue legal action against researchers who:</p>
@@ -2873,7 +2873,7 @@ def build_pages() -> list[Page]:
       <p>If you believe content hosted on 1891 Interpreter infringes a copyright you own or are authorized to act for, please send a written notice to our designated agent.</p>
 
       <h2>Designated agent.</h2>
-      <p>1891 LLC · Frederick, Maryland<br>Email: <a href=\"mailto:legal@madeby1891.com\">legal@madeby1891.com</a></p>
+      <p>1891 LLC · Frederick, Maryland<br>Email: <a href=\"mailto:contact@madeby1891.com\">contact@madeby1891.com</a></p>
 
       <h2>What to include.</h2>
       <ol class="stack-3" style="padding-left:1.2em">
@@ -2912,7 +2912,7 @@ def build_pages() -> list[Page]:
       </ul>
 
       <h2>The board.</h2>
-      <p>Fallon Brizendine (CDI, MA Interpretation, Gallaudet) plus two community advisors rotating annually. The community advisors are drawn from a pool with explicit standing in the Deaf agency-owner community. The board reviews every application within 5 business days. All denials are reviewed by the full board, not a single reviewer.</p>
+      <p>During the pilot window, applications are reviewed by the program’s founding review group. Community advisors with explicit standing in the Deaf agency-owner community join as the group seats, and will be named here once confirmed. Every application is reviewed in the order it arrives. No application is denied by a single reviewer.</p>
 
       <h2>Edge cases.</h2>
       <p>See <a href=\"""" + BASE_PATH + """/free-for-deaf-owned\">/free-for-deaf-owned</a> for the public edge-case table covering CODA-owned agencies, mixed-ownership at 51%, Deaf-led nonprofits, hearing-allied agencies, and ownership-vs-operational-control situations.</p>

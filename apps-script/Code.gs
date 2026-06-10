@@ -33,8 +33,11 @@ var SHEET_ID = '1RKY0n-dStOoyLtayppvQ0prGVFXMiR0aHg0C_u7eigE'; // "1891 Interpre
 var SITE_BASE = 'https://madeby1891.com/interpreter';
 
 var NOTIFY_EMAIL         = 'hello@madeby1891.com';
-var ACCESSIBILITY_NOTIFY = 'accessibility@madeby1891.com';
-var SECURITY_NOTIFY      = 'security@madeby1891.com';
+// 2026-06-10: routed to contact@ (a live mailbox) — the dedicated aliases
+// were printed on the site but never created, so a11y/security form
+// notifications were bouncing into the void. Re-split when aliases exist.
+var ACCESSIBILITY_NOTIFY = 'contact@madeby1891.com';
+var SECURITY_NOTIFY      = 'contact@madeby1891.com';
 
 // Brand identity for customer-facing email. Mirrors the FDT pattern
 // (BRAND_NAME / BRAND_FROM_EMAIL / BRAND_REPLY_TO). Every MailApp.sendEmail

@@ -98,7 +98,8 @@ function _ackTemplate_(formId, params) {
         'Your application for the free-forever Deaf-owned tier is in. Here’s exactly ' +
         'what happens next:\n\n' +
         '  1. A person confirms receipt within 2 business days.\n' +
-        '  2. The verification review typically completes within 5 business days.\n' +
+        '  2. Your application is reviewed during the pilot window, in the order it ' +
+        'arrived — decisions come with a written reason either way.\n' +
         '  3. If anything in your documentation needs a follow-up, we ask — we don’t ' +
         'silently deny.\n\n' +
         'While you wait, the sandbox is open — it’s the same console your agency ' +
