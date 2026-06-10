@@ -1,0 +1,51 @@
+name: uptime
+
+# Polls the public surfaces every 10 minutes. A red run = GitHub emails the
+# repo watchers — the zero-infrastructure pager. Keep the checks dumb: 200s
+# and one JSON sentinel each, nothing that can flake on content drift.
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Marketing site
+        run: |
+          code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 15 https://madeby1891.com/interpreter/)
+          echo "site → $code"
+          [ "$code" = "200" ]
+      - name: Sandbox
+        if: always()
+        run: |
+          code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 15 https://madeby1891.com/interpreter/try/)
+          echo "/try/ → $code"
+          [ "$code" = "200" ]
+      - name: API worker
+        if: always()
+        run: |
+          body=$(curl -s --max-time 15 https://1891-interpreter-api.anthonymowl.workers.dev/health)
+          echo "api → $body"
+          echo "$body" | grep -q '"ok":true'
+      - name: Data worker
+        if: always()
+        run: |
+          body=$(curl -s --max-time 15 https://interpreter-data.anthonymowl.workers.dev/healthz)
+          echo "data → $body"
+          echo "$body" | grep -q '"ok":true'
+      - name: Captions worker
+        if: always()
+        run: |
+          code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 15 https://1891-interpreter-captions.anthonymowl.workers.dev/healthz)
+          echo "captions → $code"
+          [ "$code" = "200" ]
+      - name: Backend forms endpoint (via proxy)
+        if: always()
+        run: |
+          body=$(curl -s --max-time 30 -X POST https://1891-interpreter-api.anthonymowl.workers.dev/v1/proxy/exec -d "action=sandbox_verify&token=uptime-probe")
+          echo "proxy → $body"
+          echo "$body" | grep -q '"ok"'

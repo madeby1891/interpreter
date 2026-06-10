@@ -8,8 +8,8 @@
 <meta name="theme-color" content="#C8553D">
 <link rel="canonical" href="https://madeby1891.com/interpreter/get-a-demo">
 <link rel="icon" type="image/svg+xml" href="/interpreter/assets/img/favicon.svg">
-<link rel="stylesheet" href="/interpreter/assets/css/site.css?v=c9b63d8f">
-<link rel="stylesheet" href="/interpreter/assets/css/marketing-interact.css?v=c9b63d8f">
+<link rel="stylesheet" href="/interpreter/assets/css/site.css?v=93a07199">
+<link rel="stylesheet" href="/interpreter/assets/css/marketing-interact.css?v=93a07199">
 <meta property="og:title" content="Book a working session — 1891 Interpreter">
 <meta property="og:description" content="30 minutes on a real account, no slide deck. Your agency on the screen.">
 <meta property="og:type" content="website">
@@ -70,6 +70,7 @@
       <span class="eyebrow">Book a working session</span>
       <h1>30 minutes. Your agency on the screen.</h1>
       <p class="lede">No slide deck. We open the app with your data shape (a few sample rows you give us, no real PHI) and walk through your day-of board, smart-fill, billing, and the BAA.</p>
+      <p class="hero-try" style="font-size:15px">Can't wait for a calendar slot? <a href="/interpreter/try/">The sandbox is open right now</a> — no signup.</p>
     </div>
   </section>
 
@@ -77,7 +78,8 @@
     <div class="wrap">
       <div class="grid grid-2" style="gap:var(--1891int-s-7); align-items:flex-start">
         <div class="form-card">
-          <form data-form action="/api/lead" method="post" aria-label="Demo request">
+          <form data-form action="https://1891-interpreter-api.anthonymowl.workers.dev/v1/proxy/exec" method="post" aria-label="Demo request">
+            <noscript><p class="muted" style="font-size:13.5px">Without JavaScript, submitting shows a plain-text receipt from our server instead of staying on this page — or email <a href="mailto:hello@madeby1891.com">hello@madeby1891.com</a>.</p></noscript>
             <input type="hidden" name="form_id" value="demo_request">
             <div class="field">
               <label for="d_name">Your name <span aria-hidden="true">*</span></label>
@@ -196,8 +198,8 @@
     </div>
   </div>
 </footer>
-<script src="/interpreter/assets/js/main.js?v=c9b63d8f" defer></script>
-<script src="/interpreter/assets/js/marketing-interact.js?v=c9b63d8f" defer></script>
+<script src="/interpreter/assets/js/main.js?v=93a07199" defer></script>
+<script src="/interpreter/assets/js/marketing-interact.js?v=93a07199" defer></script>
 
 <!-- BEGIN UMBRELLA-CONSENT -->
 <link rel="stylesheet" href="/shared/lib/consent/consent.css">

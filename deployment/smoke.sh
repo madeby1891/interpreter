@@ -108,8 +108,12 @@ else
   FAIL=$((FAIL+1))
 fi
 
-# 3. Pricing page renders a Subscribe CTA.
-if curl -fsS "$BASE/pricing" 2>/dev/null | grep -q "Subscribe"; then
+# 3. Pricing page renders a Subscribe CTA. One retry with a pause: mid-suite,
+# this fetch intermittently catches a transient origin error (the suite has
+# just fired ~25 rapid requests), and -f turns that into an empty body that
+# reads like a missing CTA. Verified flaky 2026-06-10; content was correct.
+PRICING_HTML=$(curl -fsS "$BASE/pricing" 2>/dev/null) || { sleep 3; PRICING_HTML=$(curl -fsS "$BASE/pricing" 2>/dev/null) || true; }
+if echo "$PRICING_HTML" | grep -q "Subscribe"; then
   echo "  ✓  Pricing page contains a Subscribe CTA"
 else
   echo "  ✗  Pricing page is missing a Subscribe CTA" >&2

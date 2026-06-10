@@ -4,6 +4,32 @@ Dated history of changes. Newest entries at the top. Note user-visible changes o
 
 ---
 
+## 2026-06-10 — launch funnel: gated sandbox, form receipts, lead console, watchdog
+
+The pre-launch funnel pass. Everything below is live and verified.
+
+### Sandbox — `/try/` (new surface)
+
+- **Instant-boot demo sandbox** at [`madeby1891.com/interpreter/try/`](https://madeby1891.com/interpreter/try/) — the agency console with sample data, booting in the visitor's browser with **no signup**. Three scenarios (medical-heavy ASL, K-12 & college, spoken+signed mixed), live day board, claim flow from the interpreter's view, pre-baked smart-fill with the public 30/20/20/15/15 score breakdown, invoice drafting on close-out, three themes. Data stays in `localStorage`; payments/texts/emails/AI are faked and labeled as such.
+- **Tease-then-gate email wall.** After 5 meaningful actions the sandbox hard-gates on a work email. The backend mails a 7-day signed continuation link; the sandbox stays locked — including on return visits — until the link is opened, then unlocks with state intact and a fresh 14-day window. This is a deliberate gated-sandbox variant of `DEMO_SANDBOX.md` v1 (which is no-gate, no-backend); spec amendment noted there.
+- **CTAs added:** homepage hero, pricing lede, and get-a-demo page now point at the sandbox; `/try/` is on the sitemap.
+
+### Inbound forms — receipts + honesty
+
+- **Every form now acknowledges the submitter by email within the minute** (demo request, contact, requestor sample, Deaf-owned application, accessibility, security). The Deaf-owned receipt states the published review timelines. Previously the live site promised an "auto-reply within 5 minutes" with nothing wired.
+- **No more fake success.** The form JS used to show "we received that" even when the request never left the browser; it now says plainly that the submit failed and offers `hello@`.
+- **No-JS fallback fixed.** Form `action` previously pointed at `/api/lead`, a 404; it now posts to the real endpoint (plain-text receipt), with a `noscript` note.
+
+### Lead console + digest (admin)
+
+- **`/app/admin/leads/`** — the inbound pipeline in one screen: every form submission with status/owner/notes, filters, and an OVER-SLA badge once a lead has sat `new` past the published 1-business-day promise. Platform-staff/host-owner only.
+- **Daily 8am ET digest** to hello@ + Fallon: new leads (24h), SLA breaches, pending Deaf-owned applications, sandbox funnel counts.
+
+### Ops
+
+- **Uptime watchdog:** GitHub Actions polls the site, `/try/`, and all three workers every 10 minutes; a red run emails repo watchers.
+- **Deploy smoke hardened:** the pricing-CTA check retries once (verified flaky mid-suite 2026-06-10 while content was correct).
+
 ## 2026-05-25 — platform-spec backfill (SMS contract v1, dashboard contract v1, HARD RULE sweep)
 
 A catch-up pass against three umbrella specs that landed last week.

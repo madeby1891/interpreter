@@ -220,6 +220,11 @@ function doPost(e) {
       case 'sso_callback':       return _safeCall('apiSsoCallback', e);
       // Inbound email → draft request (Code_EmailIntake.gs)
       case '_install_inbound_email': return _safeCall('apiInstallInboundEmailTrigger', e);
+      // Launch funnel (Code_Funnel.gs): sandbox gate + lead console + digest
+      case 'sandbox_verify':       return _safeCall('apiSandboxVerify', e);
+      case 'list_leads':           return _safeCall('apiListLeads', e);
+      case 'update_lead':          return _safeCall('apiUpdateLead', e);
+      case 'install_lead_digest':  return _safeCall('apiInstallLeadDigest', e);
       // Job state mutations route through the live-board dispatcher so the
       // Cloudflare Worker fan-outs to every connected subscriber on success.
       // The wrapper never blocks the response — notify failures are swallowed.
@@ -402,6 +407,15 @@ function handleInboundForm(e) {
   _appendInbound(ss, iso, formId, params);
   _notifyOwner(formId, params);
   _logAudit('inbound_form_submit', formId, '', '');
+
+  // Sandbox gate: the lead is recorded above; now issue the continuation
+  // link. Its response replaces the generic one (the page needs ok/error).
+  if (formId === 'sandbox_gate') {
+    return _sandboxGateIntake_(params);
+  }
+
+  // Every other form gets a same-minute receipt to the submitter.
+  _ackInbound_(formId, params);
   return _json({ ok:true, received:iso });
 }
 
