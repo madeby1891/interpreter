@@ -191,6 +191,34 @@
             </div>
             <div class="field"><label class="check"><input type="checkbox" name="deaf" value="true"> <span>Deaf interpreter (CDI-eligible)</span></label></div>
           </form>
+
+          <!-- Insurance check (1099 activation, spec B: expiry + named-insured +
+               coverage minimums). Automated first pass; the agency confirms every
+               extracted field in the review room. Fail-closed: an unreadable
+               certificate is never treated as valid. -->
+          <div id="coi-panel" style="margin-top:var(--1891int-s-6);border:1px solid var(--1891int-line,#e3e7ec);border-radius:10px;padding:var(--1891int-s-5)">
+            <h3 style="margin:0 0 4px">Insurance check <span class="ink-soft" style="font-weight:400">(1099 contractors)</span></h3>
+            <p class="ink-soft" style="font-size:14px;margin:0 0 12px">
+              Upload the contractor's certificate of insurance. We read every page with an
+              automated first pass; a person at your agency confirms the details — carrier,
+              named insured, policy dates, coverage limits — before the interpreter is
+              activated. Certificates are kept for the life of the contract plus one year.
+            </p>
+            <div class="field" style="max-width:420px">
+              <label>Upload code <span class="ink-soft" style="font-weight:400">(from your platform contact; changes daily)</span></label>
+              <input id="coi-code" type="text" autocomplete="off" placeholder="paste today's upload code">
+            </div>
+            <div style="display:flex;gap:var(--1891int-s-4);align-items:center;flex-wrap:wrap">
+              <input id="coi-file" type="file" accept="application/pdf,image/png,image/jpeg" style="max-width:320px">
+              <button class="btn btn-ghost" type="button" id="coi-send">Check this certificate</button>
+            </div>
+            <ul id="coi-jobs" style="list-style:none;padding:0;margin:var(--1891int-s-4) 0 0;font-size:14px"></ul>
+            <p class="ink-soft" style="font-size:13px;margin-top:8px">
+              Verified status and expiry reminders live in your agency's document review
+              room once your admin shares the link.
+            </p>
+          </div>
+
           <div class="wizard-actions">
             <button class="btn btn-ghost" type="button" data-prev="1">← Back</button>
             <button class="btn btn-primary" type="button" data-next="3">Add and continue →</button>
@@ -385,6 +413,112 @@
     $('summary').innerHTML = lines.map(function (l) {
       return '<div class="summary-line"><span class="label">' + esc(l[0]) + '</span><span>' + esc(l[1]) + '</span></div>';
     }).join('');
+  }
+})();
+</script>
+<script>
+/* Insurance check — talks to the studio document service. The upload code is
+   the per-day product token an admin hands the onboarding operator; it never
+   lives in this page's source. Fail-closed by design: nothing here marks a
+   certificate valid — verification happens in the agency review room. */
+(function () {
+  'use strict';
+  var BASE = 'https://scribe.anthonymowl.workers.dev';
+  var LS_JOBS = 'int_coi_jobs', SS_CODE = 'int_coi_upload_code';
+  var $ = function (id) { return document.getElementById(id); };
+  var tenant = 'default';
+  document.addEventListener('DOMContentLoaded', function () {
+    if (!$('coi-panel')) return;
+    if (window.IntApi && IntApi.whoami) {
+      IntApi.whoami().then(function (r) {
+        if (r && r.ok && r.agency) tenant = r.agency.slug || r.agency.id || tenant;
+      }).catch(function () {});
+    }
+    $('coi-code').value = sessionStorage.getItem(SS_CODE) || '';
+    $('coi-send').addEventListener('click', send);
+    render();
+    setInterval(pollAll, 20000);
+  });
+  function hdrs() {
+    var code = ($('coi-code').value || '').trim();
+    if (code) sessionStorage.setItem(SS_CODE, code);
+    return code ? { 'x-scribe-product': 'interpreter', 'x-scribe-token': code } : null;
+  }
+  function jobs() { try { return JSON.parse(localStorage.getItem(LS_JOBS) || '[]'); } catch (e) { return []; } }
+  function save(list) { localStorage.setItem(LS_JOBS, JSON.stringify(list.slice(-12))); }
+  function toastMsg(m) { var t = $('toast'); if (t) { t.textContent = m; t.className = 'toast show'; setTimeout(function () { t.className = 'toast'; }, 3500); } }
+  function send() {
+    var f = ($('coi-file').files || [])[0];
+    var h = hdrs();
+    if (!f) { toastMsg('Choose a certificate file first.'); return; }
+    if (!h) { toastMsg('Paste today’s upload code first.'); return; }
+    var nameField = document.querySelector('#int-form [name="legal_first"]');
+    var lastField = document.querySelector('#int-form [name="legal_last"]');
+    var who = ((nameField && nameField.value || '') + ' ' + (lastField && lastField.value || '')).trim();
+    $('coi-send').disabled = true;
+    fetch(BASE + '/intake/presign', {
+      method: 'POST',
+      headers: Object.assign({ 'content-type': 'application/json' }, h),
+      body: JSON.stringify({
+        profile: 'coi-certificate', tenant: tenant, mime: f.type || 'application/pdf',
+        size_bytes: f.size, original_name: f.name,
+        consent_ref: 'interpreter-coi-consent-v1', visibility: 'private'
+      })
+    }).then(function (r) { return r.json().then(function (d) { if (!r.ok) throw new Error(d.error || r.status); return d; }); })
+      .then(function (p) {
+        return fetch(p.upload_url, { method: 'PUT', headers: { 'content-type': f.type || 'application/pdf' }, body: f })
+          .then(function (r) { if (!r.ok) throw new Error('upload failed'); return p; });
+      })
+      .then(function (p) {
+        var today = new Date().toISOString().slice(0, 10);
+        return fetch(BASE + '/intake/complete', {
+          method: 'POST',
+          headers: Object.assign({ 'content-type': 'application/json' }, h),
+          body: JSON.stringify({ document_id: p.document_id, hints: { interpreter: who, validator_context: { today: today } } })
+        }).then(function (r) { return r.json(); });
+      })
+      .then(function (c) {
+        var list = jobs();
+        list.push({ id: c.job_id, file: f.name, who: who, state: c.ok ? 'queued' : 'failed' });
+        save(list); render(); pollAll();
+        toastMsg('Certificate received — reading it now.');
+        $('coi-file').value = '';
+      })
+      .catch(function (e) { toastMsg('Could not send the certificate (' + e.message + ').'); })
+      .finally(function () { $('coi-send').disabled = false; });
+  }
+  var WORDS = {
+    queued: 'waiting to be read', leased: 'reading the certificate',
+    extracted: 'reading the certificate', escalated: 'taking the careful path',
+    review: 'with your agency for the accuracy pass',
+    approved: 'confirmed — finishing up', committed: 'verified by your agency',
+    rejected: 'sent back — see the review room', failed: 'could not be read — try a clearer scan or photo'
+  };
+  function render() {
+    var ul = $('coi-jobs');
+    if (!ul) return;
+    ul.innerHTML = '';
+    jobs().forEach(function (j) {
+      var li = document.createElement('li');
+      li.style.cssText = 'padding:6px 0;border-top:1px solid var(--1891int-line,#e3e7ec)';
+      var done = j.state === 'committed';
+      li.textContent = (j.who ? j.who + ' — ' : '') + j.file + ': ' + (WORDS[j.state] || j.state);
+      if (done) li.style.color = 'var(--1891int-river, #2E5E5C)';
+      if (j.state === 'rejected' || j.state === 'failed') li.style.color = '#b3261e';
+      ul.appendChild(li);
+    });
+  }
+  function pollAll() {
+    var h = hdrs();
+    if (!h) return;
+    var list = jobs();
+    var open = list.filter(function (j) { return ['queued', 'leased', 'extracted', 'escalated', 'review', 'approved'].indexOf(j.state) >= 0; });
+    Promise.all(open.map(function (j) {
+      return fetch(BASE + '/jobs/' + j.id, { headers: h })
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (d) { if (d && d.state) j.state = d.state; })
+        .catch(function () {});
+    })).then(function () { save(list); render(); });
   }
 })();
 </script>
