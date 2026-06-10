@@ -135,7 +135,7 @@ def header_html(active: str = "") -> str:
     </button>
     <nav class="nav-primary" id="primary-nav" aria-label="Primary">
 {chr(10).join(items)}
-      <a href="{BASE_PATH}/get-a-demo" class="btn btn-primary btn-sm nav-cta">Get a demo</a>
+      <a href="{BASE_PATH}/get-a-demo" class="btn btn-primary btn-sm nav-cta">Book a working session</a>
     </nav>
   </div>
 </header>
@@ -268,7 +268,7 @@ def home_body() -> str:
             <div>Free, forever, for verified Deaf-owned agencies.</div>
           </div>
           <div class="cluster" style="margin-top:var(--1891int-s-6)">
-            <a class="btn btn-primary btn-lg" href="{BASE_PATH}/get-a-demo">Get a demo</a>
+            <a class="btn btn-primary btn-lg" href="{BASE_PATH}/get-a-demo">Book a working session</a>
             <a class="btn btn-secondary btn-lg" href="{BASE_PATH}/free-for-deaf-owned">Free if Deaf-owned</a>
           </div>
           <p class="muted" style="margin-top:var(--1891int-s-5); font-size:14px">
@@ -681,7 +681,7 @@ def for_agencies_body() -> str:
     </div>
   </section>
 
-  {cta_band("Talk to us about your agency.", "Get a demo", f"{BASE_PATH}/get-a-demo", "Start free if Deaf-owned", f"{BASE_PATH}/free-for-deaf-owned")}
+  {cta_band("Talk to us about your agency.", "Book a working session", f"{BASE_PATH}/get-a-demo", "Start free if Deaf-owned", f"{BASE_PATH}/free-for-deaf-owned")}
 """
 
 
@@ -1049,7 +1049,7 @@ def for_interpreters_body() -> str:
           <p class="ink-soft" style="margin-top:var(--1891int-s-3); font-size:15px"><strong>The agency signs the contract — but you're the reason it's worth anything.</strong> The app is built like it.</p>
           <div class="cluster" style="margin-top:var(--1891int-s-6)">
             <a class="btn btn-primary btn-lg" href="{BASE_PATH}/features/interpreter-app">See the app</a>
-            <a class="btn btn-ghost btn-lg" href="{BASE_PATH}/get-a-demo">Get a demo</a>
+            <a class="btn btn-ghost btn-lg" href="{BASE_PATH}/get-a-demo">Book a working session</a>
           </div>
         </div>
         <div data-reveal data-delay="100">{mock_phone(ui_interpreter_offer(), caption="The offer, the pay, and the Claim button — one tap from your texts.")}</div>
@@ -1196,7 +1196,7 @@ def for_requestors_body() -> str:
     </div>
   </section>
 
-  {cta_band("Ask your agency to use 1891.", "Get a demo", f"{BASE_PATH}/get-a-demo", "How agencies bill", f"{BASE_PATH}/for-payers")}
+  {cta_band("Ask your agency to use 1891.", "Book a working session", f"{BASE_PATH}/get-a-demo", "How agencies bill", f"{BASE_PATH}/for-payers")}
 """
 
 
@@ -1281,7 +1281,7 @@ def for_payers_body() -> str:
     </div>
   </section>
 
-  {cta_band("Want a sample invoice + GL mapping?", "Get a demo", f"{BASE_PATH}/get-a-demo", "Read the BAA", f"{BASE_PATH}/legal/baa")}
+  {cta_band("Want a sample invoice + GL mapping?", "Book a working session", f"{BASE_PATH}/get-a-demo", "Read the BAA", f"{BASE_PATH}/legal/baa")}
 """
 
 
@@ -1337,7 +1337,7 @@ def pricing_body() -> str:
             cta_block = f"""
           <a class="btn btn-primary" href="{BASE_PATH}/pay/subscribe?tier={tier_slug}&amp;billing=annual">Subscribe annually</a>
           <a class="btn btn-ghost btn-sm" href="{BASE_PATH}/pay/subscribe?tier={tier_slug}&amp;billing=monthly" style="margin-left:8px">Or monthly</a>
-          <p style="margin-top:var(--1891int-s-3); font-size:13.5px"><a href="{BASE_PATH}/get-a-demo">Get a demo first &rarr;</a></p>"""
+          <p style="margin-top:var(--1891int-s-3); font-size:13.5px"><a href="{BASE_PATH}/get-a-demo">Book a working session first &rarr;</a></p>"""
         else:
             cta_block = f"""
           <a class="btn {'btn-primary' if featured else 'btn-secondary'}" href="{BASE_PATH}{href}">{cta}</a>"""
@@ -1437,7 +1437,7 @@ def pricing_body() -> str:
     </div>
   </section>
 
-  {cta_band("Pick a path.", "Get a demo", f"{BASE_PATH}/get-a-demo", "Start free if Deaf-owned", f"{BASE_PATH}/free-for-deaf-owned")}
+  {cta_band("Pick a path.", "Book a working session", f"{BASE_PATH}/get-a-demo", "Start free if Deaf-owned", f"{BASE_PATH}/free-for-deaf-owned")}
 """
 
 
@@ -1555,7 +1555,7 @@ def get_demo_body() -> str:
     return f"""
   <section class="feature-hero">
     <div class="wrap">
-      <span class="eyebrow">Get a demo</span>
+      <span class="eyebrow">Book a working session</span>
       <h1>30 minutes. Your agency on the screen.</h1>
       <p class="lede">No slide deck. We open the app with your data shape (a few sample rows you give us, no real PHI) and walk through your day-of board, smart-fill, billing, and the BAA.</p>
     </div>
@@ -1734,7 +1734,7 @@ def sign_in_body() -> str:
         <strong>We don't use passwords.</strong> Magic links expire in 15 minutes. Pro and Studio tiers can require a passkey (WebAuthn) on every sign-in. Free and Solo tiers have passkeys optional.
       </div>
       <p class="center-text muted" style="margin-top:var(--1891int-s-5); font-size:14px">
-        No account yet? <a href="{BASE_PATH}/get-a-demo">Get a demo</a> or <a href="{BASE_PATH}/free-for-deaf-owned">start free if Deaf-owned</a>.
+        No account yet? <a href="{BASE_PATH}/get-a-demo">Book a working session</a> or <a href="{BASE_PATH}/free-for-deaf-owned">start free if Deaf-owned</a>.
       </p>
     </div>
   </section>
@@ -1805,7 +1805,7 @@ def features_index_body() -> str:
           <h1>Sign, spoken, captioned, translated. One tool for the whole job.</h1>
           <p class="lede">Nine things the platform does — scheduling, the interpreter app, billing, translation, video and phone, live captions, reports, and the connections to the tools you already run. Each one has its own walkthrough below.</p>
           <div class="cluster" style="margin-top:var(--1891int-s-6)">
-            <a class="btn btn-primary btn-lg" href="{BASE_PATH}/get-a-demo">Get a demo</a>
+            <a class="btn btn-primary btn-lg" href="{BASE_PATH}/get-a-demo">Book a working session</a>
             <a class="btn btn-ghost btn-lg" href="{BASE_PATH}/pricing">See pricing</a>
           </div>
         </div>
@@ -1822,7 +1822,7 @@ def features_index_body() -> str:
       <div class="grid grid-3">{cards}</div>
     </div>
   </section>
-  {cta_band("Want the guided tour?", "Get a demo", f"{BASE_PATH}/get-a-demo", "See pricing", f"{BASE_PATH}/pricing")}
+  {cta_band("Want the guided tour?", "Book a working session", f"{BASE_PATH}/get-a-demo", "See pricing", f"{BASE_PATH}/pricing")}
 """
 
 
@@ -1874,7 +1874,7 @@ def feature_page_body(label: str, eyebrow: str, lede: str,
     </div>
   </section>""")
     out.append(cta_band(f"See {eyebrow.split('·')[-1].strip().lower()} for yourself.",
-                        "Get a demo", demo_href, "Back to all features", f"{BASE_PATH}/features/"))
+                        "Book a working session", demo_href, "Back to all features", f"{BASE_PATH}/features/"))
     return "".join(out)
 
 
@@ -1927,7 +1927,7 @@ def about_body() -> str:
     </div>
   </section>
 
-  {cta_band("Want to know more?", "Read our 1891 story", f"{BASE_PATH}/our-1891", "Get a demo", f"{BASE_PATH}/get-a-demo")}
+  {cta_band("Want to know more?", "Read our 1891 story", f"{BASE_PATH}/our-1891", "Book a working session", f"{BASE_PATH}/get-a-demo")}
 """
 
 
@@ -2316,10 +2316,10 @@ def build_pages() -> list[Page]:
     ))
     pages.append(Page(
         path="get-a-demo.html",
-        title="Get a demo — 1891 Interpreter",
+        title="Book a working session — 1891 Interpreter",
         description="30 minutes on a real account, no slide deck. Your agency on the screen.",
         nav_active="",
-        breadcrumb_html=breadcrumb(("Home", f"{BASE_PATH}/"), ("Get a demo", "")),
+        breadcrumb_html=breadcrumb(("Home", f"{BASE_PATH}/"), ("Book a working session", "")),
         body=get_demo_body(),
     ))
     pages.append(Page(
