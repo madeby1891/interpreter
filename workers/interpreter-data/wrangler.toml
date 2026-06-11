@@ -57,6 +57,11 @@ enabled = true
 [vars]
 PRODUCT = "interpreter"
 DEFAULT_TENANT = "host"
-# MIRROR_ENABLED is intentionally NOT set here — leave unset (mirror inert) until
-# strangler phase 4. HMAC_SECRET, MIRROR_SHEET_EXEC are secrets — wrangler secret
-# put / REST, never [vars].
+# MIRROR_ENABLED + MIRROR_TABLES_ENABLED are intentionally NOT set here — leave
+# unset (mirror fully inert) until strangler phase 4 begins. Phase 4 is PER-TABLE:
+# when a table's writes flip to D1 (Apps Script D1_WRITE_TABLES), set
+#   MIRROR_ENABLED = "true"
+#   MIRROR_TABLES_ENABLED = "Settings"            # comma-separated; "all" at the end
+# in the SAME deploy that freezes that table's Sheet->D1 sync. Never list a table
+# that is still Sheet-authoritative — the mirror would clobber live admin edits.
+# HMAC_SECRET, MIRROR_SHEET_EXEC are secrets — wrangler secret put / REST, never [vars].

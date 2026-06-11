@@ -1,0 +1,19 @@
+{
+  "id": "drip-sandbox-01-smartfill",
+  "subject": "How smart-fill ranks your roster \u2014 the working shown",
+  "from_name": "1891 Interpreter",
+  "from_email": "contact@send.madeby1891.com",
+  "reply_to": "contact@madeby1891.com",
+  "category": "marketing",
+  "urgency": "low",
+  "trigger": "sandbox-nurture step 0 (D+2 after verified sandbox gate, marketing consent)",
+  "audience": "Sandbox visitors who verified their email and ticked the series box",
+  "voice": "Plain-spoken builder; no buzzwords; no vendor names",
+  "variables": [
+    "unsub_url"
+  ],
+  "sample_vars": {
+    "unsub_url": "https://example.com/unsubscribe?token=SAMPLE"
+  },
+  "notes": "Authored 2026-06-10 (WS9 funnel lane). Sequence definition: sequences.json. Sends only when the sequence is active AND COMMS_DRIP=on (Anthony-gated)."
+}

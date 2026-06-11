@@ -74,10 +74,9 @@
           }
         })
         .catch(function () {
-          // Cross-origin POST failures — degrade to "we received it" since the request
-          // probably reached the proxy even if we couldn't read the response.
-          done('Thanks. We received that — a real person replies within 1 business day.', 'ok');
-          form.reset();
+          // The request never got a response — do NOT pretend it landed.
+          // A fake "we received it" here is a silently lost lead.
+          done('That didn’t go through — please try again, or email hello@madeby1891.com and a person will pick it up.', 'err');
         });
     });
   });

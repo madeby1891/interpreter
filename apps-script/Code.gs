@@ -33,8 +33,11 @@ var SHEET_ID = '1RKY0n-dStOoyLtayppvQ0prGVFXMiR0aHg0C_u7eigE'; // "1891 Interpre
 var SITE_BASE = 'https://madeby1891.com/interpreter';
 
 var NOTIFY_EMAIL         = 'hello@madeby1891.com';
-var ACCESSIBILITY_NOTIFY = 'accessibility@madeby1891.com';
-var SECURITY_NOTIFY      = 'security@madeby1891.com';
+// 2026-06-10: routed to contact@ (a live mailbox) — the dedicated aliases
+// were printed on the site but never created, so a11y/security form
+// notifications were bouncing into the void. Re-split when aliases exist.
+var ACCESSIBILITY_NOTIFY = 'contact@madeby1891.com';
+var SECURITY_NOTIFY      = 'contact@madeby1891.com';
 
 // Brand identity for customer-facing email. Mirrors the FDT pattern
 // (BRAND_NAME / BRAND_FROM_EMAIL / BRAND_REPLY_TO). Every MailApp.sendEmail
@@ -220,6 +223,11 @@ function doPost(e) {
       case 'sso_callback':       return _safeCall('apiSsoCallback', e);
       // Inbound email → draft request (Code_EmailIntake.gs)
       case '_install_inbound_email': return _safeCall('apiInstallInboundEmailTrigger', e);
+      // Launch funnel (Code_Funnel.gs): sandbox gate + lead console + digest
+      case 'sandbox_verify':       return _safeCall('apiSandboxVerify', e);
+      case 'list_leads':           return _safeCall('apiListLeads', e);
+      case 'update_lead':          return _safeCall('apiUpdateLead', e);
+      case 'install_lead_digest':  return _safeCall('apiInstallLeadDigest', e);
       // Job state mutations route through the live-board dispatcher so the
       // Cloudflare Worker fan-outs to every connected subscriber on success.
       // The wrapper never blocks the response — notify failures are swallowed.
@@ -402,6 +410,22 @@ function handleInboundForm(e) {
   _appendInbound(ss, iso, formId, params);
   _notifyOwner(formId, params);
   _logAudit('inbound_form_submit', formId, '', '');
+
+  // Sandbox gate: the lead is recorded above; now issue the continuation
+  // link. Its response replaces the generic one (the page needs ok/error).
+  if (formId === 'sandbox_gate') {
+    return _sandboxGateIntake_(params);
+  }
+
+  // Every other form gets a same-minute receipt to the submitter.
+  _ackInbound_(formId, params);
+
+  // Working-session requests also enroll in the lifecycle follow-up series
+  // (inert until the drip flags flip — see Code_Funnel.gs _commsEnroll_).
+  if (formId === 'demo_request') {
+    var demoEmail = String(params.email || params.work_email || '').trim().toLowerCase();
+    _commsEnroll_('demo-followup', demoEmail, 'demo_request', false);
+  }
   return _json({ ok:true, received:iso });
 }
 

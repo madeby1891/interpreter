@@ -111,13 +111,48 @@ python3 provision_rest.py exec <db_id> "SELECT ..."   # ad-hoc query / parity
 > are already live regardless — only the Worker *code* needs deploying, and it serves no
 > traffic until phase 2.
 
+## Write-path survey — what ACTUALLY happens to a row today (2026-06-10)
+
+The live end-to-end path (column names are HEADERS ONLY here — never row contents):
+
+```
+browser form (site/app pages)
+  → site/assets/js/api.js  (single client module; ENDPOINT = 1891-interpreter-api /v1/proxy/exec)
+  → workers/api (1891-interpreter-api Worker)  — CORS proxy + PHI encryption boundary
+      (PHI_MASTER_KEY lives HERE; Code_PHI.gs round-trips plaintext→`v1:iv:ct` via this Worker)
+  → apps-script doPost dispatch (Code.gs) → per-domain api* handler
+  → Sheet tab write — ~240 inlined appendRow/setValue sites across 23 .gs files   [WRITE STAGING]
+  → _d1NudgeAfterWrite_ (immediate, per-action table list) + 30-min d1SyncTick     [SHEET→D1 SENDER]
+  → POST /v1/dual-write[/batch] (HMAC body-signed envelope)
+  → workers/interpreter-data → D1 upsert by PK, tenant-pinned                      [SYSTEM OF RECORD]
+
+reads: app accessors → _dbValues_ (Code_D1Store.gs, D1_PRIMARY=true) → POST /v1/read → D1
+       (the Sheet is NOT read by the app since phase 3, 2026-06-06)
+```
+
+- **Writers to the Sheet:** Apps Script only (the ~240 inlined sites; plus
+  `Code_D1MirrorApply.gs` once phase 4 flips a table — then per snapshot, not per row).
+- **Writers to D1:** `interpreter-data` Worker only (dual-write sender + nudge today;
+  `_dbUpsert_`/`_dbDelete_` direct writes in phase 4).
+- **Readers:** app = D1 (via `/v1/read`); humans = the Sheet (the eyeball affordance the
+  phase-4 mirror preserves); godview = its own HMAC metrics endpoint.
+- **PHI columns (ciphertext blobs end-to-end, never decrypted by the data spine** —
+  registry `db.ts PHI_BLOB_COLUMNS`): `Consumers.legal_first_encrypted`,
+  `Consumers.legal_last_encrypted`, `Consumers.dob_encrypted`, `Consumers.mrn_encrypted`,
+  `Consumers.notes_sealed`, `Interpreters.payment_details_encrypted`. Default `/v1/read`
+  redacts them; the mirror masks to `[encrypted]`; `safeRowForLog()` keeps them out of
+  logs; `/v1/phi-audit` proves the stored shape, counts-only. As of 2026-06-05 every PHI
+  column is `populated:0` live (seed/demo-grade rows) — the discipline is proven, the
+  ciphertext path real-PHI-unexercised.
+- **Full 40-table column inventory:** `schema.sql` (1:1 with the Sheet tabs' header rows).
+
 ## Strangler phases — where we are and what's next
 
 ```
 phase 1  STAND UP    [DONE]   D1 provisioned, schema applied, worker deployed + /healthz verified, no traffic
 phase 2  DUAL-WRITE  [DONE]   Sheet→D1 sender live, backfill + fresh-on-write nudge, full parity, idempotent, 30-min trigger
 phase 3  FLIP READS  [DONE 2026-06-06]  all 16 app read accessors read D1 via _dbValues_ (flag D1_PRIMARY=true); verified live
-phase 4  FLIP WRITES [NOT STARTED]   D1 sole writer; Sheet demoted to read-only mirror
+phase 4  FLIP WRITES [RAILS STAGED 2026-06-10 — conversion not started]   D1 sole writer; Sheet demoted to read-only mirror
 ```
 
 ### 2026-06-06 — PHASE 3 (flip reads) is LIVE + VERIFIED
@@ -157,6 +192,55 @@ in Code_D1Store.gs). Recommended order: convert per domain (Settings → Rates �
 write-smoke (mutate via the real endpoint, confirm it lands in D1 and mirrors to the Sheet),
 before flipping the next. Until then reads are D1-authoritative and writes keep D1 fresh via
 the nudge — a coherent, safe interim state, not a half-cutover.
+
+### Phase 4 runbook (per table) — rails staged 2026-06-10
+
+All rails shipped + proven in test (19 workerd tests against a real local D1; the only
+mock is the outbound Apps Script POST). One flag per side, both per-table, both default
+OFF:
+
+| Side | Flag | Effect when a table is listed |
+| --- | --- | --- |
+| Apps Script | `D1_WRITE_TABLES` (gitignored `d1-secret.gs`; `'Settings,Rate_Cards'` or `'all'`) | sender STOPS Sheet→D1 sync for it (`_d1SyncTables_` + `_d1NudgeSync_`), receiver (`Code_D1MirrorApply.gs`, `?d1op=mirror_apply`) will accept mirror snapshots for it |
+| Worker | `MIRROR_ENABLED=true` + `MIRROR_TABLES_ENABLED` (same list shape) | nightly cron + `/v1/mirror/run` export it, HMAC-signed, PHI masked to `[encrypted]` |
+
+The mirror snapshot is body-signed (same envelope as every d1 route); the receiver
+re-verifies the signature, enforces a ±600s freshness window + replay cache, resolves
+the target spreadsheet from its own tenant registry (never from the snapshot), and
+remaps columns to the live tab's header order. A tab absent from BOTH flags can never
+be exported nor applied — defense in depth.
+
+**Convert one table (the loop to repeat ~22 times, domain by domain):**
+
+1. **Inventory** the table's write sites (`grep -n "appendRow\|setValue" apps-script/*.gs`
+   filtered to the tab) and convert each to `_dbUpsert_`/`_dbDelete_` (Code_D1Store.gs).
+2. **Flip the flag pair in ONE deploy**: add the table to `D1_WRITE_TABLES`
+   (d1-secret.gs) + clasp-deploy; set the Worker's `MIRROR_ENABLED=true` and append the
+   table to `MIRROR_TABLES_ENABLED` (wrangler — Anthony) + deploy.
+3. **Write-smoke**: mutate via the REAL endpoint (e.g. a Settings save), confirm
+   (a) the row lands in D1 (`/v1/read`), (b) `?d1op=mirror_status` shows the table in
+   `write_tables`, (c) `POST /v1/mirror/run {"tables":["<T>"]}` returns
+   `status:200` per tenant and the Sheet tab now shows the new row, (d) the next
+   `?d1op=tick` report does NOT include the table (sender cutoff proven).
+4. **Soak** ≥24h: `?d1op=parity` for that table stays equal (now via the mirror, not the
+   sync); no `mirror.tenant.failed` in Sys_Log.
+5. **Rollback (any point, order matters)**: `POST /v1/mirror/run` once so the Sheet tab
+   is current → remove the table from `D1_WRITE_TABLES` + from `MIRROR_TABLES_ENABLED`
+   (same deploy) → `?d1op=backfill&tab=<T>` (Sheet→D1 re-converges; the
+   `_d1SyncTables_` cutoff lifts automatically with the flag) → revert the write-site
+   conversion commits. The Sheet resumes as write-staging; reads (still D1) see the
+   backfilled rows.
+
+**Recommended domain order** (low-risk → high): Settings → Rates (Rate_Cards,
+Rate_Modifiers) → Docs → Clients/Requestors → Jobs/Offers/Assignments →
+Invoicing/Payments → PHI tables (Consumers, Interpreters) → LAST: `Audit_Log`
+(hash-chain seal — needs its own design; it is deliberately NOT mirrorable: not in the
+Worker's `MIRROR_TABLES`, and must never be listed in `D1_WRITE_TABLES`' mirror set
+until that design exists).
+
+**End state (legacy freeze)**: `D1_WRITE_TABLES='all'`, `MIRROR_TABLES_ENABLED='all'`,
+`d1op=uninstall_trigger` (the 30-min sync has nothing left to sync), godview
+`data_store: d1`, Sheet demoted to the §5 disposable read-only mirror.
 
 ### 2026-06-05 — RE-VERIFICATION + STATUS CORRECTION (independent, both sides)
 

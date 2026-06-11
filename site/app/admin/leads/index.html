@@ -1,0 +1,323 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Leads — 1891 Interpreter Admin</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#C8553D">
+<link rel="icon" type="image/svg+xml" href="/interpreter/assets/img/favicon.svg">
+<link rel="stylesheet" href="/interpreter/assets/css/site.css">
+<link rel="stylesheet" href="/interpreter/assets/css/app.css">
+<style>
+  .lead-counts { display:flex; gap:10px; flex-wrap:wrap; margin:var(--1891int-s-4) 0 }
+  .lead-count { background:#fff; border:1px solid var(--1891int-line); border-radius:10px; padding:8px 14px; font-size:13px; color:var(--1891int-fog) }
+  .lead-count strong { display:block; font-size:20px; color:var(--1891int-ink) }
+  .lead-count.bad strong { color:#a33324 }
+  .leads-table { width:100%; border-collapse:collapse; background:#fff; border:1px solid var(--1891int-line); border-radius:10px; overflow:hidden; font-size:13.5px }
+  .leads-table th, .leads-table td { text-align:left; padding:9px 10px; border-bottom:1px solid var(--1891int-line); vertical-align:top }
+  .leads-table th { font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:var(--1891int-fog); background:var(--1891int-sand, #faf7f3) }
+  .leads-table select { font:inherit; font-size:12.5px; padding:3px 6px; border:1px solid var(--1891int-line); border-radius:6px; background:#fff }
+  .sla-badge { display:inline-block; font-size:10.5px; font-weight:700; border-radius:999px; padding:2px 8px; background:#fdecea; color:#a33324; text-transform:uppercase; letter-spacing:.04em }
+  .form-chip { display:inline-block; font-size:10.5px; border-radius:999px; padding:2px 8px; background:var(--1891int-sand, #faf7f3); border:1px solid var(--1891int-line); white-space:nowrap }
+  .lead-detail { background:var(--1891int-sand, #faf7f3); }
+  .lead-detail td { padding:12px 14px }
+  .lead-detail textarea { width:100%; min-height:64px; font:inherit; font-size:13px; padding:8px; border:1px solid var(--1891int-line); border-radius:8px; box-sizing:border-box }
+  .lead-detail .raw { font-size:12px; color:var(--1891int-fog); white-space:pre-wrap; word-break:break-word; margin-top:8px }
+  .muted-sm { font-size:11.5px; color:var(--1891int-fog) }
+  .empty-state { text-align:center; padding:var(--1891int-s-7); color:var(--1891int-fog) }
+  .toolbar { display:flex; align-items:center; gap:10px; flex-wrap:wrap }
+  .toolbar .spacer { flex:1 }
+  .search-input { padding:8px 10px; border:1px solid var(--1891int-line); border-radius:6px; font-size:14px; min-width:200px }
+  .toast { position:fixed; bottom:18px; left:50%; transform:translateX(-50%); background:var(--1891int-ink, #22272b); color:#fff; border-radius:10px; padding:10px 18px; font-size:14px; opacity:0; pointer-events:none; transition:opacity .2s }
+  .toast.show { opacity:1 }
+</style>
+</head>
+<body>
+<a href="#main" class="skip">Skip to main content</a>
+
+<div class="app-shell">
+  <header class="app-header">
+    <div class="wrap">
+      <a href="/interpreter/app/" class="brand" aria-label="1891 Interpreter dashboard">
+        <img src="/interpreter/assets/img/brand-mark.svg" alt="" width="32" height="32">
+        <span>1891 <span class="brand-sub">Admin</span></span>
+      </a>
+      <div class="who"><span>Signed in as </span><strong id="who-name">…</strong><button id="signout" type="button">Sign out</button></div>
+    </div>
+  </header>
+
+  <nav class="app-nav" aria-label="App sections">
+    <div class="wrap">
+      <a href="/interpreter/app/">Day-of board</a>
+      <a href="/interpreter/app/interpreters/">Interpreters</a>
+      <a href="/interpreter/app/admin/">Admin</a>
+      <a href="/interpreter/app/admin/health">Health</a>
+      <a href="/interpreter/app/admin/audit">Audit log</a>
+      <a href="/interpreter/app/admin/tenants/">Tenants</a>
+      <a href="/interpreter/app/admin/leads/" aria-current="page">Leads</a>
+    </div>
+  </nav>
+
+  <main id="main" class="app-main">
+    <div class="wrap">
+
+      <div id="forbidden" class="empty-state" style="display:none">
+        <h2>Platform staff only.</h2>
+        <p class="ink-soft">The lead console is for 1891 staff working the inbound pipeline.</p>
+        <a class="btn btn-primary" href="/interpreter/app/">Back to day-of board</a>
+      </div>
+
+      <div id="page" style="display:none">
+        <div class="toolbar">
+          <h1 style="margin:0;font-size:28px">Leads</h1>
+          <div class="spacer"></div>
+          <select id="f-status" aria-label="Filter by status">
+            <option value="">All statuses</option>
+            <option value="new">new</option>
+            <option value="contacted">contacted</option>
+            <option value="session_booked">session_booked</option>
+            <option value="quoted">quoted</option>
+            <option value="won">won</option>
+            <option value="lost">lost</option>
+            <option value="spam">spam</option>
+          </select>
+          <select id="f-form" aria-label="Filter by form">
+            <option value="">All forms</option>
+            <option value="demo_request">demo_request</option>
+            <option value="contact">contact</option>
+            <option value="deaf_owned_application">deaf_owned_application</option>
+            <option value="requestor_sample">requestor_sample</option>
+            <option value="sandbox_gate">sandbox_gate</option>
+          </select>
+          <input id="search" class="search-input" type="search" placeholder="Filter by name, email, org…" aria-label="Filter leads">
+          <button class="btn btn-ghost btn-sm" type="button" id="refresh">Refresh</button>
+        </div>
+
+        <p class="muted-sm" style="margin:6px 0 0">
+          The published promise is a real person within <strong>1 business day</strong> — rows past
+          24&nbsp;h with status <em>new</em> wear the OVER&nbsp;SLA badge (sandbox sign-ups are exempt;
+          they already got their link). The 8am digest emails the same view.
+        </p>
+
+        <div class="lead-counts" id="counts"></div>
+        <div id="list"></div>
+      </div>
+
+    </div>
+  </main>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script src="/interpreter/assets/js/api.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  var leads = [];
+  var openKey = null;
+
+  function esc(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+  function toast(msg) {
+    var t = document.getElementById('toast');
+    t.textContent = msg;
+    t.className = 'toast show';
+    setTimeout(function () { t.className = 'toast'; }, 3000);
+  }
+
+  // POST through the edge proxy (CORS-readable), session from api.js storage.
+  function call(action, fields) {
+    var body = new URLSearchParams();
+    body.append('action', action);
+    Object.keys(fields || {}).forEach(function (k) {
+      if (fields[k] !== undefined && fields[k] !== null) body.append(k, String(fields[k]));
+    });
+    var s = IntApi.getSession();
+    if (s) body.append('session', s);
+    return fetch(IntApi.ENDPOINT, { method: 'POST', body: body, mode: 'cors' })
+      .then(function (r) { return r.json(); });
+  }
+
+  function fmtWhen(iso) {
+    var t = new Date(iso);
+    if (isNaN(t)) return esc(iso);
+    return t.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+  }
+
+  function renderCounts() {
+    var by = { total: leads.length, sla: 0, new24: 0, apps: 0 };
+    var dayAgo = Date.now() - 86400000;
+    leads.forEach(function (L) {
+      if (L.sla_breach) by.sla++;
+      if (new Date(L.timestamp).getTime() >= dayAgo) by.new24++;
+      if (L.form_id === 'deaf_owned_application') by.apps++;
+    });
+    document.getElementById('counts').innerHTML =
+      '<div class="lead-count"><strong>' + by.new24 + '</strong>new in 24h</div>' +
+      '<div class="lead-count' + (by.sla ? ' bad' : '') + '"><strong>' + by.sla + '</strong>over SLA</div>' +
+      '<div class="lead-count"><strong>' + by.apps + '</strong>Deaf-owned applications</div>' +
+      '<div class="lead-count"><strong>' + by.total + '</strong>total (latest 500)</div>';
+  }
+
+  function passesFilters(L) {
+    var fs = document.getElementById('f-status').value;
+    var ff = document.getElementById('f-form').value;
+    var q = document.getElementById('search').value.trim().toLowerCase();
+    if (fs && L.status !== fs) return false;
+    if (ff && L.form_id !== ff) return false;
+    if (q) {
+      var blob = (String(L.name) + ' ' + String(L.email) + ' ' + String(L.organization)).toLowerCase();
+      if (blob.indexOf(q) < 0) return false;
+    }
+    return true;
+  }
+
+  var STATUSES = ['new', 'contacted', 'session_booked', 'quoted', 'won', 'lost', 'spam'];
+  var OWNERS = ['', 'Anthony', 'Fallon'];
+
+  function rowHtml(L) {
+    var statusSel = '<select data-status="' + esc(L.lead_key) + '" aria-label="Status">' +
+      STATUSES.map(function (s) {
+        return '<option' + (L.status === s ? ' selected' : '') + '>' + s + '</option>';
+      }).join('') + '</select>';
+    var ownerSel = '<select data-owner="' + esc(L.lead_key) + '" aria-label="Owner">' +
+      OWNERS.map(function (o) {
+        return '<option value="' + o + '"' + (L.owner === o ? ' selected' : '') + '>' + (o || '—') + '</option>';
+      }).join('') + '</select>';
+    var open = openKey === L.lead_key;
+    var main =
+      '<tr' + (open ? ' style="background:var(--1891int-sand, #faf7f3)"' : '') + '>' +
+      '<td><button class="btn btn-ghost btn-sm" data-open="' + esc(L.lead_key) + '">' + (open ? '▾' : '▸') + '</button></td>' +
+      '<td>' + fmtWhen(L.timestamp) + (L.sla_breach ? ' <span class="sla-badge">over SLA</span>' : '') + '</td>' +
+      '<td><span class="form-chip">' + esc(L.form_id) + '</span></td>' +
+      '<td>' + esc(L.name || '—') + '</td>' +
+      '<td>' + (L.email ? '<a href="mailto:' + esc(L.email) + '">' + esc(L.email) + '</a>' : '—') + '</td>' +
+      '<td>' + esc(L.organization || '—') + '</td>' +
+      '<td>' + statusSel + '</td>' +
+      '<td>' + ownerSel + '</td>' +
+      '</tr>';
+    if (!open) return main;
+    var detailBits = [];
+    ['agency_size', 'current_platform', 'helps', 'topic', 'message', 'language', 'when', 'setting', 'notes',
+     'agency_legal_name', 'state_of_formation', 'owner_name', 'documentation_type', 'page'].forEach(function (k) {
+      if (L[k]) detailBits.push('<strong>' + esc(k) + ':</strong> ' + esc(L[k]));
+    });
+    return main +
+      '<tr class="lead-detail"><td></td><td colspan="7">' +
+      '<div class="raw">' + (detailBits.join('<br>') || 'No extra fields.') + '</div>' +
+      '<label class="muted-sm" for="ln-' + esc(L.lead_key) + '" style="display:block;margin-top:10px">Notes / next action</label>' +
+      '<textarea id="ln-' + esc(L.lead_key) + '">' + esc(L.lead_notes || '') + '</textarea>' +
+      '<div style="margin-top:8px;display:flex;gap:8px;align-items:center">' +
+      '<button class="btn btn-primary btn-sm" data-save-notes="' + esc(L.lead_key) + '">Save notes</button>' +
+      '<span class="muted-sm">last touched: ' + esc(L.last_touched_at ? fmtWhen(L.last_touched_at) : 'never') + '</span>' +
+      '</div></td></tr>';
+  }
+
+  function renderList() {
+    var visible = leads.filter(passesFilters);
+    var el = document.getElementById('list');
+    if (!visible.length) {
+      el.innerHTML = '<div class="empty-state"><h2>No leads match.</h2><p class="ink-soft">Clear a filter, or go make some noise.</p></div>';
+      return;
+    }
+    el.innerHTML = '<table class="leads-table"><thead><tr>' +
+      '<th></th><th>When</th><th>Form</th><th>Name</th><th>Email</th><th>Org</th><th>Status</th><th>Owner</th>' +
+      '</tr></thead><tbody>' + visible.map(rowHtml).join('') + '</tbody></table>';
+  }
+
+  function findLead(key) {
+    for (var i = 0; i < leads.length; i++) if (leads[i].lead_key === key) return leads[i];
+    return null;
+  }
+
+  function saveLead(key, fields, after) {
+    fields.lead_key = key;
+    call('update_lead', fields).then(function (r) {
+      if (r && r.ok) {
+        var L = findLead(key);
+        if (L) {
+          if (fields.status !== undefined) L.status = fields.status;
+          if (fields.owner !== undefined) L.owner = fields.owner;
+          if (fields.notes !== undefined) L.lead_notes = fields.notes;
+          L.last_touched_at = r.lead && r.lead.last_touched_at;
+          L.sla_breach = L.status === 'new' && L.sla_breach;
+        }
+        renderCounts(); renderList();
+        toast(after || 'Saved.');
+      } else {
+        toast((r && r.error) || 'Save failed.');
+      }
+    }).catch(function () { toast('Save failed — network.'); });
+  }
+
+  function loadLeads() {
+    document.getElementById('list').innerHTML = '<div class="empty-state">Loading…</div>';
+    call('list_leads', {}).then(function (r) {
+      if (!r || !r.ok) {
+        document.getElementById('list').innerHTML =
+          '<div class="empty-state"><h2>Couldn’t load.</h2><p class="ink-soft">' + esc((r && r.error) || 'Unknown error') + '</p></div>';
+        return;
+      }
+      leads = r.leads || [];
+      renderCounts(); renderList();
+    }).catch(function () {
+      document.getElementById('list').innerHTML = '<div class="empty-state"><h2>Network error.</h2></div>';
+    });
+  }
+
+  document.addEventListener('change', function (e) {
+    var t = e.target;
+    if (t.hasAttribute('data-status')) saveLead(t.getAttribute('data-status'), { status: t.value }, 'Status → ' + t.value);
+    else if (t.hasAttribute('data-owner')) saveLead(t.getAttribute('data-owner'), { owner: t.value }, 'Owner → ' + (t.value || '—'));
+    else if (t.id === 'f-status' || t.id === 'f-form') renderList();
+  });
+  document.addEventListener('click', function (e) {
+    var t = e.target.closest('[data-open],[data-save-notes]');
+    if (!t) return;
+    if (t.hasAttribute('data-open')) {
+      var k = t.getAttribute('data-open');
+      openKey = openKey === k ? null : k;
+      renderList();
+    } else {
+      var key = t.getAttribute('data-save-notes');
+      saveLead(key, { notes: document.getElementById('ln-' + key).value }, 'Notes saved.');
+    }
+  });
+  document.getElementById('search').addEventListener('input', renderList);
+  document.getElementById('refresh').addEventListener('click', loadLeads);
+  document.getElementById('signout').addEventListener('click', function () {
+    IntApi.clearSession();
+    location.href = '/interpreter/sign-in';
+  });
+
+  function init() {
+    if (!IntApi.getSession()) { location.href = '/interpreter/sign-in'; return; }
+    IntApi.whoami().then(function (r) {
+      if (!r || !r.ok) { IntApi.clearSession(); location.href = '/interpreter/sign-in'; return; }
+      var u = r.user || {};
+      var isPlatformStaff = u.role_id === 'role_platform_staff' ||
+                            (u.tenant_id === 'host' && u.role_id === 'role_owner');
+      document.getElementById('who-name').textContent = u.display_name || u.email || 'you';
+      if (!isPlatformStaff) {
+        document.getElementById('forbidden').style.display = '';
+        return;
+      }
+      document.getElementById('page').style.display = '';
+      loadLeads();
+    });
+  }
+  init();
+})();
+</script>
+
+<!-- BEGIN UMBRELLA-CONSENT -->
+<link rel="stylesheet" href="/shared/lib/consent/consent.css">
+<script src="/shared/lib/consent/consent.js" data-project="interpreter" data-coppa="false" data-tenant-type="public" defer></script>
+<script src="/shared/lib/event-capture/event-capture-pixels.js" data-project="interpreter" data-conv-url="https://conv.madeby1891.com/v1/track" defer></script>
+<!-- END UMBRELLA-CONSENT --></body>
+</html>

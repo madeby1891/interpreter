@@ -6,6 +6,141 @@ future-you) can pick up cold in under five minutes.
 
 ---
 
+## Launch funnel (WS9-funnel lane) — 2026-06-10 — backend LIVE @54
+
+Branch `frederick/ws9-funnel` (off main — deliberately NOT stacked on the
+phase-4 rails branch `frederick/ws9-interpreter`, which stays parked for
+Anthony). Backend deployed + smoked same day:
+
+- **`Code_Funnel.gs` (new):** per-form acknowledgment emails (every inbound
+  form now gets a same-minute receipt — backs the live site's "auto-reply"
+  / response-time promises), the `/try/` sandbox email gate
+  (`form_id=sandbox_gate` issues a 7-day continuation token in the new
+  `Sandbox_Tokens` tab + emails the link; `action=sandbox_verify` redeems,
+  stamps `verified_at`, counts visits), the lead console backend
+  (`list_leads` / `update_lead` with a `Lead_Status` workflow overlay tab,
+  platform-staff/host-owner gated), and `leadDigestTick` (daily 8am ET
+  digest of new leads / >24h SLA breaches / pending Deaf-owned apps /
+  sandbox funnel counts to hello@ + Fallon). Trigger installed via
+  `action=install_lead_digest&setup=<SHEET_ID>` — done, live.
+- **Smoked live 2026-06-10:** gate → email landed in <1 min with link;
+  `sandbox_verify` ok on the real token, rejects bogus; digest trigger
+  installed (tz America/New_York). New tabs are NOT in `_tenantSchema()`,
+  so the D1 sync ignores them by construction (verified: the tick
+  enumerates schema keys + Auth_Tokens only).
+- **⚠️ clasp-push-from-fresh-clone foot-gun (cost 20 min, could have cost
+  the live flags):** the live project carries gitignored `d1-secret.gs`
+  (D1_PRIMARY=true) + `anthropic-secret.gs`. `clasp push` REPLACES server
+  contents with local — pushing from a clone without those files would
+  delete them. Protocol used (do this on any new machine): `clasp pull`
+  into a temp dir with a bare `.clasp.json` (scriptId only) → copy
+  `*-secret.*` into `apps-script/` as `.gs` (gitignored) → `diff` every
+  shared module for server↔repo drift (was zero) → then push + deploy.
+- **⚠️ Email-intake trigger deliberately NOT installed** (PASTE-BACK #3
+  stays open): the manifest has NO Gmail oauth scope —
+  `processInboundRequestEmails` uses `GmailApp` and would fail every 5 min.
+  Lighting it up needs `https://www.googleapis.com/auth/gmail.modify` added
+  to `appsscript.json` + re-consent, a deliberate step, not a drive-by.
+- **MailApp sender note:** acks/gate emails send with `name: BRAND_NAME` +
+  `replyTo: contact@…` but the envelope address is the script owner's
+  Gmail (MailApp can't send as an alias it doesn't own). Same posture as
+  the Pattern-F welcome email. Fine for launch; Resend rail is the upgrade
+  path if/when drips ship.
+
+Front-end lanes (sandbox `/try/`, lead console page, site CTAs + form
+fixes) ALL SHIPPED same day — live + verified; see CHANGELOG 2026-06-10.
+
+### Same-day follow-up (Fallon's GO): copy soften + contact@ + P1 stack
+
+- **Pilot-window verification copy (backend @55/@56, site live):** every
+  review-process surface (free-for-deaf-owned, pricing FAQ, about,
+  legal/deaf-owned-verification-standard, the ack email) now reads
+  "reviewed during the pilot window, in the order applications arrive" —
+  NO individual names in review copy (founder bios + JSON-LD unchanged).
+  The hard 5-business-day decision promise is retired until the review
+  group seats.
+- **Alias consolidation:** accessibility@/security@/privacy@/legal@ →
+  `contact@madeby1891.com` site-wide AND in `_notifyOwner` routing
+  (those aliases were printed but never created — a11y/security form
+  notifications were bouncing). Re-split when real aliases exist.
+- **Attribution (LIVE):** `/pay/subscribe` passes the consent banner's
+  `1891_uid` → `uid_1891` in Checkout + subscription metadata
+  (shape-validated ULID, silently dropped on mismatch). Worker deployed
+  via CI, 90/90 tests green.
+- **Drip stack (BUILT, triple-gated inert):**
+  - 7 templates in `ops/comms-templates/interpreter/` (3-file shape,
+    voice-lint green, only `{{unsub_url}}` as a variable — body URLs are
+    constants so a drip send can never refuse on missing vars).
+  - 3 sequences seeded as **draft** in the shared admin D1
+    (`itp-seq-sandbox-nurture` D+2/5/9 marketing,
+    `itp-seq-demo-followup` D+1/4 lifecycle,
+    `itp-seq-subscriber-onboarding` D+1/7 lifecycle).
+  - comms worker grew `POST /v1/enroll` (X-Comms-Internal HMAC,
+    idempotent on sequence+recipient) — monorepo commit `704db70`,
+    CI-deployed, smoked: valid HMAC enrolls, forged → 401.
+  - Apps Script `_commsEnroll_` (Code_Funnel.gs; key in gitignored
+    `comms-secret.gs`, value from `~/.config/1891/comms-internal-key`)
+    fires on: first sandbox verify WITH the consent box (marketing),
+    demo_request submit (lifecycle), subscription welcome (lifecycle).
+    **Proven live end-to-end:** gate→email→verify auto-enrolled
+    `fallonbriz+dripsmoke@gmail.com` into sandbox-nurture with
+    marketing_consent=1 — that row stays as the flip-day canary.
+- **DRIP FLIP RITUAL (Anthony, in order):** 1) DMARC → p=quarantine.
+  2) `/v1/sync` the interpreter template bundle into comms-send (or
+  redeploy with the bundle rebuilt). 3) Flip the three `sequences` rows
+  `draft`→`active` (wrangler d1 execute admin-control-plane). 4) Set
+  `COMMS_DRIP=on` + add the cron trigger on comms-send. 5) Watch the
+  canary enrollment get the D+2 smart-fill email; `COMMS_SEND_MODE`
+  stays `restricted` until the allowlist test passes.
+
+**Deploy-order note (post PR-#2 merge):** backend @54 was clasp-deployed
+from the funnel lane BEFORE the phase-4 rails PR merged, so the live
+script currently has Code_Funnel but NOT Code_D1MirrorApply / the
+phase-4 Code_D1Sync. Zero behavior gap (those are flag-gated inert),
+and Anthony's rails step 2 (clasp-deploy from main) ships both together
+— no extra action needed, just don't be surprised by the @54 diff.
+
+---
+
+## ADR-001 phase-4 rails (WS9 / FREDERICK) — 2026-06-10 — READY, needs Anthony to ship
+
+Branch `frederick/ws9-interpreter` (pushed). Everything is inert-by-default: merging +
+deploying changes NO live behavior until the flags below are set. Full runbook:
+`workers/interpreter-data/MIGRATION.md` → "Phase 4 runbook (per table)".
+
+**What's on the branch:**
+- Worker `interpreter-data`: per-table D1→Sheet mirror (`MIRROR_TABLES_ENABLED`
+  allowlist beside `MIRROR_ENABLED`), HMAC-signed snapshots, `POST /v1/mirror/run`
+  (narrows-only manual trigger), `src/hmac.ts` extraction, tsc now clean.
+- Test harness: `npm test` in `workers/interpreter-data/` — 19 vitest-pool-workers
+  tests, real workerd + real local D1 (migrations applied), outbound POST mocked,
+  net-connect disabled, synthetic fixtures only. All green.
+- Apps Script (committed, NOT deployed): `Code_D1MirrorApply.gs` (signed `?d1op=
+  mirror_apply` receiver: freshness window, replay cache, registry-resolved target
+  spreadsheet, header-order-preserving tab rewrite, counts-only logging) +
+  `Code_D1Sync.gs` (per-table sender cutoff via `D1_WRITE_TABLES`, `mirror_apply`/
+  `mirror_status` routed; flag unset = zero change).
+
+**Anthony, to ship the rails (safe now, still inert after):**
+1. Merge `frederick/ws9-interpreter` → `main` (CI deploys `interpreter-data`, smokes
+   `/healthz`, expects `tables:39`).
+2. `shared/ops/clasp-deploy.sh apps-script "phase-4 mirror receiver + sender cutoff (inert)"`
+   — NOT in the 7–10am ET weekday window.
+3. Set the Worker secret (any time before the first table flips):
+   `npx wrangler secret put MIRROR_SHEET_EXEC` from `workers/interpreter-data/`, value
+   `<apps-script /exec URL>?d1op=mirror_apply&setup=<SHEET_ID>`.
+
+**To flip the FIRST table (Settings) — only after the rails above:**
+1. In the gitignored `apps-script/d1-secret.gs` add: `var D1_WRITE_TABLES = 'Settings';`
+   then convert Settings' write sites to `_dbUpsert_`/`_dbDelete_` + clasp-deploy.
+2. On the Worker: set vars `MIRROR_ENABLED=true`, `MIRROR_TABLES_ENABLED=Settings`
+   (wrangler.toml [vars] or dashboard) + deploy.
+3. Verify per the runbook write-smoke (`mirror_status` → `/v1/mirror/run` → tick report
+   excludes Settings). Rollback order is in the runbook — mirror-once FIRST, then flag off,
+   then `backfill&tab=Settings`.
+
+---
+
 ## SHIPPED — "finish the product" pass — 2026-06-02
 
 Closed the gap between marketing claims and working code. All live + verified.

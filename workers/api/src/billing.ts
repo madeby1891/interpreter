@@ -107,6 +107,8 @@ export interface CreateSubscriptionParams {
   billing: Billing;
   customer_email: string;
   agency_name?: string;
+  /** consent-banner 1891_uid (ULID), pre-validated by the route — attribution only. */
+  uid_1891?: string;
 }
 
 /**
@@ -149,6 +151,9 @@ export async function createSubscriptionCheckoutSession(
   if (params.agency_name) {
     // Trim and cap — Stripe metadata values are limited to 500 chars per key.
     metadata.agency_name = String(params.agency_name).trim().slice(0, 500);
+  }
+  if (params.uid_1891) {
+    metadata.uid_1891 = params.uid_1891;
   }
 
   // Human-readable tier name for invoice description + email subject lines.

@@ -1,0 +1,19 @@
+{
+  "id": "drip-onboard-01-setup",
+  "subject": "Day one: get your board breathing",
+  "from_name": "1891 Interpreter",
+  "from_email": "contact@send.madeby1891.com",
+  "reply_to": "contact@madeby1891.com",
+  "category": "lifecycle",
+  "urgency": "low",
+  "trigger": "subscriber-onboarding step 0 (D+1 after subscription)",
+  "audience": "New paid subscribers",
+  "voice": "Plain-spoken builder; no buzzwords; no vendor names",
+  "variables": [
+    "unsub_url"
+  ],
+  "sample_vars": {
+    "unsub_url": "https://example.com/unsubscribe?token=SAMPLE"
+  },
+  "notes": "Authored 2026-06-10 (WS9 funnel lane). Sequence definition: sequences.json. Sends only when the sequence is active AND COMMS_DRIP=on (Anthony-gated)."
+}
