@@ -97,10 +97,22 @@ fixes) ALL SHIPPED same day — live + verified; see CHANGELOG 2026-06-10.
   projects' authed sends now also go out), hourly cron `5 * * * *`,
   `COMMS_DAILY_CAP` kept at 10 as the blast-radius breaker. 5) Backdated
   canary `itp-canary-backdated-01` (fallonbriz+dripsmoke2@gmail.com,
-  enrolled_at 2026-06-07) makes the D+2 step due on the first walk —
-  verify via comms `/healthz` `send_log` + Fallon's inbox. Rollback:
-  flip the two vars back in `workers/comms-send/wrangler.toml` +
-  redeploy, or pause the sequences in D1.
+  enrolled_at 2026-06-07) makes the D+2 step due on the first walk.
+  **VERIFIED 2026-06-12: both canary steps DELIVERED on cadence** —
+  step 0 (smart-fill) 06-11 01:05Z on the first hourly walk, step 1
+  (Deaf-owned-free) 06-12 12:05Z (D+5). Rollback: flip the two vars
+  back in `workers/comms-send/wrangler.toml` + redeploy, or pause the
+  sequences in D1. Two follow-ups, neither blocking:
+  1. **Sender address:** the bridge rail sends from the Blast'D ops
+     mailbox (`online@blastdarena.com`, display name "1891 Interpreter")
+     — wrong brand address for interpreter mail. Fix = set
+     `RESEND_API_KEY` on comms-send (the rail auto-prefers Resend and
+     honors `contact@send.madeby1891.com`). Key lives in the Resend
+     dashboard — Anthony or whoever holds that login, ~2 min.
+  2. **Logging cosmetic:** drip rows stay `status=drip_attempt,
+     rail=pending` even on successful delivery — the walk never updates
+     the row post-rail. Harmless (delivery proven by inbox), but the
+     operator review surface will over-count "pending" until fixed.
 
 **Deploy-order note — RESOLVED 2026-06-10 evening:** the @54 gap closed
 itself — the funnel lane's @55/@56 clasp pushes ran after the shared
