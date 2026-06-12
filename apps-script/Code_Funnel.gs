@@ -309,7 +309,7 @@ function apiListLeads(e) {
     L.last_touched_at = st ? st.last_touched_at : '';
     var ageH = (nowMs - new Date(L.timestamp).getTime()) / 3600000;
     L.age_hours = Math.round(ageH * 10) / 10;
-    L.sla_breach = (L.status === 'new' && L.form_id !== 'sandbox_gate' && ageH > LEAD_SLA_HOURS);
+    L.sla_breach = (L.status === 'new' && L.form_id !== 'sandbox_gate' && L.form_id !== 'smoke_test' && ageH > LEAD_SLA_HOURS);
   }
   return _json({ ok:true, leads: leads });
 }
@@ -399,7 +399,7 @@ function leadDigestTick() {
         countsByForm[o.form_id] = (countsByForm[o.form_id] || 0) + 1;
         newLines.push('  • [' + o.form_id + '] ' + (o.name || '(no name)') + ' <' + (o.email || 'no email') + '> — ' + (o.page || ''));
       }
-      if (status === 'new' && o.form_id !== 'sandbox_gate' && (nowMs - ts) > LEAD_SLA_HOURS * 3600000) {
+      if (status === 'new' && o.form_id !== 'sandbox_gate' && o.form_id !== 'smoke_test' && (nowMs - ts) > LEAD_SLA_HOURS * 3600000) {
         var ageH = Math.round((nowMs - ts) / 3600000);
         overdueLines.push('  • [' + o.form_id + '] ' + (o.name || '(no name)') + ' <' + (o.email || 'no email') + '> — waiting ' + ageH + 'h');
       }
