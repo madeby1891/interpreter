@@ -4,6 +4,13 @@ Dated history of changes. Newest entries at the top. Note user-visible changes o
 
 ---
 
+## 2026-06-10 (night) — drip emails LIVE; phase-4 rails confirmed deployed
+
+Fallon's go-live call, executed end-to-end from this machine.
+
+- **The drip stack is on.** Deliverability checked (the domain's mail policy was already hardened), the seven interpreter emails are in the live send worker, all three series are active, and the walk runs hourly. The daily send cap stays low on purpose as a blast-radius breaker. First real send verified against a backdated canary enrollment.
+- **Phase-4 data rails: already live and inert.** The mirror receiver + per-table sender cutoff turned out to be deployed with the evening's backend pushes; the mirror callback secret is now set. Nothing changes behavior until a table is deliberately flipped — not during launch week.
+
 ## 2026-06-10 (evening) — pilot-window copy, contact@ consolidation, attribution, drip stack
 
 Same-day follow-up on Fallon's GO.

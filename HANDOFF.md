@@ -85,20 +85,31 @@ fixes) ALL SHIPPED same day — live + verified; see CHANGELOG 2026-06-10.
     **Proven live end-to-end:** gate→email→verify auto-enrolled
     `fallonbriz+dripsmoke@gmail.com` into sandbox-nurture with
     marketing_consent=1 — that row stays as the flip-day canary.
-- **DRIP FLIP RITUAL (Anthony, in order):** 1) DMARC → p=quarantine.
-  2) `/v1/sync` the interpreter template bundle into comms-send (or
-  redeploy with the bundle rebuilt). 3) Flip the three `sequences` rows
-  `draft`→`active` (wrangler d1 execute admin-control-plane). 4) Set
-  `COMMS_DRIP=on` + add the cron trigger on comms-send. 5) Watch the
-  canary enrollment get the D+2 smart-fill email; `COMMS_SEND_MODE`
-  stays `restricted` until the allowlist test passes.
+- **DRIP FLIP RITUAL — EXECUTED 2026-06-10 evening on Fallon's explicit
+  go-live instruction (Anthony unavailable).** What ran, in order:
+  1) DMARC on madeby1891.com verified ALREADY `p=quarantine` with rua —
+  the old `p=none` note was about FDT's own domain, not this zone.
+  2) Templates copied to monorepo `ops/comms-templates/interpreter/`
+  (canonical copy stays in this repo — keep in sync), bundle rebuilt,
+  comms-send redeployed via CI (monorepo `f239983`): live bundle = 64
+  incl. interpreter's 7. 3) All three sequences flipped `active`. 4)
+  `COMMS_DRIP=on`, `COMMS_SEND_MODE=live` (workspace-wide seam — other
+  projects' authed sends now also go out), hourly cron `5 * * * *`,
+  `COMMS_DAILY_CAP` kept at 10 as the blast-radius breaker. 5) Backdated
+  canary `itp-canary-backdated-01` (fallonbriz+dripsmoke2@gmail.com,
+  enrolled_at 2026-06-07) makes the D+2 step due on the first walk —
+  verify via comms `/healthz` `send_log` + Fallon's inbox. Rollback:
+  flip the two vars back in `workers/comms-send/wrangler.toml` +
+  redeploy, or pause the sequences in D1.
 
-**Deploy-order note (post PR-#2 merge):** backend @54 was clasp-deployed
-from the funnel lane BEFORE the phase-4 rails PR merged, so the live
-script currently has Code_Funnel but NOT Code_D1MirrorApply / the
-phase-4 Code_D1Sync. Zero behavior gap (those are flag-gated inert),
-and Anthony's rails step 2 (clasp-deploy from main) ships both together
-— no extra action needed, just don't be surprised by the @54 diff.
+**Deploy-order note — RESOLVED 2026-06-10 evening:** the @54 gap closed
+itself — the funnel lane's @55/@56 clasp pushes ran after the shared
+checkout absorbed the rails merge, so the live script ALREADY carries
+Code_D1MirrorApply + the phase-4 Code_D1Sync (verified by clasp-pull
+diff against main: zero drift across 37 files). Rails step 2 is DONE;
+step 3 (`MIRROR_SHEET_EXEC` secret on interpreter-data) was set
+2026-06-10 evening. Remaining phase-4 work is ONLY the per-table
+writer flips — deliberately NOT during launch week.
 
 ---
 
