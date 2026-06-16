@@ -94,6 +94,11 @@
       <form class="form-card" data-form action="https://1891-interpreter-api.anthonymowl.workers.dev/v1/proxy/exec" method="post" aria-label="Sample request form">
             <noscript><p class="muted" style="font-size:13.5px">Without JavaScript, submitting shows a plain-text receipt from our server instead of staying on this page — or email <a href="mailto:hello@madeby1891.com">hello@madeby1891.com</a>.</p></noscript>
         <input type="hidden" name="form_id" value="requestor_sample">
+        <input type="hidden" name="form_ts" value="">
+        <div aria-hidden="true" style="position:absolute;left:-9999px;top:auto;width:1px;height:1px;overflow:hidden">
+          <label for="r_website">Website (leave this blank)</label>
+          <input id="r_website" name="website" type="text" tabindex="-1" autocomplete="off">
+        </div>
         <div class="consent-block">
           <strong>Important:</strong> Do not include patient names, diagnoses, medical record numbers, or other clinical details in this form. The interpreter receives only what's needed to do their work — generic context, not records.
         </div>

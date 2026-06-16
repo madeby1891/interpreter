@@ -128,6 +128,11 @@
       <form class="form-card" data-form action="https://1891-interpreter-api.anthonymowl.workers.dev/v1/proxy/exec" method="post" aria-label="Deaf-owned verification application">
             <noscript><p class="muted" style="font-size:13.5px">Without JavaScript, submitting shows a plain-text receipt from our server instead of staying on this page — or email <a href="mailto:hello@madeby1891.com">hello@madeby1891.com</a>.</p></noscript>
         <input type="hidden" name="form_id" value="deaf_owned_application">
+        <input type="hidden" name="form_ts" value="">
+        <div aria-hidden="true" style="position:absolute;left:-9999px;top:auto;width:1px;height:1px;overflow:hidden">
+          <label for="dao_website">Website (leave this blank)</label>
+          <input id="dao_website" name="website" type="text" tabindex="-1" autocomplete="off">
+        </div>
         <div class="consent-block">
           <strong>What happens to this info:</strong> It goes to the verification reviewers. We retain applications for 24 months from submission, longer if approved. See our <a href="/interpreter/legal/privacy">privacy notice</a>.
         </div>

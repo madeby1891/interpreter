@@ -101,6 +101,11 @@
       <form class="form-card" data-form action="https://1891-interpreter-api.anthonymowl.workers.dev/v1/proxy/exec" method="post" aria-label="Contact form">
             <noscript><p class="muted" style="font-size:13.5px">Without JavaScript, submitting shows a plain-text receipt from our server instead of staying on this page — or email <a href="mailto:hello@madeby1891.com">hello@madeby1891.com</a>.</p></noscript>
         <input type="hidden" name="form_id" value="contact">
+        <input type="hidden" name="form_ts" value="">
+        <div aria-hidden="true" style="position:absolute;left:-9999px;top:auto;width:1px;height:1px;overflow:hidden">
+          <label for="c_website">Website (leave this blank)</label>
+          <input id="c_website" name="website" type="text" tabindex="-1" autocomplete="off">
+        </div>
         <div class="field"><label for="c_name">Your name</label><input id="c_name" name="name" type="text" autocomplete="name"></div>
         <div class="field"><label for="c_email">Email <span aria-hidden="true">*</span></label><input id="c_email" name="email" type="email" required aria-required="true" autocomplete="email"></div>
         <div class="field"><label for="c_topic">Topic</label>

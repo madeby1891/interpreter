@@ -38,6 +38,13 @@
 
   // Forms
   document.querySelectorAll('form[data-form]').forEach(function (form) {
+    // Stamp when the form became ready. A submit that arrives implausibly fast
+    // (faster than a human could read + type) is almost certainly a bot; the
+    // backend uses this elapsed time as one quiet signal. Hidden field so it
+    // rides along with the normal POST body.
+    var tsField = form.querySelector('input[name="form_ts"]');
+    if (tsField) tsField.value = String(Date.now());
+
     form.addEventListener('submit', function (e) {
       e.preventDefault();
       var statusEl = form.querySelector('.form-status');
@@ -50,6 +57,10 @@
         if (typeof value === 'string') body.append(key, value);
       });
       body.append('page', window.location.pathname);
+      // How long the form was on screen before submit. Read from the field we
+      // stamped on load; 0 if it's somehow missing so the backend can decide.
+      var ts = Number((form.querySelector('input[name="form_ts"]') || {}).value || 0);
+      body.set('elapsedMs', String(ts ? Date.now() - ts : 0));
 
       function done(msg, cls) {
         if (statusEl) {

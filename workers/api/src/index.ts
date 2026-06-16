@@ -12,6 +12,7 @@
 
 import { handlePreflight, withCors, type CorsConfig } from "./cors";
 import { proxyToAppsScript } from "./proxy";
+import { checkRate, clientIp, type RouteKey } from "./ratelimit";
 import { verifyToken } from "./jwt";
 import { JobBoardRoom } from "./durable/JobBoardRoom";
 import { routeTranslate } from "./translate";
@@ -139,6 +140,27 @@ function json(body: unknown, init: ResponseInit = {}): Response {
   return new Response(JSON.stringify(body), { ...init, headers });
 }
 
+// peekParams — read the request's params (URL query + urlencoded body) without
+// consuming the body the proxy re-reads. We clone() so the original stream is
+// untouched. Marketing forms POST application/x-www-form-urlencoded; anything
+// that isn't urlencoded (or a body that fails to parse) just yields the query
+// params, which is fine — the only keys we care about (form_id / action) live
+// in the form body and degrade to "no route, don't throttle" if absent.
+async function peekParams(req: Request): Promise<URLSearchParams> {
+  const out = new URLSearchParams(new URL(req.url).search);
+  const ctype = (req.headers.get("Content-Type") || "").toLowerCase();
+  if (ctype.includes("application/x-www-form-urlencoded") || ctype.startsWith("text/plain")) {
+    try {
+      const text = await req.clone().text();
+      const body = new URLSearchParams(text);
+      body.forEach((v, k) => out.set(k, v));
+    } catch {
+      // Unreadable body — fall back to query params only.
+    }
+  }
+  return out;
+}
+
 async function handle(req: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
   void ctx;
   const url = new URL(req.url);
@@ -171,7 +193,35 @@ async function handle(req: Request, env: Env, ctx: ExecutionContext): Promise<Re
     url.pathname.startsWith("/v1/proxy") ||
     url.pathname.startsWith("/interpreter-api")
   ) {
-    const proxied = await proxyToAppsScript(req, { appsScriptUrl: env.APPS_SCRIPT_URL });
+    // Per-IP throttle on the public, unauthenticated form/auth hop. We peek at
+    // the request params (without consuming the body the proxy will re-read)
+    // to pick a route: a form submission (form_id present) costs a Sheet row,
+    // an auth_request costs an email — the latter gets a tighter ceiling.
+    // checkRate fails open on a missing binding or KV error, so a throttle
+    // hiccup can never block a real lead.
+    if (req.method === "POST") {
+      const peeked = await peekParams(req);
+      let route: RouteKey | null = null;
+      if (peeked.get("form_id")) route = "lead";
+      else if (peeked.get("action") === "auth_request") route = "mail";
+      if (route) {
+        const rl = await checkRate(clientIp(req), env, route);
+        if (!rl.ok) {
+          return withCors(
+            json(
+              { ok: false, error: "Too many requests. Please wait a moment and try again." },
+              { status: 429, headers: { "Retry-After": String(rl.retry_after) } }
+            ),
+            req,
+            cfg
+          );
+        }
+      }
+    }
+    const proxied = await proxyToAppsScript(req, {
+      appsScriptUrl: env.APPS_SCRIPT_URL,
+      allowedOrigin: env.ALLOWED_ORIGIN,
+    });
     return withCors(proxied, req, cfg);
   }
 
