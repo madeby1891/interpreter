@@ -1,63 +1,50 @@
 # CLAUDE.md — 1891 Interpreter
 
-**This file extends `/Users/anthony/Desktop/1891/CLAUDE.md` — read that first.**
-
-Project-specific overrides go here. If a rule is already in the root CLAUDE.md, don't repeat it; only document what differs for 1891 Interpreter.
+**Extends `/Users/anthony/Desktop/1891/CLAUDE.md` — read that first.** Only project-specific deltas live here.
+**Deploy/ops knowledge lives in [`DEPLOY.md`](DEPLOY.md).** Read it before shipping anything.
 
 ---
 
 ## Project conventions
 
-- **Source of truth: per-agency Google Sheet** (`1891-interpreter-<slug>`) *operationally today* — **migrating to Cloudflare D1 per ADR-001** (see the "Source of truth" section below; phase-2 dual-write done + verified, cutover pending). Plus a small `1891-interpreter-control` Sheet that holds the tenant registry. Justified in PRD section A2.
-- **Worker code in TypeScript.** Apps Script in plain JS. Static pages: hand-rolled HTML + vanilla JS only. No SPA framework, no React, no Vue, no Svelte.
-- **Per-tenant resource naming.** R2 keys: `{tenant_id}/...`. KV keys: `{tenant_id}:...`. DO names: `AgencyHub:{tenant_id}` and `JobRoom:{job_id}`. Sheets row writes carry `tenant_id` for cross-check. Lint-enforced in `workers/api/src/kv.ts`.
-- **CSS namespace.** Project tokens prefixed `--1891int-*`. Inherits `--1891-*` from `~/Desktop/1891/shared/design-system/tokens/colors.css`. Project tokens: `--1891int-bloom: #C8553D` (terracotta), `--1891int-river: #2E5E5C` (teal-green).
-- **Voice rules (extends root CLAUDE.md).** Anti-claim list in PRD F1.3 is non-negotiable: no "AI-powered," no "revolutionary," no "cutting-edge," no "empowering" / "empowerment," no "underserved community." If a draft has one of these, rewrite before commit.
+- **Source of truth: Cloudflare D1** (`interpreter-data`) for **reads**; writes still land in the per-agency Google Sheet and sync to D1 (see "Source of truth" below). Tenant registry is the `1891-interpreter-control` Sheet. (PRD A2.)
+- **Worker code in TypeScript.** Apps Script in plain JS. Static pages: hand-rolled HTML + vanilla JS only — no SPA framework (React/Vue/Svelte).
+- **Per-tenant resource naming.** R2: `{tenant_id}/...`. KV: `{tenant_id}:...`. DO: `AgencyHub:{tenant_id}`, `JobRoom:{job_id}`. Sheet/D1 rows carry `tenant_id`. Lint-enforced in `workers/api/src/kv.ts`.
+- **CSS namespace.** Project tokens prefixed `--1891int-*`, inheriting `--1891-*` from `~/Desktop/1891/shared/design-system/tokens/colors.css`. `--1891int-bloom: #C8553D` (terracotta), `--1891int-river: #2E5E5C` (teal-green).
+- **Voice rules.** PRD F1.3 anti-claims are non-negotiable: no "AI-powered," "revolutionary," "cutting-edge," "empowering"/"empowerment," "underserved community." Rewrite before commit. (Enforced by `voice-lint` in `deploy.sh`.)
 
 ---
 
 ## Known constraints
 
-- **Apps Script `SpreadsheetApp` lock is a real ceiling.** A single Sheet under contention from >1 writer hits `LockService` timeouts at ~10 writes/sec. The Worker `sync` service buffers writes in a 5-second window and flushes in batches; never call Apps Script directly for individual row writes from `workers/api`.
-- **Cloudflare Workers + BAA.** Free/Pro Cloudflare does **not** carry a BAA. Workers Enterprise does. Per A9 #2 — free Deaf-owned tier operates in `phi_mode: initials-only` mode to stay off the BAA-required path. Paid tiers (`pro`, `enterprise`) carry the Cloudflare Enterprise cost.
-- **Anthropic prompt cache and tenants.** Prompt caching keys on prefix. Every model call begins with `tenant_id: <id>` in the system prompt to prevent cross-tenant cache hits. Documented in PRD D2.5.
-- **PHI never reaches Claude or DeepL raw.** `lib/redact.ts` `redactForModel()` returns a model-safe projection only. Free-text fields run through a PHI scrubber (regex + NER). Every model call writes an `AI_Audit` row with input/output hashes. Documented in PRD A6 and D5.
-- **Maryland two-party consent applies to any audio capture.** Per root CLAUDE.md and `~/Desktop/1891/shared/specs/SPEECH_PROCESSING.md`. Consent UI mandatory, RECORDING indicator mandatory, executive-session PAUSE mandatory, retention defaults non-negotiable.
-- **Sheet retention rules.** `Audit_Log` is 7-year append-only with an integrity-hash chain enforced by Apps Script editor protections. Audio raw 30 days, transcripts 1 year, signed minutes permanent.
-- **Stripe Connect Express required for 1099 payouts on default path.** Manual ACH via Plaid is a documented fallback for long-tenured interpreters who refuse to onboard Connect (E10 #2).
-- **The Deaf-owned verification board** is Fallon + 2 community advisors. The board reviews all denials. Members not yet finalized; until then, applications can be received but decisions are paused.
-
----
-
-## Admin preferences (project-specific)
-
-- **Drive Apps Script via clasp + osascript** per root CLAUDE.md. `shared/ops/clasp-deploy.sh apps-script "<desc>"` does `clasp push` + `clasp deploy -i <deploymentId>` end-to-end (deploymentId is in `apps-script/.clasp.json`; account=`anthonymowl`). Chrome MCP is the recovery fallback only — same constraints there apply: CSP blocks cross-origin fetch, screenshots time out, Monaco bulk writes use `executeEdits`.
-- **Deploy timing.** Never deploy on a weekday morning between 7–10 ET — that's the schedulers' Tetris hour. Maintenance windows: Saturday 11pm–Sunday 3am ET by default; agency owners get a heads-up email 48h before any non-trivial deploy.
-- **Who to notify when this ships.** Anthony + Fallon (always). Each agency's owner gets an email after a non-trivial deploy with the changelog. Schedulers get an in-app toast on next login.
+- **Apps Script `SpreadsheetApp` lock is a real ceiling** — a single Sheet hits `LockService` timeouts at ~10 writes/sec under contention. The Worker `sync` service buffers writes in a 5s window and batch-flushes; never call Apps Script for individual row writes from `workers/api`.
+- **Cloudflare Workers + BAA.** Free/Pro carry **no** BAA; Workers Enterprise does. Free Deaf-owned tier runs `phi_mode: initials-only` to stay off the BAA path; paid tiers (`pro`, `enterprise`) carry the Enterprise cost. (A9 #2.)
+- **Anthropic prompt cache + tenants.** Caching keys on prefix, so every model call begins with `tenant_id: <id>` in the system prompt to prevent cross-tenant cache hits. (D2.5.)
+- **PHI never reaches Claude or DeepL raw.** `lib/redact.ts` `redactForModel()` returns a model-safe projection; free-text runs through a PHI scrubber (regex + NER); every model call writes an `AI_Audit` row with input/output hashes. (A6, D5.)
+- **Maryland two-party consent for any audio capture** (`~/Desktop/1891/shared/specs/SPEECH_PROCESSING.md`): consent UI, RECORDING indicator, executive-session PAUSE, and retention defaults all mandatory.
+- **Retention.** `Audit_Log` is 7-year append-only with an integrity hash-chain (Apps Script editor protections). Audio raw 30 days, transcripts 1 year, signed minutes permanent.
+- **Stripe Connect Express required for 1099 payouts** on the default path; manual ACH via Plaid is the documented fallback for interpreters who refuse Connect. (E10 #2.)
+- **Deaf-owned verification board** = Fallon + 2 community advisors (reviews all denials). Advisors not yet named — applications are received but decisions paused.
 
 ---
 
 ## Source of truth
 
-> **⚠️ MIGRATING per ADR-001 ([`PERSISTENCE_ARCHITECTURE.md`](../../shared/specs/PERSISTENCE_ARCHITECTURE.md)).** The system of record is **Cloudflare D1** (`interpreter-data`), not the Sheet — interpreter is the workspace's highest-value migration (PHI + payments). Status (verified live 2026-06-06): **phase 3 (flip READS) is DONE** — D1 is the **read system of record**; all 16 app read accessors read D1 via `_dbValues_` (`Code_D1Store.gs`, `D1_PRIMARY=true`), proven live (`?d1op=readcheck`/`readsmoke`). **Writes** still flow **Sheet → fresh-on-write nudge → D1** (D1 stays current), so the Sheet is now the *write-staging surface*, no longer read by the app. Phase 4 (D1 **sole** writer; ~200 inlined writes → D1, nudge-off, D1→Sheet mirror-on) is the remaining step — all-or-nothing per table, staged in [`workers/interpreter-data/MIGRATION.md`](workers/interpreter-data/MIGRATION.md). **So: reads come from D1; the Sheet description below now governs only the write path until phase 4.**
+> **Migrating per ADR-001 ([`PERSISTENCE_ARCHITECTURE.md`](../../shared/specs/PERSISTENCE_ARCHITECTURE.md)).** D1 is interpreter's highest-value migration (PHI + payments). **Phase 3 (flip READS) is DONE + verified live 2026-06-06:** all 16 app read accessors read D1 via `_dbValues_` (`Code_D1Store.gs`, `D1_PRIMARY=true`; proven by `?d1op=readcheck`/`readsmoke`). **Phase 4 (D1 sole writer)** — ~200 inlined writes → D1, nudge-off, D1→Sheet mirror-on, all-or-nothing per table — is the remaining step, staged in [`workers/interpreter-data/MIGRATION.md`](workers/interpreter-data/MIGRATION.md).
 
-For this project, **reads** are served from **Cloudflare D1** (the system of record). The **write path** still lands in the **per-agency Google Sheet** (`1891-interpreter-<slug>`) and syncs to D1 on every write, until the phase-4 sole-writer flip. The control plane is the `1891-interpreter-control` Sheet.
-
-Specifically:
-- All structured rows (Jobs, Job_Assignments, Interpreters, Consumers, etc.) live in the per-agency Sheet.
-- Blobs (PDFs, translated documents, COIs, recordings, transcripts) live in Cloudflare R2 under `r2://1891-interpreter/{tenant_id}/...`.
-- Hot operational state (live interpreter presence, open-job board, live VRI sessions) lives in per-agency Durable Objects.
-- KV is a read-through cache; Sheet is the writer. Never write to KV without writing to Sheet first.
-- When an agent quotes a fact about a tenant, the answer comes from the per-agency Sheet (or its KV cache, with a 60s TTL).
+- **Reads:** Cloudflare D1 (`interpreter-data`), the system of record.
+- **Writes:** still land in the per-agency Sheet (`1891-interpreter-<slug>`) → fresh-on-write nudge → D1 (D1 stays current within ~1–2s). The Sheet is now a write-staging surface, no longer read by the app, until the phase-4 flip.
+- Structured rows (Jobs, Job_Assignments, Interpreters, Consumers, …) → Sheet/D1. Blobs (PDFs, translations, COIs, recordings, transcripts) → R2 at `r2://1891-interpreter/{tenant_id}/...`. Hot state (presence, open-job board, live VRI) → per-agency Durable Objects.
+- KV is a read-through cache (60s TTL); never write KV without writing the system of record first.
 
 ---
 
 ## What this project is NOT
 
-- **Not a marketplace.** Interpreters don't compete on price across agencies; each agency configures its own rate cards and roster.
-- **Not a VRS provider.** Video Relay Service (the federally-funded Deaf-to-hearing phone relay) is a different regulated business (FCC). We do VRI (Video Remote Interpreting), which is a different thing — paid by the agency, not by FCC subsidies. Don't conflate.
-- **Not a payroll system for W-2 staff.** We capture hours and export to ADP / Gusto / Paychex / Rippling. Tax withholding, garnishments, benefits live in payroll, not in us.
-- **Not a directory.** We don't list interpreters publicly; the roster is private to the agency. We don't recruit interpreters either — agencies own their hiring funnel.
-- **Not a translation memory product.** We use TM (per E1.1 and Section C document-translation flow); we don't compete with MemoQ / Trados / Phrase / XTM as a stand-alone TM tool. Integrate, don't replace.
-- **Not Claude in production for live captioning.** Per the speech-processing contract, Claude is post-session only. Live STT is Deepgram (or AssemblyAI as alternate).
-- **Not an EHR or PHI system of record.** We hold the minimum PHI needed to interpret well; the requestor's EHR is the system of record for clinical data. We don't store diagnoses, treatment notes, or lab values.
+- **Not a marketplace.** Interpreters don't compete on price across agencies; each agency configures its own rate cards + roster.
+- **Not a VRS provider.** VRS (FCC-funded Deaf-hearing phone relay) is a different regulated business. We do VRI (agency-paid), not VRS. Don't conflate.
+- **Not a payroll system for W-2 staff.** We capture hours and export to ADP/Gusto/Paychex/Rippling; withholding, garnishments, benefits live in payroll.
+- **Not a directory.** The roster is private to the agency; we don't list or recruit interpreters — agencies own hiring.
+- **Not a translation-memory product.** We use TM (E1.1, Section C); we integrate with MemoQ/Trados/Phrase/XTM, not replace them.
+- **Not Claude in production for live captioning.** Claude is post-session only; live STT is Deepgram (AssemblyAI alternate).
+- **Not an EHR / PHI system of record.** We hold the minimum PHI to interpret well; the requestor's EHR is the clinical system of record. No diagnoses, treatment notes, or lab values.
