@@ -107,15 +107,15 @@ HEAD_TPL = """<!doctype html>
 <a href="#main" class="skip">Skip to main content</a>
 """
 
+# Primary nav is intentionally lean (4 tabs + CTA). The three audience pages
+# (schedulers, interpreters) and Security/About live in the footer instead;
+# Agencies stays as the single audience entry point. Every destination remains
+# reachable from the footer — see FOOTER below.
 NAV_LINKS = [
-    ("agencies",     "/for-agencies",        "Agencies"),
-    ("schedulers",   "/for-schedulers",      "Schedulers"),
-    ("interpreters", "/for-interpreters",    "Interpreters"),
-    ("features",     "/features/",           "Features"),
-    ("pricing",      "/pricing",             "Pricing"),
-    ("free",         "/free-for-deaf-owned", "Free for Deaf-owned"),
-    ("security",     "/security",            "Security"),
-    ("about",        "/about",               "About"),
+    ("agencies",  "/for-agencies",        "Agencies"),
+    ("features",  "/features/",           "Features"),
+    ("pricing",   "/pricing",             "Pricing"),
+    ("free",      "/free-for-deaf-owned", "Free for Deaf-owned"),
 ]
 
 
@@ -1489,16 +1489,13 @@ def free_body() -> str:
   </section>
 
   <section class="section">
-    <div class="wrap">
-      <span class="eyebrow">Edge cases — addressed</span>
-      <h2>We've thought about the hard ones.</h2>
-      <div class="grid grid-2 mt-5">
-        <div class="note"><strong>Deaf-CODA-owned agency.</strong> The CODA is hearing. Not Deaf-owned by our standard; eligible for paid tier. Many CODA-led agencies are deeply community-aligned — we'll feature their work. The badge stays a Deaf-ownership marker.</div>
-        <div class="note"><strong>Mixed-ownership at 51% Deaf-owned.</strong> Qualifies. The standard is &gt;50% ownership; 51% is more than 50%.</div>
-        <div class="note"><strong>Deaf-led nonprofit but not Deaf-owned.</strong> Nonprofits don't have "owners" in the equity sense. If the executive director and the majority of the board are Deaf, the agency qualifies. Documented via board minutes or 990 attestation. Reviewed individually.</div>
-        <div class="note"><strong>Hearing-allied agency.</strong> Not eligible for the badge. Eligible for every paid tier. We don't do honorary allyship badges — that would dilute the meaning for agencies who actually built their businesses Deaf-owned.</div>
-        <div class="note"><strong>Deaf person owns on paper, hearing spouse runs it operationally.</strong> The trickiest case. The standard requires operational control, not just paper ownership. Reviewed by the full board; burden is on the applicant. We err toward approval if documentation is reasonable; we deny if it looks like a workaround.</div>
-        <div class="note-river"><strong>The standard exists because the community asked for one.</strong> We will get this wrong sometimes. When we do, the board reconsiders. The badge means something because we hold it to a standard.</div>
+    <div class="wrap-narrow">
+      <span class="eyebrow">Not sure?</span>
+      <h2>If you're Deaf-owned, it's free. Full stop.</h2>
+      <p class="lede">Full features, unlimited interpreters, unlimited jobs, BAA included, no time limit. Ownership comes in every shape — co-owners, nonprofits, family businesses, every flavor of in-between. We'd rather talk it through than make you read fine print to find out where you land.</p>
+      <div class="note-river" style="margin-top:var(--1891int-s-5)">
+        <strong>Not sure if you qualify? Talk to us.</strong> Tell us how your agency is owned and we'll tell you, plainly, whether you're in — no application required to ask.
+        <p style="margin-top:var(--1891int-s-3)"><a class="btn btn-primary" href="{BASE_PATH}/get-a-demo">Talk to us</a> &nbsp; or email <a href="mailto:hello@madeby1891.com">hello@madeby1891.com</a></p>
       </div>
     </div>
   </section>
