@@ -42,18 +42,19 @@ import sys as _sys
 _sys.path.insert(0, str(Path(__file__).resolve().parent))
 from build_release_json import emit_release_json  # noqa: E402
 from compute_event_token import event_token  # noqa: E402
+from inject_event_tags import capture_url, feedback_url  # noqa: E402
 
 EVENT_TOKEN = event_token("interpreter")
 EVENT_TAGS = (
     f'<link rel="stylesheet" href="/shared/components/feedback-widget/feedback-widget.css">\n'
     f'<script src="/shared/lib/event-capture/event-capture.js" '
     f'data-event-capture-key="interpreter" '
-    f'data-event-capture-url="https://events.madeby1891.com/e" '
+    f'data-event-capture-url="{capture_url()}" '
     f'data-event-capture-token="{EVENT_TOKEN}" '
     f'data-event-capture-errors="true" defer></script>\n'
     f'<script src="/shared/components/feedback-widget/feedback-widget.js" '
     f'data-project="interpreter" '
-    f'data-endpoint="https://events.madeby1891.com/feedback" '
+    f'data-endpoint="{feedback_url()}" '
     f'data-token="{EVENT_TOKEN}" defer></script>'
 )
 CANONICAL_BASE = "https://madeby1891.com" + BASE_PATH
