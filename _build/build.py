@@ -48,12 +48,12 @@ EVENT_TAGS = (
     f'<link rel="stylesheet" href="/shared/components/feedback-widget/feedback-widget.css">\n'
     f'<script src="/shared/lib/event-capture/event-capture.js" '
     f'data-event-capture-key="interpreter" '
-    f'data-event-capture-url="https://event-capture.anthonymowl.workers.dev/e" '
+    f'data-event-capture-url="https://events.madeby1891.com/e" '
     f'data-event-capture-token="{EVENT_TOKEN}" '
     f'data-event-capture-errors="true" defer></script>\n'
     f'<script src="/shared/components/feedback-widget/feedback-widget.js" '
     f'data-project="interpreter" '
-    f'data-endpoint="https://event-capture.anthonymowl.workers.dev/feedback" '
+    f'data-endpoint="https://events.madeby1891.com/feedback" '
     f'data-token="{EVENT_TOKEN}" defer></script>'
 )
 CANONICAL_BASE = "https://madeby1891.com" + BASE_PATH
@@ -107,15 +107,15 @@ HEAD_TPL = """<!doctype html>
 <a href="#main" class="skip">Skip to main content</a>
 """
 
+# Primary nav is intentionally lean (4 tabs + CTA). The three audience pages
+# (schedulers, interpreters) and Security/About live in the footer instead;
+# Agencies stays as the single audience entry point. Every destination remains
+# reachable from the footer — see FOOTER below.
 NAV_LINKS = [
-    ("agencies",     "/for-agencies",        "Agencies"),
-    ("schedulers",   "/for-schedulers",      "Schedulers"),
-    ("interpreters", "/for-interpreters",    "Interpreters"),
-    ("features",     "/features/",           "Features"),
-    ("pricing",      "/pricing",             "Pricing"),
-    ("free",         "/free-for-deaf-owned", "Free for Deaf-owned"),
-    ("security",     "/security",            "Security"),
-    ("about",        "/about",               "About"),
+    ("agencies",  "/for-agencies",        "Agencies"),
+    ("features",  "/features/",           "Features"),
+    ("pricing",   "/pricing",             "Pricing"),
+    ("free",      "/free-for-deaf-owned", "Free for Deaf-owned"),
 ]
 
 
@@ -187,8 +187,6 @@ FOOTER = f"""<footer class="site-footer">
         <ul>
           <li><a href="{BASE_PATH}/legal/privacy">Privacy</a></li>
           <li><a href="{BASE_PATH}/legal/terms">Terms</a></li>
-          <li><a href="{BASE_PATH}/legal/baa">BAA</a></li>
-          <li><a href="{BASE_PATH}/legal/subprocessors">Subprocessors</a></li>
           <li><a href="{BASE_PATH}/legal/responsible-disclosure">Disclosure</a></li>
         </ul>
       </div>
@@ -679,7 +677,7 @@ def for_agencies_body() -> str:
       <div class="center-text">
         <h2>BAA included on every paid tier and on the Deaf-owned tier.</h2>
         <p class="lede" style="color:#DCE9E7; margin:0 auto">Signed in days, not weeks. Our standard BAA covers every product surface that touches PHI. Custom redlines welcome on Studio and Network.</p>
-        <p style="margin-top:var(--1891int-s-5)"><a class="btn btn-secondary" style="border-color:#fff;color:#fff" href="{BASE_PATH}/legal/baa">Read the BAA</a> <a class="btn btn-ghost" style="border-color:#FFE2D6;color:#fff" href="{BASE_PATH}/security">Security posture</a></p>
+        <p style="margin-top:var(--1891int-s-5)"><a class="btn btn-secondary" style="border-color:#fff;color:#fff" href="{BASE_PATH}/security">Security posture</a> <a class="btn btn-ghost" style="border-color:#FFE2D6;color:#fff" href="{BASE_PATH}/get-a-demo">Talk to us</a></p>
       </div>
     </div>
   </section>
@@ -1285,7 +1283,7 @@ def for_payers_body() -> str:
     </div>
   </section>
 
-  {cta_band("Want a sample invoice + GL mapping?", "Book a working session", f"{BASE_PATH}/get-a-demo", "Read the BAA", f"{BASE_PATH}/legal/baa")}
+  {cta_band("Want a sample invoice + GL mapping?", "Book a working session", f"{BASE_PATH}/get-a-demo", "Security posture", f"{BASE_PATH}/security")}
 """
 
 
@@ -1489,16 +1487,13 @@ def free_body() -> str:
   </section>
 
   <section class="section">
-    <div class="wrap">
-      <span class="eyebrow">Edge cases — addressed</span>
-      <h2>We've thought about the hard ones.</h2>
-      <div class="grid grid-2 mt-5">
-        <div class="note"><strong>Deaf-CODA-owned agency.</strong> The CODA is hearing. Not Deaf-owned by our standard; eligible for paid tier. Many CODA-led agencies are deeply community-aligned — we'll feature their work. The badge stays a Deaf-ownership marker.</div>
-        <div class="note"><strong>Mixed-ownership at 51% Deaf-owned.</strong> Qualifies. The standard is &gt;50% ownership; 51% is more than 50%.</div>
-        <div class="note"><strong>Deaf-led nonprofit but not Deaf-owned.</strong> Nonprofits don't have "owners" in the equity sense. If the executive director and the majority of the board are Deaf, the agency qualifies. Documented via board minutes or 990 attestation. Reviewed individually.</div>
-        <div class="note"><strong>Hearing-allied agency.</strong> Not eligible for the badge. Eligible for every paid tier. We don't do honorary allyship badges — that would dilute the meaning for agencies who actually built their businesses Deaf-owned.</div>
-        <div class="note"><strong>Deaf person owns on paper, hearing spouse runs it operationally.</strong> The trickiest case. The standard requires operational control, not just paper ownership. Reviewed by the full board; burden is on the applicant. We err toward approval if documentation is reasonable; we deny if it looks like a workaround.</div>
-        <div class="note-river"><strong>The standard exists because the community asked for one.</strong> We will get this wrong sometimes. When we do, the board reconsiders. The badge means something because we hold it to a standard.</div>
+    <div class="wrap-narrow">
+      <span class="eyebrow">Not sure?</span>
+      <h2>If you're Deaf-owned, it's free. Full stop.</h2>
+      <p class="lede">Full features, unlimited interpreters, unlimited jobs, BAA included, no time limit. Ownership comes in every shape — co-owners, nonprofits, family businesses, every flavor of in-between. We'd rather talk it through than make you read fine print to find out where you land.</p>
+      <div class="note-river" style="margin-top:var(--1891int-s-5)">
+        <strong>Not sure if you qualify? Talk to us.</strong> Tell us how your agency is owned and we'll tell you, plainly, whether you're in — no application required to ask.
+        <p style="margin-top:var(--1891int-s-3)"><a class="btn btn-primary" href="{BASE_PATH}/get-a-demo">Talk to us</a> &nbsp; or email <a href="mailto:hello@madeby1891.com">hello@madeby1891.com</a></p>
       </div>
     </div>
   </section>
@@ -1990,8 +1985,6 @@ def security_body() -> str:
       <h1>HIPAA-defensible by default. Auditable on demand.</h1>
       <p class="lede">PHI is redacted before it ever reaches an AI model. Every PHI read writes to an append-only audit log. BAA included on every paid tier and on the Deaf-owned tier — signed in days, not weeks.</p>
       <div class="cluster" style="margin-top:var(--1891int-s-6)">
-        <a class="btn btn-primary" href="{BASE_PATH}/legal/baa">Read the BAA</a>
-        <a class="btn btn-secondary" href="{BASE_PATH}/legal/subprocessors">Subprocessor list</a>
         <a class="btn btn-ghost" href="mailto:contact@madeby1891.com">Responsible disclosure</a>
       </div>
     </div>
@@ -2109,11 +2102,8 @@ def security_body() -> str:
         <div class="card"><h3 class="mt-0">Accessibility (Section 508 / WCAG)</h3><p class="ink-soft">Built to the recognized standards from the first screen. The formal statement is on the <a href="{BASE_PATH}/accessibility">accessibility</a> page.</p></div>
         <div class="card"><h3 class="mt-0">PCI</h3><p class="ink-soft">No card data touches our servers. Payments are processed end-to-end by Stripe. We hold tokens, not PANs.</p></div>
       </div>
-      <p style="margin-top:var(--1891int-s-6)"><a class="btn btn-primary" href="{BASE_PATH}/legal/subprocessors">See the full subprocessor list</a></p>
     </div>
   </section>
-
-  {cta_band("Need the BAA? It takes days, not weeks.", "Read the BAA", f"{BASE_PATH}/legal/baa", "Talk to us", f"{BASE_PATH}/contact")}
 """
 
 
@@ -2186,7 +2176,7 @@ def changelog_body() -> str:
         <ul class="checks">
           <li>Home, the pages for each role (agencies, schedulers, interpreters, requestors, billing), pricing, free for Deaf-owned, security, accessibility, about, and our 1891.</li>
           <li>Nine walkthroughs of what the product does.</li>
-          <li>The legal pages — privacy, terms, BAA, data processing, subprocessors, disclosure, and the accessibility statement.</li>
+          <li>The legal pages — privacy, terms, data processing, disclosure, and the accessibility statement.</li>
           <li>Built for access from the first screen.</li>
         </ul>
         <p class="ink-soft">The product itself isn't open to everyone yet — it starts with our first agencies later this year. For now, this is the front door and the place to apply for Deaf-owned verification.</p>
@@ -2662,23 +2652,23 @@ def build_pages() -> list[Page]:
     # Legal cluster
     privacy_html = """
       <h2>What we collect — and what we don't.</h2>
-      <p>The marketing site (this site) collects only what you submit through a form. We do not run third-party trackers, advertising pixels, or behavioral analytics. We do not set non-essential cookies. We do not fingerprint visitors.</p>
+      <p>The marketing site (this site) collects what you submit through a form, plus first-party, cookieless analytics: page views, a daily-rotating non-identifying visitor count, and approximate city / region / country plus device type / browser / OS, all derived at the edge. No analytics cookies; no IP address or full user-agent stored; no cross-site tracking; never sold or shared. We do not run third-party trackers, advertising pixels, or behavioral profiling, and we do not run Google Analytics, Meta Pixel, or any other third-party analytics tracker. We do not set non-essential cookies. We do not fingerprint visitors.</p>
       <p>The product (when you have an account) collects what's needed to do interpreting agency work: rosters, requestors, jobs, invoices, and — where it's necessary — minimal PHI tied to a job. We collect the least we can. We retain it for the periods documented on the <a href=\"""" + BASE_PATH + """/security\">security page</a>.</p>
 
       <h2>Marketing forms.</h2>
       <p>When you fill a form on this site, the data is routed to a small team inbox (Anthony, Fallon, or the inbound queue). We retain inbound inquiries for 24 months from submission. We do not sell or share the data. We do not add you to a third-party newsletter list without your explicit opt-in.</p>
 
       <h2>Cookies.</h2>
-      <p>We use a single session cookie set only after you sign in, and only to maintain your session. No third-party cookies. No analytics cookies on the public marketing site at launch.</p>
+      <p>We use a single session cookie set only after you sign in, and only to maintain your session. No third-party cookies. No analytics cookies — our site analytics are cookieless.</p>
 
       <h2>Your rights.</h2>
       <p>You can request a copy of any personal data we hold about you, ask us to correct or delete it, or withdraw consent at any time. Email <a href=\"mailto:contact@madeby1891.com\">contact@madeby1891.com</a>. We respond within 30 days.</p>
 
       <h2>HIPAA.</h2>
-      <p>If you are a covered entity or business associate, our <a href=\"""" + BASE_PATH + """/legal/baa\">BAA</a> governs PHI handling and takes precedence over this privacy notice for PHI specifically.</p>
+      <p>If you are a covered entity or business associate, our Business Associate Agreement (BAA) governs PHI handling and takes precedence over this privacy notice for PHI specifically.</p>
 
       <h2>Where the data lives.</h2>
-      <p>Primary data residency is in the United States (Cloudflare R2 in US regions, Google Workspace US tenant). EU/UK data residency is targeted for 2027. See the <a href=\"""" + BASE_PATH + """/legal/subprocessors\">subprocessor list</a>.</p>
+      <p>Primary data residency is in the United States (Cloudflare R2 in US regions, Google Workspace US tenant). EU/UK data residency is targeted for 2027.</p>
     """
     pages.append(Page(
         path="legal/privacy.html",
@@ -2704,7 +2694,7 @@ def build_pages() -> list[Page]:
       <p>You retain all right, title, and interest in customer data. We will provide a complete export in CSV and JSON within 5 business days of any request. Cancellation triggers an automatic export delivered to the account owner. We do not transfer or sell customer data to third parties for marketing or advertising purposes.</p>
 
       <h2>HIPAA.</h2>
-      <p>The <a href=\"""" + BASE_PATH + """/legal/baa\">BAA</a> governs all PHI processing and takes precedence over these Terms for PHI specifically.</p>
+      <p>Our Business Associate Agreement (BAA) governs all PHI processing and takes precedence over these Terms for PHI specifically.</p>
 
       <h2>Payment.</h2>
       <p>Paid tiers are billed monthly or annually in advance. Refunds are available pro rata for unused service if you cancel; we don't make you wait for the term to end to recoup unused months.</p>
@@ -2729,35 +2719,6 @@ def build_pages() -> list[Page]:
         body=legal_body("Terms of service", "Legal", terms_html),
     ))
 
-    baa_html = """
-      <p class="ink-soft">This page is a plain-English summary of the BAA. The signed legal-form document is provided by request and on every paid-tier and Deaf-owned account at provisioning.</p>
-
-      <h2>What the BAA covers.</h2>
-      <p>The BAA between 1891 LLC (Business Associate) and your organization (Covered Entity, where applicable) governs how we use, disclose, and safeguard PHI in connection with the Service. It tracks the HHS-published model BAA closely; redlines are welcome on Studio and Network.</p>
-
-      <h2>Permitted uses.</h2>
-      <p>We use PHI only to provide the Service: scheduling interpreters, generating invoices, producing transcripts and minutes for your sessions, and performing the audit logging required by HIPAA. We do not use PHI for marketing, sale, or any other purpose not explicitly required by the Service.</p>
-
-      <h2>Safeguards we maintain.</h2>
-      <p>Technical, administrative, and physical safeguards as required by HIPAA Security Rule, including encryption at rest and in transit, role-based access, append-only audit logging with hash-chain integrity, retention defaults documented at <a href=\"""" + BASE_PATH + """/security\">/security</a>, and an annual risk assessment.</p>
-
-      <h2>Subprocessors and PHI.</h2>
-      <p>We use a short list of subprocessors who each carry their own BAA. The full list and per-vendor BAA status lives at <a href=\"""" + BASE_PATH + """/legal/subprocessors\">/legal/subprocessors</a>.</p>
-
-      <h2>Breach notification.</h2>
-      <p>We notify you of any breach affecting your PHI within 30 days, with as much detail as we have. For low-risk events, we notify in our quarterly summary; for high-risk events, we notify within 24 hours and walk you through the response together.</p>
-
-      <h2>How to get the BAA.</h2>
-      <p>Email <a href=\"mailto:contact@madeby1891.com\">contact@madeby1891.com</a> with your organization name and we'll send the executable PDF. Most BAAs are countersigned within 3 business days. Redlines are welcome on Studio and Network; we'll work them with our counsel and yours.</p>
-    """
-    pages.append(Page(
-        path="legal/baa.html",
-        title="Business Associate Agreement (BAA) — 1891 Interpreter",
-        description="Plain-English summary of the BAA and how to get the signed version.",
-        breadcrumb_html=breadcrumb(("Home", f"{BASE_PATH}/"), ("Legal", ""), ("BAA", "")),
-        body=legal_body("Business Associate Agreement (BAA)", "Legal", baa_html),
-    ))
-
     dpa_html = """
       <h2>Scope.</h2>
       <p>The Data Processing Agreement (DPA) governs our processing of personal data on your behalf for GDPR, UK GDPR, and California CPRA purposes. The DPA forms part of the Terms when your organization or your end-users are subject to those regulations.</p>
@@ -2766,7 +2727,7 @@ def build_pages() -> list[Page]:
       <p>Your organization is the data controller; 1891 LLC is the data processor. We process personal data only to provide the Service and only on your documented instructions.</p>
 
       <h2>Sub-processing.</h2>
-      <p>Our subprocessor list is public and we notify you 30 days before adding a new subprocessor that processes personal data. See <a href=\"""" + BASE_PATH + """/legal/subprocessors\">/legal/subprocessors</a>.</p>
+      <p>We notify you 30 days before adding a new subprocessor that processes personal data.</p>
 
       <h2>International transfers.</h2>
       <p>Primary data residency is US. EU/UK customer data is gated behind data-residency review until our EU presence is established (targeted 2027). Standard Contractual Clauses (SCCs) and UK IDTA apply where transfers occur.</p>
@@ -2780,35 +2741,6 @@ def build_pages() -> list[Page]:
         description="GDPR / UK GDPR / CPRA processing terms.",
         breadcrumb_html=breadcrumb(("Home", f"{BASE_PATH}/"), ("Legal", ""), ("DPA", "")),
         body=legal_body("Data Processing Agreement (DPA)", "Legal", dpa_html),
-    ))
-
-    sub_html = """
-      <p>Updated every time we change a subprocessor. We notify paid-tier customers 30 days before adding a subprocessor that processes their personal data.</p>
-      <div class="table-scroll">
-        <table class="compare">
-          <thead><tr><th>Subprocessor</th><th>Purpose</th><th>Data type</th><th>Location</th><th>BAA / DPA</th></tr></thead>
-          <tbody>
-            <tr><td>Google Workspace</td><td>Per-agency Sheets (system of record)</td><td>Operational data, PHI</td><td>United States</td><td class="yes">BAA + DPA</td></tr>
-            <tr><td>Cloudflare (Enterprise)</td><td>Workers, R2, KV, DO, queues</td><td>Operational data, PHI (paid tiers)</td><td>Global edge</td><td class="yes">BAA + DPA</td></tr>
-            <tr><td>Anthropic</td><td>Claude API (redacted inputs only)</td><td>Redacted PHI projections, NOT raw PHI</td><td>United States</td><td class="yes">BAA (direct API)</td></tr>
-            <tr><td>DeepL</td><td>Document translation (general)</td><td>Redacted text, NOT medical/legal raw</td><td>EU</td><td class="yes">DPA</td></tr>
-            <tr><td>Deepgram</td><td>Streaming STT for live captions</td><td>Audio + transcripts</td><td>United States</td><td class="yes">BAA available</td></tr>
-            <tr><td>Twilio</td><td>SMS Verify and Programmable SMS</td><td>Phone numbers, OTP codes</td><td>United States</td><td class="yes">BAA (HIPAA-eligible products)</td></tr>
-            <tr><td>Postmark</td><td>Transactional email</td><td>Email addresses, message body</td><td>United States</td><td class="yes">BAA add-on</td></tr>
-            <tr><td>Stripe + Stripe Connect</td><td>Payment processing and payouts</td><td>Payment tokens, bank info</td><td>United States</td><td class="yes">DPA</td></tr>
-            <tr><td>track1099</td><td>1099-NEC and 1042-S issuance</td><td>TIN, payee info, payment totals</td><td>United States</td><td class="yes">DPA</td></tr>
-            <tr><td>Plaid</td><td>ACH account verification</td><td>Bank account verification</td><td>United States</td><td class="yes">DPA</td></tr>
-          </tbody>
-        </table>
-      </div>
-      <p class="tag">Reviewed and updated """ + BUILD_DATE + """.</p>
-    """
-    pages.append(Page(
-        path="legal/subprocessors.html",
-        title="Subprocessor list — 1891 Interpreter",
-        description="Every vendor we use, what they do, where they are, and BAA / DPA status.",
-        breadcrumb_html=breadcrumb(("Home", f"{BASE_PATH}/"), ("Legal", ""), ("Subprocessors", "")),
-        body=legal_body("Subprocessor list", "Legal", sub_html),
     ))
 
     a11y_stmt_html = """

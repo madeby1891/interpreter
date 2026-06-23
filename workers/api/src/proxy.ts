@@ -7,9 +7,22 @@
 //
 // Workers can follow redirects server-side, so we just `fetch(..., { redirect: "follow" })`
 // and rewrap the response with our own CORS headers.
+//
+// Origin gate (Security review, abuse hardening): the rewrap above hands a
+// CORS-cleared response back to the browser, but CORS only protects what a
+// *browser* will read — it does nothing against a scripted client that posts
+// directly. So before forwarding a write (POST), we require the request to
+// carry an Origin (or Referer) whose origin is on our allowlist, and reject
+// header-less POSTs outright. GET reads (incl. header-less JSONP) are left
+// alone — they're idempotent and the response-layer CORS check still governs
+// what a cross-site page can actually read.
 
 export interface ProxyOptions {
   appsScriptUrl: string;
+  // The site origin allowed to POST through this proxy (env.ALLOWED_ORIGIN).
+  // POSTs whose Origin/Referer origin isn't this (or a known dev origin) get
+  // a 403 before we forward anything upstream.
+  allowedOrigin: string;
   // Optional path suffix to forward as ?_path=, useful if you start using
   // a hierarchy of Apps Script doPost handlers. Not required today.
   pathSuffix?: string;
@@ -34,6 +47,35 @@ const STRIP_RESPONSE_HEADERS = new Set([
   "vary",
 ]);
 
+// Dev origins permitted to POST during local testing. Kept in sync with the
+// DEV_ORIGINS set in cors.ts so the server-side gate and the response-layer
+// CORS check agree on what "allowed" means.
+const DEV_ORIGINS = new Set([
+  "http://localhost:8080",
+  "http://localhost:5173",
+  "http://127.0.0.1:8080",
+  "http://127.0.0.1:5173",
+]);
+
+// Extract the origin (scheme://host[:port]) from an Origin or Referer header
+// value. Returns null if absent or unparseable. The Origin header is already
+// just an origin; Referer is a full URL, so we normalize via URL().
+function headerOrigin(value: string | null): string | null {
+  if (!value) return null;
+  try {
+    return new URL(value).origin;
+  } catch {
+    return null;
+  }
+}
+
+function originAllowed(origin: string | null, allowedOrigin: string): boolean {
+  if (!origin) return false;
+  if (origin === allowedOrigin) return true;
+  if (DEV_ORIGINS.has(origin)) return true;
+  return false;
+}
+
 export async function proxyToAppsScript(
   req: Request,
   opts: ProxyOptions
@@ -44,6 +86,23 @@ export async function proxyToAppsScript(
       status: 405,
       headers: { "Content-Type": "application/json" },
     });
+  }
+
+  // Server-side origin gate for writes. A browser always sends Origin on a
+  // cross-origin POST; if neither Origin nor Referer resolves to an allowed
+  // origin (or the POST carries no such header at all), refuse before we touch
+  // the backend. GET is exempt so JSONP reads and same-origin no-Origin reads
+  // keep working.
+  if (method === "POST") {
+    const claimed =
+      headerOrigin(req.headers.get("Origin")) ??
+      headerOrigin(req.headers.get("Referer"));
+    if (!originAllowed(claimed, opts.allowedOrigin)) {
+      return new Response(
+        JSON.stringify({ ok: false, error: "Origin not allowed" }),
+        { status: 403, headers: { "Content-Type": "application/json" } }
+      );
+    }
   }
 
   const incomingUrl = new URL(req.url);

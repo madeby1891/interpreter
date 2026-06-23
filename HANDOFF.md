@@ -22,6 +22,7 @@ Marketing site + scheduler MVP + SaaS payments **live** at `https://madeby1891.c
 - **Phase-4 rails to ship** (safe, stays inert after): merge `frederick/ws9-interpreter` → main, `clasp-deploy.sh apps-script "phase-4 mirror (inert)"` (NOT 7–10am ET), set `MIRROR_SHEET_EXEC`. First table = Settings. Runbook: MIGRATION.md "Phase 4".
 - **PASTE-BACK (dashboard logins, ~2 min each):** (1) QuickBooks creds (`QBO_*` secrets, redirect `…/app/settings/quickbooks-callback.html`); (2) Stripe Connect `client_id` (`ca_…` → `STRIPE_CONNECT_CLIENT_ID`) to light Pattern G; (3) email-intake poller install (`_install_inbound_email`) once Gmail scope is added.
 - **⛔ Revoke the burned Anthropic key** at console.anthropic.com (key prefix `sk-ant-api03-mX_3O`, interpreter's own dedicated key). Already orphaned (relocated off the Sheet 2026-06-01) but live until revoked.
+- ✅ **Burned Anthropic key REVOKED 2026-06-23** (was prefix `sk-ant-api03-mX_3O`, console label "interpreter"; orphaned since 2026-06-01). Deleted at console.anthropic.com. Live runtime key is unaffected — it's the workspace-shared `k2_…VgAA` key (console label "blastd chat") in `anthropic-secret.gs` + Worker `ANTHROPIC_API_KEY`; that one stays.
 - **Drip follow-ups (non-blocking):** set `RESEND_API_KEY` on comms-send so interpreter mail sends from `contact@send.madeby1891.com` (currently the Blast'D ops mailbox); drip rows stay `status=drip_attempt` post-delivery (cosmetic over-count).
 
 ---

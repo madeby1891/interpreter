@@ -262,6 +262,7 @@ are infra, not code:
   (`'self'` only) blocked them. Now allowlisted (commit `b92377f`): `script-src`
   + `style-src` += `cdn.madeby1891.com`; `connect-src`/`img-src` +=
   `event-capture.anthonymowl.workers.dev` + `conv.madeby1891.com`. Verified live:
+  `events.madeby1891.com` + `conv.madeby1891.com`. Verified live:
   those scripts now load (846 ms network, no CSP console violations) and the
   GoDaddy `wsimg` tracker stays blocked (0 ms — deliberately NOT allowlisted).
 - **Duplicate/stale security headers — DELIBERATELY LEFT ALONE.** Origin

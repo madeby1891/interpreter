@@ -395,6 +395,20 @@ function handleInboundForm(e) {
   var timestamp = new Date();
   var iso = timestamp.toISOString();
 
+  // Quiet bot screen. A human never fills the off-screen honeypot field, and a
+  // human can't read + complete the form in under ~1.2s. Either signal means
+  // this is automated: drop it silently and return the same success shape a
+  // real submit gets, so the bot can't learn it was caught. We do this before
+  // any Sheet work so junk never reaches the inbox or the lead log.
+  // (elapsedMs is only present when JS stamped form_ts — a no-JS submit has no
+  // measurement, so 0/absent is treated as "no signal", not as too-fast.)
+  var hp = String(params.website || params.url || '').trim();
+  var elapsed = Number(params.elapsedMs || 0);
+  if (hp || (elapsed > 0 && elapsed < 1200)) {
+    _logAudit('inbound_form_dropped_bot', formId, '', hp ? 'honeypot' : ('elapsedMs=' + elapsed));
+    return _json({ ok:true, received:iso });
+  }
+
   var phiCheck = _scanForLikelyPHI(params);
   if (phiCheck.blocked) {
     _logAudit('inbound_form_rejected_phi', formId, '', phiCheck.reason);
@@ -504,6 +518,33 @@ function _notifyOwner(formId, params) {
   if (formId === 'a11y' || formId === 'accessibility_feedback') to = ACCESSIBILITY_NOTIFY;
   if (formId === 'security_disclosure') to = SECURITY_NOTIFY;
 
+  // Per-address throttle: one owner-notification per submitting email per 10
+  // minutes. The lead row is already written by the caller, so a throttled
+  // notify never loses data — it only collapses a repeat-submit (or a flood
+  // from one address) into a single alert. Security-disclosure pings are
+  // exempt so a real report is never silently coalesced.
+  var fromEmail = String(params.email || params.work_email || params.contact_email || params.requestor_name || '').trim().toLowerCase();
+  if (formId !== 'security_disclosure' && fromEmail && fromEmail.indexOf('@') > 0) {
+    try {
+      var cache = CacheService.getScriptCache();
+      var ck = 'notify:' + formId + ':' + fromEmail;
+      if (cache.get(ck)) {
+        _logAudit('inbound_form_notify_throttled', formId, '', fromEmail);
+        return;
+      }
+      cache.put(ck, '1', 600); // 10 minutes
+    } catch (_) { /* cache down → don't block the notify */ }
+  }
+
+  // Global mail-budget guard. If we're running low on the daily send quota,
+  // hold ordinary lead alerts so we keep headroom for sign-in emails (which a
+  // locked-out user actually needs). The lead row persists regardless; we just
+  // log the skip so it can be reviewed in the console.
+  if (!_mailBudgetOk_('bulk')) {
+    _logAudit('inbound_form_notify_budget_capped', formId, '', fromEmail || '');
+    return;
+  }
+
   var subject = '[1891 Interpreter] ' + formId + ' — new inbound';
   var lines = [];
   var keys = Object.keys(params).sort();
@@ -517,6 +558,56 @@ function _notifyOwner(formId, params) {
              '\n\n— 1891 Interpreter inbound forms backend';
   try { MailApp.sendEmail({ to: to, subject: subject, body: body }); }
   catch (err) { _logAudit('inbound_form_notify_failed', formId, '', String(err)); }
+}
+
+// ---------------------------------------------------------------------------
+// Mail-budget breaker
+// ---------------------------------------------------------------------------
+// One daily send quota covers BOTH transactional sign-in emails and bulk lead
+// alerts. If a flood of form submissions (or a notification storm) burns the
+// quota, real users can't get their magic link. So we reserve headroom:
+//
+//   kind 'auth'  — sign-in / magic-link / receipts. Allowed until the quota is
+//                  nearly exhausted (~5% remaining). These are the emails a
+//                  user is actively waiting on; protect them hardest.
+//   kind 'bulk'  — owner lead alerts, digests, anything non-urgent. Halts once
+//                  remaining drops below ~40% so a surge can't eat the reserve
+//                  that 'auth' depends on.
+//
+// Fails OPEN: if the quota probe throws, we allow the send (a working email is
+// better than a falsely-blocked one). Quota is a whole-account daily number;
+// the percentages are of MailApp's reported daily ceiling.
+function _mailBudgetOk_(kind) {
+  try {
+    var remaining = MailApp.getRemainingDailyQuota();
+    // Resolve the daily ceiling so the thresholds are proportional, not fixed.
+    // We cache the high-water mark we've seen this run; default to a sane floor
+    // if the very first probe is already low.
+    var DAILY_CEILING = _mailDailyCeiling_(remaining);
+    var floorAuth = Math.max(5, Math.floor(DAILY_CEILING * 0.05));
+    var floorBulk = Math.max(20, Math.floor(DAILY_CEILING * 0.40));
+    if (kind === 'auth') return remaining > floorAuth;
+    return remaining > floorBulk; // 'bulk' (default)
+  } catch (_) {
+    return true; // probe failed → fail open
+  }
+}
+
+// Best-effort daily ceiling: MailApp doesn't expose the cap directly, only the
+// remaining count, so we track the max remaining seen this execution as a proxy
+// for "full". Consumer accounts cap at 100/day, Workspace at 1500; the proxy
+// settles to whichever applies after the first send-free probe of the day.
+function _mailDailyCeiling_(remaining) {
+  var hi = remaining;
+  try {
+    var cache = CacheService.getScriptCache();
+    var seen = Number(cache.get('mail_quota_hi') || 0);
+    if (remaining > seen) { cache.put('mail_quota_hi', String(remaining), 21600); seen = remaining; }
+    hi = Math.max(seen, remaining);
+  } catch (_) { /* cache down → use the live number */ }
+  // Never let the proxy drop below the consumer floor, so the percentages stay
+  // meaningful even mid-day when remaining is small.
+  return Math.max(hi, 100);
 }
 
 // ============================================================================
@@ -570,6 +661,14 @@ function apiAuthRequest(e) {
     link + '\n\n' +
     "If you didn't request this, you can ignore this email — the link won't work without being clicked.\n\n" +
     '— 1891 Interpreter';
+  // Mail-budget guard ('auth' reserve). Sign-in is the most important email we
+  // send, so it's allowed until the quota is nearly gone — but if we're truly
+  // out, skip the send and keep the same response a normal request returns, so
+  // an attacker can't use a budget edge to probe which addresses are real.
+  if (!_mailBudgetOk_('auth')) {
+    _logAudit('auth_email_budget_capped', '', user.user_id, '');
+    return _json({ ok:true, message:'Check your inbox for a sign-in link.' });
+  }
   try {
     MailApp.sendEmail({ to: email, subject: 'Your 1891 Interpreter sign-in link', body: body });
   } catch (err) {
