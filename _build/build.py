@@ -48,12 +48,12 @@ EVENT_TAGS = (
     f'<link rel="stylesheet" href="/shared/components/feedback-widget/feedback-widget.css">\n'
     f'<script src="/shared/lib/event-capture/event-capture.js" '
     f'data-event-capture-key="interpreter" '
-    f'data-event-capture-url="https://event-capture.anthonymowl.workers.dev/e" '
+    f'data-event-capture-url="https://events.madeby1891.com/e" '
     f'data-event-capture-token="{EVENT_TOKEN}" '
     f'data-event-capture-errors="true" defer></script>\n'
     f'<script src="/shared/components/feedback-widget/feedback-widget.js" '
     f'data-project="interpreter" '
-    f'data-endpoint="https://event-capture.anthonymowl.workers.dev/feedback" '
+    f'data-endpoint="https://events.madeby1891.com/feedback" '
     f'data-token="{EVENT_TOKEN}" defer></script>'
 )
 CANONICAL_BASE = "https://madeby1891.com" + BASE_PATH

@@ -77,12 +77,12 @@ RedirectMatch 403 ^/interpreter/godview\.json$
 
   # CSP — strict for marketing site. The only external origins are 1891's own
   # infra: cdn.madeby1891.com (shared feedback widget + event-capture script),
-  # event-capture.anthonymowl.workers.dev (analytics + feedback beacons), and
+  # events.madeby1891.com (analytics + feedback beacons), and
   # conv.madeby1891.com (consent-gated conversion pixels). Everything else stays
   # 'self'. Note: GoDaddy injects img1.wsimg.com/.../tccl.min.js — it is NOT
   # listed here, so the CSP blocks that host-injected tracker. Keep it that way.
   # If you add a vendor, tighten the specific source list, don't relax wholesale.
-  Header always set Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' https://1891-interpreter-api.anthonymowl.workers.dev https://cdn.madeby1891.com; style-src 'self' 'unsafe-inline' https://cdn.madeby1891.com; img-src 'self' data: https://cdn.madeby1891.com https://conv.madeby1891.com; font-src 'self' data:; connect-src 'self' https://script.google.com https://script.googleusercontent.com https://1891-interpreter-api.anthonymowl.workers.dev wss://1891-interpreter-api.anthonymowl.workers.dev https://event-capture.anthonymowl.workers.dev https://conv.madeby1891.com; frame-ancestors 'none'; form-action 'self' https://script.google.com https://script.googleusercontent.com https://1891-interpreter-api.anthonymowl.workers.dev; base-uri 'self'; object-src 'none'; upgrade-insecure-requests"
+  Header always set Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' https://1891-interpreter-api.anthonymowl.workers.dev https://cdn.madeby1891.com; style-src 'self' 'unsafe-inline' https://cdn.madeby1891.com; img-src 'self' data: https://cdn.madeby1891.com https://conv.madeby1891.com; font-src 'self' data:; connect-src 'self' https://script.google.com https://script.googleusercontent.com https://1891-interpreter-api.anthonymowl.workers.dev wss://1891-interpreter-api.anthonymowl.workers.dev https://events.madeby1891.com https://conv.madeby1891.com; frame-ancestors 'none'; form-action 'self' https://script.google.com https://script.googleusercontent.com https://1891-interpreter-api.anthonymowl.workers.dev; base-uri 'self'; object-src 'none'; upgrade-insecure-requests"
 
   # CSP report endpoint (placeholder — replace with real reporting endpoint
   # once provisioned). Browsers ignore an unreachable report-to gracefully.
