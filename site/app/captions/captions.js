@@ -16,6 +16,29 @@
   var API = new URLSearchParams(location.search).get('api') ||
     'wss://1891-interpreter-captions.anthonymowl.workers.dev';
 
+  // ---- Captioning Magic (opt-in) ------------------------------------------
+  // ?magic=1 turns this page into a Shazam-style "press to search for captions"
+  // experience: the mic does NOT listen continuously — a separate module
+  // (captioning-magic.js) drives an explicit idle -> searching -> locked|no-match
+  // state machine and calls these hooks. When the flag is absent, MAGIC is false
+  // and every hook below is a no-op, so the group/classroom continuous-listen
+  // flow is byte-for-byte unchanged. The module only attaches if MAGIC is true.
+  var MAGIC = (function () {
+    try { return new URLSearchParams(location.search).get('magic') === '1'; }
+    catch (e) { return false; }
+  })();
+  // Thin event bus the magic module subscribes to. Created unconditionally so
+  // the engine code can fire into it cheaply, but only ever read in MAGIC mode.
+  var MagicBus = {
+    _h: { level: [], caption: [], micstatus: [], micopen: [], micclose: [] },
+    on: function (k, fn) { if (this._h[k]) this._h[k].push(fn); },
+    emit: function (k, a) {
+      if (!MAGIC) return;
+      var hs = this._h[k]; if (!hs) return;
+      for (var i = 0; i < hs.length; i++) { try { hs[i](a); } catch (e) {} }
+    }
+  };
+
   // ---- tiny DOM helpers ---------------------------------------------------
   function $(sel) { return document.querySelector(sel); }
   function el(tag, attrs, kids) {
@@ -240,6 +263,7 @@
   // ===========================================================================
   function onCaption(f) {
     S.people[f.id] = { name: f.name, color: f.color };
+    MagicBus.emit('caption', f); // press-to-search "lock" detection (magic mode)
     if (f.is_final) {
       delete S.interim[f.id];
       if (f.text) {
@@ -388,6 +412,7 @@
         var d = ev.data;
         S.mic.level = d.rms || 0;
         drawLevel();
+        MagicBus.emit('level', S.mic.level);
         var ws = S.mic.ws;
         if (ws && ws.readyState === 1 && d.pcm) {
           try { ws.send(d.pcm.buffer); } catch (e) {}
@@ -409,15 +434,16 @@
     try { ws = new WebSocket(u); } catch (e) { stopMic(); return; }
     ws.binaryType = 'arraybuffer';
     S.mic.ws = ws;
-    ws.onopen = function () { S.mic.on = true; updateMicButton(); };
+    ws.onopen = function () { S.mic.on = true; updateMicButton(); MagicBus.emit('micopen'); };
     ws.onmessage = function (ev) {
       var msg; try { msg = JSON.parse(ev.data); } catch (e) { return; }
       if (msg && msg.type === 'mic_status' && msg.status !== 'live') {
+        MagicBus.emit('micstatus', msg.status);
         stopMic();
-        toast('Live captions are not available right now.');
+        if (!MAGIC) toast('Live captions are not available right now.');
       }
     };
-    ws.onclose = function () { if (S.mic.on) stopMic(); };
+    ws.onclose = function () { MagicBus.emit('micclose'); if (S.mic.on) stopMic(); };
     ws.onerror = function () { try { ws.close(); } catch (e) {} };
   }
 
@@ -492,6 +518,44 @@
     });
     // Stop the mic if the page is hidden/closed (privacy + frees the device).
     window.addEventListener('pagehide', stopMic);
+
+    // Captioning Magic (opt-in): hand the engine to the press-to-search module.
+    // Only in MAGIC mode — otherwise nothing is exposed and the group flow runs
+    // exactly as before. The module reads these to start/stop a single search.
+    if (MAGIC) {
+      window.__capEngine = {
+        bus: MagicBus,
+        // Begin ONE listening attempt (getUserMedia -> worklet -> mic socket).
+        // Reuses the exact same capture path as the group flow.
+        start: function () {
+          if (!S.captionsConfigured) return false;
+          if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return false;
+          if (S.mic.on) return true;
+          startMic();
+          return true;
+        },
+        // End the current listening attempt (stop tracks, close socket, free mic).
+        stop: function () { stopMic(); },
+        isListening: function () { return !!S.mic.on; },
+        configured: function () { return !!S.captionsConfigured; },
+        level: function () { return S.mic.level || 0; }
+      };
+      document.documentElement.setAttribute('data-magic', '1');
+      // Let the module know the engine is ready (it may have loaded first).
+      try { document.dispatchEvent(new Event('capengine:ready')); } catch (e) {}
+    }
+
+    // Magic mode is a personal, single-user press-to-search tool — no lobby,
+    // no session code to share, no name prompt. Auto-enter a private room so the
+    // join socket is live (caption frames flow through it) and the user lands
+    // straight on the search orb. The group lobby is skipped entirely.
+    if (MAGIC) {
+      S.name = savedName() || 'You';
+      S.code = normCode(new URLSearchParams(location.search).get('s') || '') || newCode();
+      history.replaceState(null, '', location.pathname + location.search);
+      enterSession();
+      return;
+    }
 
     showStart();
     // If arrived via a shared link (?s=<code>), drop straight into the join flow
