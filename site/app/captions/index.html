@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <title>Live Captions — 1891 Interpreter</title>
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex">
 <meta name="theme-color" content="#C8553D">
 <meta name="description" content="Live captions from speech for the whole room. Everyone sees the conversation captioned on their own screen. Any device can be the microphone.">
@@ -124,6 +124,70 @@
   .cap-mic-btn[data-on="1"] { background: var(--1891int-err); color: #fff; border-color: var(--1891int-err); }
   .cap-micnote { font-size: 13px; color: var(--1891int-fog); margin-top: 10px; text-align: center; }
 
+  /* ===== Captioning Magic (opt-in: ?magic=1) =====
+     Scoped entirely under [data-magic="1"], which captions.js sets ONLY in
+     magic mode. With the attribute absent, none of these rules apply and the
+     group/classroom layout is unchanged. */
+  html { background: var(--1891int-paper, #fff); overscroll-behavior: none; }
+  #magic-mount { display: none; }
+  [data-magic="1"] #magic-mount { display: block; }
+  /* In magic mode the group affordances are off: no roster, no invite, no
+     group mic footer, no "be the microphone" framing — it's a personal
+     press-to-search tool. */
+  [data-magic="1"] .cap-invite,
+  [data-magic="1"] #roster,
+  [data-magic="1"] .cap-micbar,
+  [data-magic="1"] .cap-code-box,
+  [data-magic="1"] .cap-people { display: none !important; }
+  [data-magic="1"] #empty-state { display: none; }
+  /* The feed is just the caption read-out under the orb in magic mode. */
+  [data-magic="1"] .cap-feed { min-height: 0; margin-top: var(--1891int-s-4); }
+  [data-magic="1"] .cap-feed:empty,
+  [data-magic="1"] #lines:empty { min-height: 0; }
+
+  .mg-card {
+    display: flex; flex-direction: column; align-items: center; text-align: center;
+    gap: var(--1891int-s-4);
+    padding: var(--1891int-s-6) var(--1891int-s-4)
+             calc(var(--1891int-s-6) + env(safe-area-inset-bottom, 0px));
+  }
+  .mg-orb {
+    position: relative; width: 132px; height: 132px; min-width: 44px; min-height: 44px;
+    border-radius: 50%; border: none; cursor: pointer;
+    background: var(--1891int-bloom, #C8553D); color: #fff;
+    display: inline-flex; align-items: center; justify-content: center;
+    box-shadow: var(--1891int-shadow-md, 0 6px 22px rgba(0,0,0,.18));
+    -webkit-tap-highlight-color: transparent;
+    transition: transform .12s ease, background .2s ease;
+  }
+  .mg-orb:active { transform: scale(.96); }
+  .mg-orb:focus-visible { outline: 3px solid var(--1891int-river, #2E5E5C); outline-offset: 3px; }
+  .mg-orb-icon { font-size: 46px; line-height: 1; position: relative; z-index: 1; }
+  .mg-orb-ring {
+    position: absolute; inset: -6px; border-radius: 50%;
+    border: 3px solid var(--1891int-bloom, #C8553D); opacity: 0;
+  }
+  /* Pulsing ring only while searching. */
+  [data-mg-state="searching"] .mg-orb { background: var(--1891int-river, #2E5E5C); }
+  [data-mg-state="searching"] .mg-orb-ring { opacity: .8; animation: mgPulse 1.5s ease-out infinite; }
+  [data-mg-state="locked"] .mg-orb { background: var(--1891int-ok, #1f8a52); }
+  [data-mg-state="nomatch"] .mg-orb { background: var(--1891int-fog, #6b7280); }
+  @keyframes mgPulse {
+    0%   { transform: scale(1);    opacity: .8; }
+    100% { transform: scale(1.55); opacity: 0; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    [data-mg-state="searching"] .mg-orb-ring { animation: none; opacity: .5; }
+  }
+  .mg-status { font-size: 18px; font-weight: 600; color: var(--1891int-ink, #1a1a1a); margin: 0; min-height: 1.4em; }
+  .mg-hint {
+    font-size: 14.5px; line-height: 1.55; color: var(--1891int-ink-soft, #444);
+    max-width: 42ch; margin: 0; background: var(--1891int-paper-warm, #faf6f2);
+    border: 1px solid var(--1891int-line, #e6e0da); border-radius: var(--1891int-radius-md, 10px);
+    padding: 12px 16px;
+  }
+  .mg-retry { min-height: 44px; }
+
   /* ----- Consent modal ----- */
   .cap-modal { position: fixed; inset: 0; background: rgba(15,20,25,.55); display: flex; align-items: center; justify-content: center; padding: 20px; z-index: 50; }
   .cap-modal[hidden] { display: none; }
@@ -228,6 +292,10 @@
           <div id="lines" role="log" aria-live="polite" aria-label="Live captions"></div>
         </div>
 
+        <!-- Captioning Magic mount (populated by captioning-magic.js in ?magic=1
+             mode only; hidden by default CSS otherwise). -->
+        <div id="magic-mount"></div>
+
         <footer class="cap-micbar">
           <div id="rec-indicator" class="cap-rec" hidden role="status" aria-live="polite">
             <span class="cap-rec-dot" aria-hidden="true"></span>
@@ -264,6 +332,8 @@
 <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
 <script src="./captions.js?v=1"></script>
+<!-- Captioning Magic (press-to-search). Inert unless ?magic=1. -->
+<script src="./captioning-magic.js?v=1"></script>
 <!-- BEGIN UMBRELLA-CONSENT -->
 <link rel="stylesheet" href="/shared/lib/consent/consent.css">
 <script src="/shared/lib/consent/consent.js" data-project="interpreter" data-coppa="false" data-tenant-type="public" defer></script>
